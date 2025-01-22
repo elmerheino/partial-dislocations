@@ -6,17 +6,17 @@ length = 1024
 deltaL = length/bigN
 xVec = [i*deltaL for i in range(0,bigN)] # Come up with some x values, since the x corodinate is just the indice here.
 
-time = 250 # Time in seconds
-dt = 0.01
+time = 60 # Time in seconds
+dt = 0.005
 timesteps = round(time/dt) # In number of timesteps of dt
 
-bigB = 0.01
+bigB = 1
 smallB = 1
-mu = 0.01
-b_p = 0.01
-clt1 = 0.01
-clt2 = 0.01
-tauExt = 0.01
+mu = 2
+b_p = 2
+clt1 = 3
+clt2 = 1
+tauExt = 1
 c_gamma = 1
 d = 200 # Average distance
 
@@ -48,7 +48,7 @@ def timestep(dt, y1,y2):
     return (y1+dy1, y2+dy2)
 
 
-y10 = np.random.rand(bigN)+np.ones(bigN)*2 # Make sure its bigger than y2 to being with
+y10 = np.random.rand(bigN)+np.ones(bigN)*d # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 y1 = [y10]
 
 y20 = np.random.rand(bigN)*0.2
