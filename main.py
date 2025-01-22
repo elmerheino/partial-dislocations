@@ -14,8 +14,8 @@ bigB = 1
 smallB = 1
 mu = 2
 b_p = 2
-clt1 = 3
-clt2 = 1
+cLT1 = 3
+cLT2 = 1
 tauExt = 1
 c_gamma = 1
 d = 200 # Average distance
@@ -43,8 +43,9 @@ def secondDerivateive(x):
 
 def timestep(dt, y1,y2):
 
-    dy1 = (clt1*mu*(b_p**2)*secondDerivateive(y1) + (smallB/2)*tauExt + b_p*tau(xVec,y1) + force1(y1, y2))*(bigB/smallB)*dt
-    dy2 = (clt1*mu*(b_p**2)*secondDerivateive(y2) + (smallB/2)*tauExt + b_p*tau(xVec,y2) + force2(y1, y2))*(bigB/smallB)*dt
+    dy1 = (cLT1*mu*(b_p**2)*secondDerivateive(y1) + (smallB/2)*tauExt + b_p*tau(xVec,y1) + force1(y1, y2))*(bigB/smallB)*dt
+    dy2 = (cLT2*mu*(b_p**2)*secondDerivateive(y2) + (smallB/2)*tauExt + b_p*tau(xVec,y2) + force2(y1, y2))*(bigB/smallB)*dt
+    
     return (y1+dy1, y2+dy2)
 
 
