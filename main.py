@@ -28,19 +28,8 @@ def generateRandomTau():
     stressField = res
 
 def tau(x,y): # Should be static in time.
-    # deltaR = 1
-    # return np.random.normal(0,deltaR, bigN) # len(x) = len(y) = bigN
-
-    res = []
-
-    for j in range(0,len(y)):
-        yDisc = round(y[j]) & bigN
-        s = stressField[j,yDisc-1]
-        res.append(s)
-    
-    res = np.array(res)
-
-    return res # x is discrete anyways here
+    yDisc = (np.round(y).astype(int) & bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
+    return stressField[np.arange(bigN), yDisc] # x is discrete anyways here
 
 def force1(y1,y2):
     #return -np.average(y1-y2)*np.ones(bigN)
