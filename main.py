@@ -20,9 +20,27 @@ tauExt = 1
 c_gamma = 1
 d = 200 # Average distance
 
-def tau(x,y):
+stressField = np.zeros([bigN, bigN])
+
+def generateRandomTau():
     deltaR = 1
-    return np.random.normal(0,deltaR, bigN) # len(x) = len(y) = bigN
+    res = np.random.normal(0,deltaR,[bigN, bigN])
+    stressField = res
+
+def tau(x,y): # Should be static in time.
+    # deltaR = 1
+    # return np.random.normal(0,deltaR, bigN) # len(x) = len(y) = bigN
+
+    res = []
+
+    for j in range(0,len(y)):
+        yDisc = round(y[j]) & bigN
+        s = stressField[j,yDisc-1]
+        res.append(s)
+    
+    res = np.array(res)
+
+    return res # x is discrete anyways here
 
 def force1(y1,y2):
     #return -np.average(y1-y2)*np.ones(bigN)
@@ -43,9 +61,8 @@ def secondDerivateive(x):
     return np.gradient(np.gradient(x))
 
 def timestep(dt, y1,y2):
-
-    dy1 = (cLT1*mu*(b_p**2)*secondDerivateive(y1) + (smallB/2)*tauExt + b_p*tau(xVec,y1) + force1(y1, y2))*(bigB/smallB)*dt
-    dy2 = (cLT2*mu*(b_p**2)*secondDerivateive(y2) + (smallB/2)*tauExt + b_p*tau(xVec,y2) + force2(y1, y2))*(bigB/smallB)*dt
+    dy1 = (cLT1*mu*(b_p**2)*secondDerivateive(y1) + b_p*tau(xVec,y1) + force1(y1, y2))*(bigB/smallB)*dt + (smallB/2)*tauExt*np.ones(bigN)
+    dy2 = (cLT2*mu*(b_p**2)*secondDerivateive(y2) + b_p*tau(xVec,y2) + force2(y1, y2))*(bigB/smallB)*dt + (smallB/2)*tauExt*np.ones(bigN)
     
     return (y1+dy1, y2+dy2)
 
@@ -58,6 +75,8 @@ def run_simulation():
     y2 = [y20]
 
     averageDist = []
+
+    generateRandomTau()
 
     for i in range(1,timesteps):
         y1_previous = y1[i-1]
@@ -72,12 +91,12 @@ def run_simulation():
 
 # run 6 simulations right away
 
-fig, axes = plt.subplots(3, 2, figsize=(12, 8))
+fig, axes = plt.subplots(2, 1, figsize=(12, 8))
 axes_flat = axes.ravel()
 
 x = [i*dt for i in range(1,timesteps)]
 
-for i in range(0,6):
+for i in range(0,2):
     avgI = run_simulation()
     axes_flat[i].plot(x,avgI)
 
