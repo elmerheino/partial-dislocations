@@ -6,8 +6,8 @@ length = 1024
 deltaL = length/bigN
 xVec = [i*deltaL for i in range(0,bigN)] # Come up with some x values, since the x corodinate is just the indice here.
 
-time = 60 # Time in seconds
-dt = 0.005
+time = 60*10 # Time in seconds
+dt = 0.05
 timesteps = round(time/dt) # In number of timesteps of dt
 
 bigB = 1
@@ -21,7 +21,8 @@ c_gamma = 1
 d = 200 # Average distance
 
 def tau(x,y):
-    return np.random.rand(bigN) # len(x) = len(y) = bigN
+    deltaR = 1
+    return np.random.normal(0,deltaR, bigN) # len(x) = len(y) = bigN
 
 def force1(y1,y2):
     #return -np.average(y1-y2)*np.ones(bigN)
@@ -49,37 +50,36 @@ def timestep(dt, y1,y2):
     return (y1+dy1, y2+dy2)
 
 
-y10 = np.random.rand(bigN)+np.ones(bigN)*d # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-y1 = [y10]
+def run_simulation():
+    y10 = np.random.rand(bigN)+np.ones(bigN)*d # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+    y1 = [y10]
 
-y20 = np.random.rand(bigN)*0.2
-y2 = [y20]
+    y20 = np.random.rand(bigN)
+    y2 = [y20]
 
-averageDist = []
+    averageDist = []
 
-for i in range(1,timesteps):
-    y1_previous = y1[i-1]
-    y2_previous = y2[i-1]
+    for i in range(1,timesteps):
+        y1_previous = y1[i-1]
+        y2_previous = y2[i-1]
 
-    (y1_i, y2_i) = timestep(dt,y1_previous,y2_previous)
-    y1.append(y1_i)
-    y2.append(y2_i)
+        (y1_i, y2_i) = timestep(dt,y1_previous,y2_previous)
+        y1.append(y1_i)
+        y2.append(y2_i)
 
-    averageDist.append(np.average(y1_i-y2_i))
+        averageDist.append(np.average(y1_i-y2_i))
+    return averageDist
 
-# plt.plot(y10)
-# plt.plot(y1[len(y1)-1])
+# run 6 simulations right away
 
-# plt.plot(y20)
-# plt.plot(y2[len(y2)-1])
+fig, axes = plt.subplots(3, 2, figsize=(12, 8))
+axes_flat = axes.ravel()
 
-# plt.legend(
-#     ["y1_0", "y1_1000", "y2_0", "y2_1000"]
-#     )
+x = [i*dt for i in range(1,timesteps)]
 
-# plt.show()
+for i in range(0,6):
+    avgI = run_simulation()
+    axes_flat[i].plot(x,avgI)
 
-plt.plot([i*dt for i in range(1,timesteps)], averageDist)
-plt.xlabel("t (s)")
-plt.ylabel("Average distance")
+plt.tight_layout()
 plt.show()
