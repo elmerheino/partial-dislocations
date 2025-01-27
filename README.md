@@ -1,2 +1,2 @@
 # partial-dislocations
-Code for two partial dislocations modeled as elastic lines.
+Code for a partial dislocations modeled as two elastic lines.

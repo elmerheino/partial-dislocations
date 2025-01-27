@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-bigN = 1024 # Number of discrete heights in the line
+bigN = 1024 # Number of discrete heights in the line so len(y1) = len(y2) = bigN
 length = 1024
 deltaL = length/bigN
 
