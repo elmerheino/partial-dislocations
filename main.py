@@ -51,9 +51,14 @@ def force2(y1,y2):
     factor = -(1/d)*c_gamma*mu*(b_p**2)
     return factor*(1 + (y2-y1)/d) # Term from Vaid et Al B.7
 
+def derivativePeriodic(x, dl):
+
+    res = (np.roll(x, -1) - np.roll(x,1))/(2*dl)
+
+    return res
 
 def secondDerivateive(x):
-    return np.gradient(np.gradient(x, deltaL), deltaL)
+    return derivativePeriodic(derivativePeriodic(x,deltaL),deltaL)
 
 def timestep(dt, y1,y2, stressField):
     dy1 = ( 
