@@ -2,11 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 bigN = 1024 # Number of discrete heights in the line so len(y1) = len(y2) = bigN
-length = 1024 # Length L of the actual line
+length = 2024 # Length L of the actual line
 deltaL = length/bigN # The dx value in x direction
 
-time = 1000 # Time in seconds
-dt = 0.5
+time = 200 # Time in seconds
+dt = 0.01
 timesteps = round(time/dt) # In number of timesteps of dt
 
 deltaR = 1 # Parameters for the random noise
@@ -29,9 +29,6 @@ d = 200 # Average distance
 # d0 = (c_gamma*mu/gamma)*b_p**2
 # d = d0
 
-
-def generateRandomTau():
-    return np.random.normal(0,deltaR,[bigN, bigN])
 
 def tau(y, stressField): # Should be static in time. The index is again the x coordinate here
     yDisc = (np.round(y).astype(int) & bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
@@ -76,15 +73,15 @@ def timestep(dt, y1,y2, stressField):
 
 
 def run_simulation():
-    y10 = np.ones(bigN)*d # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+    y10 = np.ones(bigN, dtype=float)*d # Make sure its bigger than y2 to being with, and also that they have the initial distance d
     y1 = [y10]
 
-    y20 = np.zeros(bigN)
+    y20 = np.zeros(bigN, dtype=float)
     y2 = [y20]
 
     averageDist = []
 
-    stressField = generateRandomTau()
+    stressField = np.random.normal(0,deltaR,[bigN, bigN]) # Generate a random sterss field
 
     for i in range(1,timesteps):
         y1_previous = y1[i-1]
@@ -132,6 +129,7 @@ def run4sims():
         axes_flat[i].plot(x,avgI)
         axes_flat[i].set_xlabel("Time (s)")
         axes_flat[i].set_ylabel("Average distance")
+        print(f"Simulation {i+1}, min: {min(avgI)}, max: {max(avgI)}, delta: {max(avgI) - min(avgI)}")
 
     plt.tight_layout()
     plt.show()

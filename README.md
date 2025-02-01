@@ -1,2 +1,3 @@
 # partial-dislocations
-Code for a partial dislocations modeled as two elastic lines.
+
+Code for the interaction of two partial dislocations modeled as two elastic lines.
