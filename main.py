@@ -193,7 +193,7 @@ def studyStress():
     stresses = np.linspace(min_stress,max_stress,n_simulations) # Vary stress from 0 to 5
 
     for stress in stresses:
-        sim_i = PartialDislocationsSimulation(tauExt=stress, timestep_dt=0.5)
+        sim_i = PartialDislocationsSimulation(tauExt=stress, timestep_dt=0.5, time=100, c_gamma=60)
         avgD, v_avg = sim_i.run_simulation()
         velocities.append(v_avg)
     
@@ -245,4 +245,4 @@ def makePotentialPlot():
     sim.jotain_saatoa_potentiaaleilla()
 
 if __name__ == "__main__":
-    makeGif()
+    studyStress()
