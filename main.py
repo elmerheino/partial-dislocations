@@ -1,130 +1,147 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-bigN = 1024 # Number of discrete heights in the line so len(y1) = len(y2) = bigN
-length = 2024 # Length L of the actual line
-deltaL = length/bigN # The dx value in x direction
+class PartialDislocationsSimulation:
 
-time = 500 # Time in seconds
-dt = 0.01
-timesteps = round(time/dt) # In number of timesteps of dt
+    def __init__(self, 
+                bigN=1024, length=1024, time=500, 
+                timestep_dt=0.01, deltaR=1, bigB=1, 
+                smallB=1, b_p=1, cLT1=2, cLT2=2, mu=1, 
+                tauExt=0, d0=40, c_gamma=50):
+        
+        self.bigN = bigN # Number of discrete heights in the line so len(y1) = len(y2) = bigN
+        self.length = length # Length L of the actual line
+        self.deltaL = self.length/self.bigN # The dx value in x direction
 
-deltaR = 1 # Parameters for the random noise
+        self.time = time # Time in seconds
+        self.dt = timestep_dt
+        self.timesteps = round(self.time/self.dt) # In number of timesteps of dt
 
-bigB = 1    # Bulk modulus
-smallB = 1  # Size of Burgers vector
+        self.deltaR = deltaR # Parameters for the random noise
 
-b_p = 1
-cLT1 = 2 # Parameters of the gradient term
-cLT2 = 2
-mu = 1
+        self.bigB = bigB    # Bulk modulus
+        self.smallB = smallB  # Size of Burgers vector
 
-tauExt = 0
+        self.b_p = b_p
+        self.cLT1 = cLT1 # Parameters of the gradient term
+        self.cLT2 = cLT2
+        self.mu = mu
 
-c_gamma = deltaR*50 # Parameter in the interaction force, should be small
+        self.tauExt = tauExt
 
-d0 = 40 # Initial distance
+        self.c_gamma = c_gamma # Parameter in the interaction force, should be small
+        # self.c_gamma = self.deltaR*50
 
-# gamma = 60.5
-# d0 = (c_gamma*mu/gamma)*b_p**2
-# d = d0
+        self.d0 = d0 # Initial distance
 
-def tau(y, stressField): # Should be static in time. The index is again the x coordinate here
-    yDisc = (np.round(y).astype(int) & bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
-    return stressField[np.arange(bigN), yDisc] # x is discrete anyways here
+    # gamma = 60.5
+    # d0 = (c_gamma*mu/gamma)*b_p**2
+    # d = d0
 
-def force1(y1,y2):
-    #return -np.average(y1-y2)*np.ones(bigN)
-    #return -(c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
-
-    factor = (1/d0)*c_gamma*mu*(b_p**2)
-    return factor*(1 + (y2-y1)/d0)
-
-def force2(y1,y2):
-    #return np.average(y1-y2)*np.ones(bigN)
-    #return (c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
-
-    factor = -(1/d0)*c_gamma*mu*(b_p**2)
-    return factor*(1 + (y2-y1)/d0) # Term from Vaid et Al B.7
-
-def derivativePeriodic(x, dl):
-
-    res = (np.roll(x, -1) - np.roll(x,1))/(2*dl)
-
-    return res
-
-def secondDerivative(x):
-    return derivativePeriodic(derivativePeriodic(x,deltaL),deltaL)
-
-def timestep(dt, y1,y2, stressField):
-    dy1 = ( 
-        cLT1*mu*(b_p**2)*secondDerivative(y1) # The gradient term
-        + b_p*tau(y1, stressField) # The random stress term
-        + force1(y1, y2) # Interaction force
-        + (smallB/2)*tauExt*np.ones(bigN) # The external stress term
-        ) * ( bigB/smallB )
-    dy2 = ( cLT2*mu*(b_p**2)*secondDerivative(y2) + b_p*tau(y2, stressField) + force2(y1, y2) + (smallB/2)*tauExt*np.ones(bigN) )*( bigB/smallB )
+    def getXValues(self):
+        return np.arange(self.timesteps-1)*self.dt
     
-    newY1 = (y1 + dy1*dt)
-    newY2 = (y2 + dy2*dt)
+    def tau(self, y, stressField): # Should be static in time. The index is again the x coordinate here
+        yDisc = (np.round(y).astype(int) & self.bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
+        return stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
 
-    return (newY1, newY2)
+    def force1(self, y1,y2):
+        #return -np.average(y1-y2)*np.ones(bigN)
+        #return -(c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
+
+        factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
+        return factor*(1 + (y2-y1)/self.d0)
+
+    def force2(self, y1,y2):
+        #return np.average(y1-y2)*np.ones(bigN)
+        #return (c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
+
+        factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
+        return factor*(1 + (y2-y1)/self.d0) # Term from Vaid et Al B.7
+
+    def derivativePeriodic(self, x, dl):
+        res = (np.roll(x, -1) - np.roll(x,1))/(2*dl)
+        return res
+
+    def secondDerivative(self, x):
+        return self.derivativePeriodic(self.derivativePeriodic(x,self.deltaL),self.deltaL)
+
+    def timestep(self, dt, y1,y2, stressField):
+        dy1 = ( 
+            self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
+            + self.b_p*self.tau(y1, stressField) # The random stress term
+            + self.force1(y1, y2) # Interaction force
+            + (self.smallB/2)*self.tauExt*np.ones(self.bigN) # The external stress term
+            ) * ( self.bigB/self.smallB )
+        dy2 = ( 
+            self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
+            + self.b_p*self.tau(y2, stressField) 
+            + self.force2(y1, y2)
+            + (self.smallB/2)*self.tauExt*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
+        
+        newY1 = (y1 + dy1*dt)
+        newY2 = (y2 + dy2*dt)
+
+        return (newY1, newY2)
 
 
-def run_simulation():
-    y10 = np.ones(bigN, dtype=float)*d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-    y1 = [y10]
+    def run_simulation(self):
+        y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+        y1 = [y10]
 
-    y20 = np.zeros(bigN, dtype=float)
-    y2 = [y20]
+        y20 = np.zeros(self.bigN, dtype=float)
+        y2 = [y20]
 
-    averageDist = []
+        averageDist = []
 
-    stressField = np.random.normal(0,deltaR,[bigN, 2*bigN]) # Generate a random sterss field
+        stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random sterss field
 
-    for i in range(1,timesteps):
-        y1_previous = y1[i-1]
-        y2_previous = y2[i-1]
+        for i in range(1,self.timesteps):
+            y1_previous = y1[i-1]
+            y2_previous = y2[i-1]
 
-        (y1_i, y2_i) = timestep(dt,y1_previous,y2_previous, stressField)
-        y1.append(y1_i)
-        y2.append(y2_i)
+            (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous, stressField)
+            y1.append(y1_i)
+            y2.append(y2_i)
 
-        averageDist.append(np.average(y1_i-y2_i))
-    return averageDist
+            averageDist.append(np.average(y1_i-y2_i))
+        return averageDist
 
-def jotain_saatoa_potentiaaleilla():
-    forces_f1 = list()
-    forces_f2 = list()
+    def jotain_saatoa_potentiaaleilla(self):
+        forces_f1 = list()
+        forces_f2 = list()
 
-    for i in range(0,300):
-        y10 = np.ones(1)*i # Generate lines at distance i apart with length 1
-        y20 = np.zeros(1)
+        for i in range(0,300):
+            y10 = np.ones(1)*i # Generate lines at distance i apart with length 1
+            y20 = np.zeros(1)
 
-        f1 = force1(y10,y20)
-        f2 = force2(y10,y20)
+            f1 = self.force1(y10,y20)
+            f2 = self.force2(y10,y20)
 
-        forces_f1.append(f1)
-        forces_f2.append(f2)
-    
-    plt.plot(forces_f1)
-    plt.plot(forces_f2)
+            forces_f1.append(f1)
+            forces_f2.append(f2)
+        
+        plt.plot(forces_f1)
+        plt.plot(forces_f2)
 
-    plt.legend(["f_1", "f_2"])
+        plt.legend(["f_1", "f_2"])
 
-    plt.show()
-    pass
+        plt.show()
+        pass
 
-# run 4 simulations right away
+    # run 4 simulations right away
 def run4sims():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     axes_flat = axes.ravel()
 
-    x = np.arange(timesteps-1)*dt
-
     for i in range(0,4):
         np.random.seed(i)
-        avgI = run_simulation()
+
+        sim_i = PartialDislocationsSimulation()
+
+        x = sim_i.getXValues()
+        avgI = sim_i.run_simulation()
+
         axes_flat[i].plot(x,avgI)
         axes_flat[i].set_xlabel("Time (s)")
         axes_flat[i].set_ylabel("Average distance")
