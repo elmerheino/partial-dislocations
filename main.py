@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
 
 class PartialDislocationsSimulation:
 
@@ -36,6 +37,9 @@ class PartialDislocationsSimulation:
 
         self.d0 = d0 # Initial distance
 
+        self.y2 = list()
+        self.y1 = list()
+
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
         # according to Vaid et al. (12)
@@ -51,13 +55,18 @@ class PartialDislocationsSimulation:
         d0 = (self.c_gamma*self.mu/gamma)*self.b_p**2
         d = d0
     
-    # def getParamsInLatex(self):
-    #     return [
-    #         f"N={self.bigB}", f"L={self.L}", f"t={self.time}",
-    #         f"dt={self.dt}", f"\Delta R = {self.deltaR}"]
+    def getParamsInLatex(self):
+        return [
+            f"N={self.bigN}", f"L={self.length}", f"t={self.time}",
+            f"dt={self.dt}", f"Delta R = {self.deltaR}", f"C_{{LT1}} = {self.cLT1}",
+            f"C_{{LT2}} = {self.cLT2}"]
+    
+    def getTvalues(self):
+        # Returns the times ealaped at each step
+        return np.arange(self.timesteps-1)*self.dt
     
     def getXValues(self):
-        return np.arange(self.timesteps-1)*self.dt
+        return np.arange(self.bigN)*self.deltaL
     
     def tau(self, y, stressField): # Should be static in time. The index is again the x coordinate here
         yDisc = (np.round(y).astype(int) & self.bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
@@ -105,28 +114,31 @@ class PartialDislocationsSimulation:
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-        y1 = [y10]
+        self.y1.append(y10)
 
         y20 = np.zeros(self.bigN, dtype=float)
-        y2 = [y20]
+        self.y2.append(y20)
 
         averageDist = []
 
         stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random sterss field
 
         for i in range(1,self.timesteps):
-            y1_previous = y1[i-1]
-            y2_previous = y2[i-1]
+            y1_previous = self.y1[i-1]
+            y2_previous = self.y2[i-1]
 
             (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous, stressField)
-            y1.append(y1_i)
-            y2.append(y2_i)
+            self.y1.append(y1_i)
+            self.y2.append(y2_i)
 
             averageDist.append(np.average(y1_i-y2_i))
         
         velocity = np.average(np.gradient(averageDist)) # Calculate average velocity
 
         return (averageDist, velocity)
+    
+    def getLineProfiles(self):
+        return (self.y1, self.y2)
 
     def jotain_saatoa_potentiaaleilla(self):
         forces_f1 = list()
@@ -160,7 +172,7 @@ def run4sims():
 
         sim_i = PartialDislocationsSimulation()
 
-        x = sim_i.getXValues()
+        x = sim_i.getTvalues()
         avgI, v_avg = sim_i.run_simulation()
 
         axes_flat[i].plot(x,avgI)
@@ -188,9 +200,49 @@ def studyStress():
     plt.plot(stresses, velocities)
     plt.show()
 
+def makeGif():
+    # Run the simulation
+    total_time = 100
+    total_dt = 0.5
+
+    simulation = PartialDislocationsSimulation(time=total_time, timestep_dt=total_dt, c_gamma=60, cLT1=4, cLT2=4)
+    avgDists, avgVelocities = simulation.run_simulation()
+
+    # Get revelant info from simulation
+    y1,y2 = simulation.getLineProfiles()
+    x = simulation.getXValues()
+    t_axis = simulation.getTvalues()
+
+    gifTitle = "$ " + ", ".join(simulation.getParamsInLatex()) + " $"
+    # Make the gif
+    frames = list()
+    counter = 0
+    for h1,h2,t in zip(y1,y2,np.arange(total_time/total_dt)):
+        counter = counter + 1
+        time_at_t = counter*total_dt
+
+        plt.plot(x, h1, color="blue")
+        plt.plot(x, h2, color="red")
+
+        plt.legend(["line 1", "line 2"])
+        plt.title(gifTitle)
+        plt.xlabel(f"t={time_at_t}")
+
+        plt.savefig(f"frames/tmp-{t}.png")
+        frames.append(Image.open(f"frames/tmp-{t}.png"))
+
+    frames[0].save('lines-moving-aroung.gif', save_all=True, append_images=frames[1:], duration=50, loop=0)
+
+    plt.clf()
+    plt.plot(t_axis, avgDists)
+    plt.title("Average distance")
+    plt.xlabel("Time t (s)")
+    plt.savefig("avg_dist.png")
+    pass
+
 def makePotentialPlot():
     sim = PartialDislocationsSimulation()
     sim.jotain_saatoa_potentiaaleilla()
 
 if __name__ == "__main__":
-    studyStress()
+    makeGif()
