@@ -9,22 +9,24 @@ class PartialDislocationsSimulation:
                 smallB=1, b_p=1, cLT1=2, cLT2=2, mu=1, 
                 tauExt=0, d0=40, c_gamma=50):
         
-        self.bigN = bigN # Number of discrete heights in the line so len(y1) = len(y2) = bigN
-        self.length = length # Length L of the actual line
-        self.deltaL = self.length/self.bigN # The dx value in x direction
+        self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
+        self.length = length                    # Length L of the actual line
+        self.deltaL = self.length/self.bigN     # The dx value in x direction
 
-        self.time = time # Time in seconds
+        self.time = time                        # Time in seconds
         self.dt = timestep_dt
         self.timesteps = round(self.time/self.dt) # In number of timesteps of dt
 
-        self.deltaR = deltaR # Parameters for the random noise
+        self.deltaR = deltaR                    # Parameters for the random noise
 
-        self.bigB = bigB    # Bulk modulus
-        self.smallB = smallB  # Size of Burgers vector
+        self.bigB = bigB                        # Bulk modulus
+        self.smallB = smallB                    # Size of Burgers vector 
+        # TODO: make sure the value of b aligns w/ b_p and C_LT1 and C_LT2
 
-        self.b_p = b_p
-        self.cLT1 = cLT1 # Parameters of the gradient term
+        self.b_p = b_p                          # Equal lengths of the partial burgers vectors
+        self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} 
         self.cLT2 = cLT2
+        # TODO: make sure values of cLT1 and cLT2 align with the line tension tau
         self.mu = mu
 
         self.tauExt = tauExt
@@ -34,9 +36,20 @@ class PartialDislocationsSimulation:
 
         self.d0 = d0 # Initial distance
 
-    # gamma = 60.5
-    # d0 = (c_gamma*mu/gamma)*b_p**2
-    # d = d0
+    def calculateC_gamma(self, v=1, theta=np.pi/2):
+        # Calulcates the C_{\gamma} parameter based on dislocation character
+        # according to Vaid et al. (12)
+
+        secondTerm = 1 - (2*v*np.cos(2*theta))
+        c_gamma = secondTerm*(2 - v)/(8*np.pi*(1-v))
+
+    def equilibriumDistance(self, gamma=60.5, tau_gamma=486):
+        # Calculated the supposed equilibrium distance of the two lines
+        # according to Vaid et al. (11)
+
+        gamma = 60.5 # Stacking fault energy, gamma is also define through sf stress \tau_{\gamma}*b_p
+        d0 = (self.c_gamma*self.mu/gamma)*self.b_p**2
+        d = d0
 
     def getXValues(self):
         return np.arange(self.timesteps-1)*self.dt
@@ -149,6 +162,10 @@ def run4sims():
 
     plt.tight_layout()
     plt.show()
+
+def makePotentialPlot():
+    sim = PartialDislocationsSimulation()
+    sim.jotain_saatoa_potentiaaleilla()
 
 if __name__ == "__main__":
     run4sims()
