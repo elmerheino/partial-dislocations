@@ -36,6 +36,8 @@ class PartialDislocationsSimulation:
 
         self.d0 = d0 # Initial distance
 
+        self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random sterss field
+
         self.y2 = list()
         self.y1 = list()
 
@@ -57,8 +59,8 @@ class PartialDislocationsSimulation:
     def getParamsInLatex(self):
         return [
             f"N={self.bigN}", f"L={self.length}", f"t={self.time}",
-            f"dt={self.dt}", f"Delta R = {self.deltaR}", f"C_{{LT1}} = {self.cLT1}",
-            f"C_{{LT2}} = {self.cLT2}"]
+            f"dt={self.dt}", f"\\Delta R = {self.deltaR}", f"C_{{LT1}} = {self.cLT1}",
+            f"C_{{LT2}} = {self.cLT2}", f"\\tau_{{ext}} = {self.tauExt}", f"b_p = {self.b_p}"]
     
     def getTvalues(self):
         # Returns the times ealaped at each step
@@ -67,9 +69,9 @@ class PartialDislocationsSimulation:
     def getXValues(self):
         return np.arange(self.bigN)*self.deltaL
     
-    def tau(self, y, stressField): # Should be static in time. The index is again the x coordinate here
+    def tau(self, y): # Should be static in time. The index is again the x coordinate here
         yDisc = (np.round(y).astype(int) & self.bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
-        return stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
+        return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
 
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
@@ -92,16 +94,16 @@ class PartialDislocationsSimulation:
     def secondDerivative(self, x):
         return self.derivativePeriodic(self.derivativePeriodic(x,self.deltaL),self.deltaL)
 
-    def timestep(self, dt, y1,y2, stressField):
+    def timestep(self, dt, y1,y2):
         dy1 = ( 
             self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.b_p*self.tau(y1, stressField) # The random stress term
+            + self.b_p*self.tau(y1) # The random stress term
             + self.force1(y1, y2) # Interaction force
             + (self.smallB/2)*self.tauExt*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
         dy2 = ( 
             self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
-            + self.b_p*self.tau(y2, stressField) 
+            + self.b_p*self.tau(y2) 
             + self.force2(y1, y2)
             + (self.smallB/2)*self.tauExt*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
         
@@ -120,13 +122,11 @@ class PartialDislocationsSimulation:
 
         averageDist = []
 
-        stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random sterss field
-
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
             y2_previous = self.y2[i-1]
 
-            (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous, stressField)
+            (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous)
             self.y1.append(y1_i)
             self.y2.append(y2_i)
 
