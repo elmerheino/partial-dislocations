@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import fft
 
 class PartialDislocationsSimulation:
 
@@ -92,7 +93,12 @@ class PartialDislocationsSimulation:
         return res
 
     def secondDerivative(self, x):
-        return self.derivativePeriodic(self.derivativePeriodic(x,self.deltaL),self.deltaL)
+        x_hat = fft.fft(x)
+        k = fft.fftfreq(n=self.bigN, d=self.deltaL)*2*np.pi
+
+        d_x_hat = -x_hat*(k)**2
+
+        return fft.ifft(d_x_hat).real
 
     def timestep(self, dt, y1,y2):
         dy1 = ( 
