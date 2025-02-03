@@ -50,7 +50,12 @@ class PartialDislocationsSimulation:
         gamma = 60.5 # Stacking fault energy, gamma is also define through sf stress \tau_{\gamma}*b_p
         d0 = (self.c_gamma*self.mu/gamma)*self.b_p**2
         d = d0
-
+    
+    # def getParamsInLatex(self):
+    #     return [
+    #         f"N={self.bigB}", f"L={self.L}", f"t={self.time}",
+    #         f"dt={self.dt}", f"\Delta R = {self.deltaR}"]
+    
     def getXValues(self):
         return np.arange(self.timesteps-1)*self.dt
     
@@ -118,7 +123,10 @@ class PartialDislocationsSimulation:
             y2.append(y2_i)
 
             averageDist.append(np.average(y1_i-y2_i))
-        return averageDist
+        
+        velocity = np.average(np.gradient(averageDist)) # Calculate average velocity
+
+        return (averageDist, velocity)
 
     def jotain_saatoa_potentiaaleilla(self):
         forces_f1 = list()
@@ -153,14 +161,31 @@ def run4sims():
         sim_i = PartialDislocationsSimulation()
 
         x = sim_i.getXValues()
-        avgI = sim_i.run_simulation()
+        avgI, v_avg = sim_i.run_simulation()
 
         axes_flat[i].plot(x,avgI)
         axes_flat[i].set_xlabel("Time (s)")
         axes_flat[i].set_ylabel("Average distance")
-        print(f"Simulation {i+1}, min: {min(avgI)}, max: {max(avgI)}, delta: {max(avgI) - min(avgI)}")
+        print(f"Simulation {i+1}, min: {min(avgI)}, max: {max(avgI)}, delta: {max(avgI) - min(avgI)}, v_avg: {v_avg}")
 
     plt.tight_layout()
+    plt.show()
+
+def studyStress():
+    # Run simulations with varying external stress
+    n_simulations = 50
+    min_stress = 1
+    max_stress = 200
+
+    velocities = list()
+    stresses = np.linspace(min_stress,max_stress,n_simulations) # Vary stress from 0 to 5
+
+    for stress in stresses:
+        sim_i = PartialDislocationsSimulation(tauExt=stress, timestep_dt=0.5)
+        avgD, v_avg = sim_i.run_simulation()
+        velocities.append(v_avg)
+    
+    plt.plot(stresses, velocities)
     plt.show()
 
 def makePotentialPlot():
@@ -168,4 +193,4 @@ def makePotentialPlot():
     sim.jotain_saatoa_potentiaaleilla()
 
 if __name__ == "__main__":
-    run4sims()
+    studyStress()
