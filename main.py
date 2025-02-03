@@ -46,7 +46,7 @@ def makeGif(gradient_term=0.5, potential_term=60):
     total_time = 100
     total_dt = 0.25
 
-    simulation = PartialDislocationsSimulation(time=total_time, timestep_dt=total_dt, bigN=200, length=200, 
+    simulation = PartialDislocationsSimulation(time=total_time, timestep_dt=total_dt, bigN=50, length=50, 
                                                c_gamma=potential_term,
                                                cLT1=gradient_term, cLT2=gradient_term, 
                                                deltaR=1)
@@ -74,6 +74,7 @@ def makeGif(gradient_term=0.5, potential_term=60):
         plt.xlabel(f"t={time_at_t}")
 
         plt.savefig(f"frames/tmp-{t}.png")
+        plt.clf()
         frames.append(Image.open(f"frames/tmp-{t}.png"))
 
     frames[0].save(f"gifs/lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=50, loop=0)
