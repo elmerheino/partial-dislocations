@@ -26,24 +26,37 @@ def studyAvgDistance():
 
 def studyStress():
     # Run simulations with varying external stress
-    n_simulations = 100
-    min_stress = 5e3
-    max_stress = 9e3
+    n_simulations = 200
+    min_stress = 0
+    max_stress = 20
 
-    velocities = list()
     stresses = np.linspace(min_stress,max_stress,n_simulations) # Vary stress from 0 to 5
+    avgH_y1 = list()
+    avgH_y2 = list()
 
     for stress in stresses:
-        sim_i = PartialDislocationsSimulation(tauExt=stress, bigN=200, length=200, timestep_dt=0.1, time=400, d0=39, c_gamma=20, cLT1=0.1, cLT2=0.1)
+        sim_i = PartialDislocationsSimulation(tauExt=stress, bigN=200, length=200, 
+                                              timestep_dt=0.1, time=400, d0=39, c_gamma=20, 
+                                              cLT1=0.1, cLT2=0.1)
         print(sim_i.getParamsInLatex())
         avgD, v_avg = sim_i.run_simulation()
-        velocities.append(v_avg)
+
+        y1, y2 = sim_i.getLineProfiles()
+
+        avg_y1 = np.average(y1) # Average place of y1
+        avg_y2 = np.average(y2) # Average place of y2
+
+        avgH_y1.append(avg_y1)
+        avgH_y2.append(avg_y2)
     
-    plt.plot(stresses, velocities)
+    plt.plot(stresses, np.gradient(avgH_y1), color="blue", label="$y_1$") # Plot the velocity of the average of y_1
+    plt.plot(stresses, np.gradient(avgH_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
 
     plt.title("Average velocity")
     plt.xlabel("Stress $\\tau_{ext}$")
     plt.ylabel("$ v_{avg} $")
+
+    plt.legend()
 
     plt.show()
 
@@ -100,7 +113,4 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25):
 
 
 if __name__ == "__main__":
-    for g in [0.1, 0.5, 0.8, 1, 1.5]:
-        for gamma in [40,60,80]:
-            print(f"making gif with C_LT1=C_LT2={g} and C_gamma={gamma}")
-            makeGif(g, gamma, total_dt=0.1)
+    studyStress()

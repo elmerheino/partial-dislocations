@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import fft
 
 class PartialDislocationsSimulation:
 
@@ -41,6 +40,8 @@ class PartialDislocationsSimulation:
 
         self.y2 = list()
         self.y1 = list()
+
+        self.has_simulation_been_run = False
 
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
@@ -93,12 +94,7 @@ class PartialDislocationsSimulation:
         return res
 
     def secondDerivative(self, x):
-        x_hat = fft.fft(x)
-        k = fft.fftfreq(n=self.bigN, d=self.deltaL)*2*np.pi
-
-        d_x_hat = -x_hat*(k)**2
-
-        return fft.ifft(d_x_hat).real
+        return self.derivativePeriodic(self.derivativePeriodic(x,self.deltaL),self.deltaL)
 
     def timestep(self, dt, y1,y2):
         dy1 = ( 
@@ -140,10 +136,15 @@ class PartialDislocationsSimulation:
         
         velocity = np.average(np.gradient(averageDist)) # Calculate average velocity
 
+        self.has_simulation_been_run = True
         return (averageDist, velocity)
     
     def getLineProfiles(self):
-        return (self.y1, self.y2)
+        if self.has_simulation_been_run:
+            return (self.y1, self.y2)
+        
+        print("Simulation has not been run yet.")
+        return (self.y1, self.y2) # Retuns empty lists
 
     def jotain_saatoa_potentiaaleilla(self):
         forces_f1 = list()
