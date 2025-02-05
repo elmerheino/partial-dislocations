@@ -14,12 +14,12 @@ def studyAvgDistance():
         sim_i = PartialDislocationsSimulation(timestep_dt=0.5, time=100, c_gamma=60, cLT1=4, cLT2=4)
 
         t = sim_i.getTvalues()
-        avgI, v_avg = sim_i.run_simulation()
+        avgI = sim_i.run_simulation()
 
         axes_flat[i].plot(t,avgI)
         axes_flat[i].set_xlabel("Time (s)")
         axes_flat[i].set_ylabel("Average distance")
-        print(f"Simulation {i+1}, min: {min(avgI)}, max: {max(avgI)}, delta: {max(avgI) - min(avgI)}, v_avg: {v_avg}")
+        print(f"Simulation {i+1}, min: {min(avgI)}, max: {max(avgI)}, delta: {max(avgI) - min(avgI)}")
 
     plt.tight_layout()
     plt.show()
@@ -28,7 +28,7 @@ def studyStress():
     # Run simulations with varying external stress
     n_simulations = 200
     min_stress = 0
-    max_stress = 20
+    max_stress = 10
 
     stresses = np.linspace(min_stress,max_stress,n_simulations) # Vary stress from 0 to 5
     avgH_y1 = list()
@@ -39,17 +39,20 @@ def studyStress():
                                               timestep_dt=0.1, time=400, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1)
         print(sim_i.getParamsInLatex())
-        avgD, v_avg = sim_i.run_simulation()
+        avgD = sim_i.run_simulation()
 
         y1, y2 = sim_i.getLineProfiles()
 
-        avg_y1 = np.average(y1) # Average place of y1
-        avg_y2 = np.average(y2) # Average place of y2
+        avg_y1 = [np.average(i) for i in y1] # Average places of y1, which for uniform density is the centre of mass?
+        avg_y2 = [np.average(i) for i in y2] # Average places of y2
 
-        avgH_y1.append(avg_y1)
-        avgH_y2.append(avg_y2)
+        v_y1 = np.gradient(avg_y1) # Velocities of the average places
+        v_y2 = np.gradient(avg_y2)
+
+        avgH_y1.append(np.average(v_y1))
+        avgH_y2.append(np.average(v_y2))
     
-    plt.plot(stresses, np.gradient(avgH_y1), color="blue", label="$y_1$") # Plot the velocity of the average of y_1
+    plt.plot(stresses, np.gradient(avgH_y1), color="blue", label="$y_1$") # Plot the velocity of the average place of y_1
     plt.plot(stresses, np.gradient(avgH_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
 
     plt.title("Average velocity")
@@ -59,6 +62,47 @@ def studyStress():
     plt.legend()
 
     plt.show()
+
+def studyConstantStress(tauExt=1):
+    # Run simulations with varying external stress
+    n_simulations = 200
+    min_stress = 0
+    max_stress = 10
+
+    simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
+                                              timestep_dt=0.05, time=400, d0=39, c_gamma=20, 
+                                              cLT1=0.1, cLT2=0.1)
+    print(simulation.getParamsInLatex())
+
+    avgD = simulation.run_simulation()
+
+    y1, y2 = simulation.getLineProfiles()
+
+    avg_y1 = [np.average(i) for i in y1] # Average places of y1
+    avg_y2 = [np.average(i) for i in y2] # Average place of y2
+
+    t = simulation.getTvalues()
+
+    fig, axes = plt.subplots(1,2, figsize=(12, 8))
+
+    axes_flat = axes.ravel()
+
+    axes[0].plot(t, np.gradient(avg_y1), color="blue", label="$y_1$") # Plot the velocity of the average of y_1
+    axes[0].plot(t, np.gradient(avg_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
+
+    axes[0].set_title(simulation.getTitleForPlot())
+    axes[0].set_xlabel("Time t (s)")
+    axes[0].set_ylabel("$ v $")
+    axes[0].legend()
+
+    axes[1].set_title(simulation.getTitleForPlot())
+    axes[1].plot(t, avgD, label="Average distance")
+    axes[1].set_xlabel("Time t (s)")
+    axes[1].set_ylabel("$ d $")
+
+    plt.tight_layout()
+    plt.show()
+
 
 def makePotentialPlot():
     sim = PartialDislocationsSimulation()
@@ -73,17 +117,15 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25):
                                                cLT1=gradient_term, cLT2=gradient_term, 
                                                deltaR=1)
     
-    avgDists, avgVelocities = simulation.run_simulation()
+    avgDists = simulation.run_simulation()
 
     # Get revelant info from simulation
     y1,y2 = simulation.getLineProfiles()
     x = simulation.getXValues()
     t_axis = simulation.getTvalues()
 
-    gifTitle = " ".join([
-        "$ "+ i + " $" + "\n"*(1 - ((n+1)%6)) for n,i in enumerate(simulation.getParamsInLatex()) # Wrap text using modulo
-        ])
-    # gifTitle = "\n".join(wrap(gifTitle, 70))
+    gifTitle = simulation.getTitleForPlot()
+
     # Make the gif
     frames = list()
     counter = 0
@@ -113,4 +155,4 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25):
 
 
 if __name__ == "__main__":
-    studyStress()
+    studyConstantStress(tauExt=1)

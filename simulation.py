@@ -65,9 +65,16 @@ class PartialDislocationsSimulation:
             f"dt={self.dt}", f"\\Delta R = {self.deltaR}", f"C_{{LT1}} = {self.cLT1}",
             f"C_{{LT2}} = {self.cLT2}", f"\\tau_{{ext}} = {self.tauExt}", f"b_p = {self.b_p}"]
     
+    def getTitleForPlot(self, wrap=6):
+        parameters = self.getParamsInLatex()
+        plot_title = " ".join([
+            "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
+        ])
+        return plot_title
+    
     def getTvalues(self):
         # Returns the times ealaped at each step
-        return np.arange(self.timesteps-1)*self.dt
+        return np.arange(self.timesteps)*self.dt
     
     def getXValues(self):
         return np.arange(self.bigN)*self.deltaL
@@ -128,7 +135,7 @@ class PartialDislocationsSimulation:
         y20 = np.zeros(self.bigN, dtype=float)
         self.y2.append(y20)
 
-        averageDist = []
+        averageDist = [np.average(y10-y20)]
 
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
@@ -140,11 +147,9 @@ class PartialDislocationsSimulation:
 
             averageDist.append(np.average(y1_i-y2_i))
         
-        velocity = np.average(np.gradient(averageDist)) # Calculate average velocity
-
         self.has_simulation_been_run = True
-        return (averageDist, velocity)
-    
+        return averageDist
+        
     def getLineProfiles(self):
         if self.has_simulation_been_run:
             return (self.y1, self.y2)
