@@ -77,6 +77,7 @@ class PartialDislocationsSimulation:
         return np.arange(self.timesteps)*self.dt
     
     def getXValues(self):
+        # Retuns the correct distance on x axis.
         return np.arange(self.bigN)*self.deltaL
     
     def tau(self, y): # Should be static in time. The index is again the x coordinate here
@@ -88,14 +89,16 @@ class PartialDislocationsSimulation:
         #return -(c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
 
         factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        return factor*(1 + (y2-y1)/self.d0)
+        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
+        return factor*(1 + numerator/self.d0)
 
     def force2(self, y1,y2):
         #return np.average(y1-y2)*np.ones(bigN)
         #return (c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
 
         factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        return factor*(1 + (y2-y1)/self.d0) # Term from Vaid et Al B.7
+        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
+        return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
 
     def derivativePeriodic(self, x, dl):
         res = (np.roll(x, -1) - np.roll(x,1))/(2*dl)
@@ -156,6 +159,35 @@ class PartialDislocationsSimulation:
         
         print("Simulation has not been run yet.")
         return (self.y1, self.y2) # Retuns empty lists
+    
+    def getCM(self):
+        # Return the centres of mass of the two lines as functions of time
+        if len(self.y1) == 0 or len(self.y2) == 0:
+            raise Exception('simulation has probably not been run')
+
+        y1_CM = np.mean(self.y1, axis=1)
+        y2_CM = np.mean(self.y2, axis=1)
+
+        total_CM = (y1_CM + y2_CM)/2
+
+        return (y1_CM,y2_CM,total_CM)
+    
+    def getRelaxedVelocity(self, time_to_consider=1000):
+        if len(self.y1) == 0 or len(self.y2) == 0:
+            raise Exception('simulation has probably not been run')
+        
+        # Returns the velocities of the centres of mass
+        y1_CM, y2_CM, _ = self.getCM()
+        v1_CM = np.gradient(y1_CM)
+        v2_CM = np.gradient(y2_CM)
+
+        # Condisering only time_to_consider seconds from the end
+        start = round(self.timesteps - time_to_consider/self.dt)
+
+        v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
+        v_relaxed_y2 = np.average(v2_CM[start:self.timesteps])
+
+        return (v_relaxed_y1, v_relaxed_y2)
 
     def jotain_saatoa_potentiaaleilla(self):
         forces_f1 = list()

@@ -88,20 +88,17 @@ def studyConstantStress(tauExt=1):
 
     t = simulation.getTvalues()
 
-    # Define the interval to consider
-
-    last_100_y1 = cm_y1[(cm_y1.size - 200):]
-    last_100_y2 = cm_y2[(cm_y2.size - 200):]
-
-    v_avg_y1 = np.mean(last_100_y1)
-    v_avg_y2 = np.mean(last_100_y2)
+    start = 10000 - 1000        # Consider only the last 1000 s
+    rV1, rV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
     fig, axes = plt.subplots(1,2, figsize=(12, 8))
 
     axes_flat = axes.ravel()
 
-    axes[0].plot(t, np.gradient(cm_y1), color="blue", label="$y_1$") # Plot the velocity of the cm of y_1
+    axes[0].plot(t, np.gradient(cm_y1), color="black", label="$y_1$") # Plot the velocity of the cm of y_1
     axes[0].plot(t, np.gradient(cm_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
+    axes[0].plot([start,simulation.time], rV1*np.ones(2), '-', color="red")
+    axes[0].plot([start,simulation.time], rV2*np.ones(2), '-' ,color="blue")
 
     axes[0].set_title(simulation.getTitleForPlot())
     axes[0].set_xlabel("Time t (s)")
@@ -119,7 +116,7 @@ def studyConstantStress(tauExt=1):
     plt.tight_layout()
     plt.savefig(f"constant-stress-tau-{tauExt}.png")
 
-    return (v_avg_y1, v_avg_y2)
+    return (rV1, rV2)
 
 
 def makePotentialPlot():
