@@ -168,7 +168,7 @@ class PartialDislocationsSimulation:
         y1_CM = np.mean(self.y1, axis=1)
         y2_CM = np.mean(self.y2, axis=1)
 
-        total_CM = (y1_CM + y2_CM)/2
+        total_CM = (y1_CM + y2_CM)/2    # This is supposed to be the centre of mass of the entire system
 
         return (y1_CM,y2_CM,total_CM)
     
@@ -177,17 +177,19 @@ class PartialDislocationsSimulation:
             raise Exception('simulation has probably not been run')
         
         # Returns the velocities of the centres of mass
-        y1_CM, y2_CM, _ = self.getCM()
+        y1_CM, y2_CM, tot_CM = self.getCM()
         v1_CM = np.gradient(y1_CM)
         v2_CM = np.gradient(y2_CM)
+        vTot_CM = np.gradient(tot_CM)
 
         # Condisering only time_to_consider seconds from the end
         start = round(self.timesteps - time_to_consider/self.dt)
 
         v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
         v_relaxed_y2 = np.average(v2_CM[start:self.timesteps])
+        v_relaxed_tot = np.average(vTot_CM[start:self.timesteps])
 
-        return (v_relaxed_y1, v_relaxed_y2)
+        return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
 
     def jotain_saatoa_potentiaaleilla(self):
         forces_f1 = list()
