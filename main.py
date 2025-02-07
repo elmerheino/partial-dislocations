@@ -36,18 +36,23 @@ def studyStress():
 
     for stress in stresses:
         sim_i = PartialDislocationsSimulation(tauExt=stress, bigN=200, length=200, 
-                                              timestep_dt=0.1, time=400, d0=39, c_gamma=20, 
+                                              timestep_dt=0.1, time=10000, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1)
         print(sim_i.getParamsInLatex())
         avgD = sim_i.run_simulation()
 
         y1, y2 = sim_i.getLineProfiles()
 
-        avg_y1 = [np.average(i) for i in y1] # Average places of y1, which for uniform density is the centre of mass?
-        avg_y2 = [np.average(i) for i in y2] # Average places of y2
+        # avg_y1 = [np.average(i) for i in y1] # Average places of y1, which for uniform density is the centre of mass?
+        # avg_y2 = [np.average(i) for i in y2] # Average places of y2
 
-        v_y1 = np.gradient(avg_y1) # Velocities of the average places
-        v_y2 = np.gradient(avg_y2)
+        cm_y1 = np.average(y1, axis=1)
+        cm_y2 = np.average(y2, axis=1)
+
+        # v_y1 = np.gradient(avg_y1) # Velocities of the average places
+        # v_y2 = np.gradient(avg_y2)
+        v_y1 = np.gradient(cm_y1[900:])
+        v_y2 = np.gradient(cm_y2[900:])
 
         avgH_y1.append(np.average(v_y1))
         avgH_y2.append(np.average(v_y2))
@@ -70,7 +75,7 @@ def studyConstantStress(tauExt=1):
     max_stress = 10
 
     simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
-                                              timestep_dt=0.05, time=400, d0=39, c_gamma=20, 
+                                              timestep_dt=0.05, time=10000, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1)
     print(simulation.getParamsInLatex())
 
@@ -78,44 +83,57 @@ def studyConstantStress(tauExt=1):
 
     y1, y2 = simulation.getLineProfiles()
 
-    avg_y1 = [np.average(i) for i in y1] # Average places of y1
-    avg_y2 = [np.average(i) for i in y2] # Average place of y2
+    cm_y1 = np.average(y1, axis=1)
+    cm_y2 = np.average(y2, axis=1)
 
     t = simulation.getTvalues()
+
+    # Define the interval to consider
+
+    last_100_y1 = cm_y1[(cm_y1.size - 200):]
+    last_100_y2 = cm_y2[(cm_y2.size - 200):]
+
+    v_avg_y1 = np.mean(last_100_y1)
+    v_avg_y2 = np.mean(last_100_y2)
 
     fig, axes = plt.subplots(1,2, figsize=(12, 8))
 
     axes_flat = axes.ravel()
 
-    axes[0].plot(t, np.gradient(avg_y1), color="blue", label="$y_1$") # Plot the velocity of the average of y_1
-    axes[0].plot(t, np.gradient(avg_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
+    axes[0].plot(t, np.gradient(cm_y1), color="blue", label="$y_1$") # Plot the velocity of the cm of y_1
+    axes[0].plot(t, np.gradient(cm_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
 
     axes[0].set_title(simulation.getTitleForPlot())
     axes[0].set_xlabel("Time t (s)")
-    axes[0].set_ylabel("$ v $")
+    axes[0].set_ylabel("$ v_{CM} $")
     axes[0].legend()
 
-    axes[1].set_title(simulation.getTitleForPlot())
+    
     axes[1].plot(t, avgD, label="Average distance")
+
+    axes[1].set_title(simulation.getTitleForPlot())
     axes[1].set_xlabel("Time t (s)")
     axes[1].set_ylabel("$ d $")
+    axes[1].legend()
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"constant-stress-tau-{tauExt}.png")
+
+    return (v_avg_y1, v_avg_y2)
 
 
 def makePotentialPlot():
     sim = PartialDislocationsSimulation()
     sim.jotain_saatoa_potentiaaleilla()
 
-def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25):
+def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     # Run the simulation
-    total_time = 100
+    total_time = 400
 
-    simulation = PartialDislocationsSimulation(time=total_time, timestep_dt=total_dt, bigN=50, length=50, 
+    simulation = PartialDislocationsSimulation(time=total_time, timestep_dt=total_dt, bigN=200, length=200, 
                                                c_gamma=potential_term,
                                                cLT1=gradient_term, cLT2=gradient_term, 
-                                               deltaR=1)
+                                               deltaR=1, tauExt=tau_ext, d0=39)
     
     avgDists = simulation.run_simulation()
 
@@ -144,15 +162,16 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25):
         plt.clf()
         frames.append(Image.open(f"frames/tmp-{t}.png"))
 
-    frames[0].save(f"gifs/fft/lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=50, loop=0)
+    frames[0].save(f"lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=50, loop=0)
 
     plt.clf()
     plt.plot(t_axis, avgDists)
     plt.title("Average distance")
     plt.xlabel("Time t (s)")
-    plt.savefig(f"gifs/fft/avg_dist-C-{gradient_term}-G-{potential_term}.png")
+    plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
     pass
 
 
 if __name__ == "__main__":
-    studyConstantStress(tauExt=1)
+    a,b = studyConstantStress(tauExt=1)
+    print(f" avg v1: {a} avg v2: {b}")
