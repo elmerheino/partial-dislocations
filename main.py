@@ -3,12 +3,13 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from simulation import PartialDislocationsSimulation
 from pathlib import Path
+import pickle
 
-# run 4 simulations right away
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     axes_flat = axes.ravel()
 
+    # Run 4 simulations right away
     for i in range(0,4):
         np.random.seed(i)
 
@@ -26,19 +27,25 @@ def studyAvgDistance():
     plt.show()
 
 def studyConstantStress(tauExt=1, 
-                        folder_name="results" # Leave out the final / when defining value
-                        ):
+                        folder_name="results", # Leave out the final / when defining value
+                        timestep_dt=0.05):
+    
     # Run simulations with varying external stress
     n_simulations = 200
     min_stress = 0
     max_stress = 10
 
     simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
-                                              timestep_dt=0.05, time=10000, d0=39, c_gamma=20, 
+                                              timestep_dt=timestep_dt, time=10000, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1)
     print(simulation.getParamsInLatex())
 
     avgD = simulation.run_simulation()
+
+    # Dump the simulation object to a pickle
+    # Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
+    # with open(f"{folder_name}/pickles/simulation-state-tau-{tauExt}.pickle", "wb") as fp:
+    #     pickle.dump(simulation, fp)
 
     y1, y2 = simulation.getLineProfiles()
 
@@ -73,20 +80,23 @@ def studyConstantStress(tauExt=1,
     axes[1].legend()
 
     plt.tight_layout()
-    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png")
+    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png") # It's nice to have a plot from each individual simulation
     plt.clf()
     plt.close()
 
     return (rV1, rV2, totV2)
 
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
-                   folder_name="results"            # Leave out the final / when defining value
-                   ): 
+                   folder_name="results",            # Leave out the final / when defining value
+                   timestep_dt=0.01):
+    
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
+
     stresses = np.linspace(tau_min, tau_max, points)
     r_velocities = list()
 
     for s in stresses:
-        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name)
+        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt)
         print(f"v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
         r_velocities.append(rel_tot)
     
@@ -149,5 +159,4 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
 
 
 if __name__ == "__main__":
-    Path("results/7-feb").mkdir(exist_ok=True, parents=True)
-    studyDepinning(folder_name="results/7-feb")
+    studyDepinning(folder_name="results/7-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
