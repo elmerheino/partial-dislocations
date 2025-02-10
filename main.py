@@ -28,15 +28,13 @@ def studyAvgDistance():
 
 def studyConstantStress(tauExt=1, 
                         folder_name="results", # Leave out the final / when defining value
-                        timestep_dt=0.05):
+                        timestep_dt=0.05,
+                        time=20000):
     
     # Run simulations with varying external stress
-    n_simulations = 200
-    min_stress = 0
-    max_stress = 10
 
     simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
-                                              timestep_dt=timestep_dt, time=10000, d0=39, c_gamma=20, 
+                                              timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1)
     print(simulation.getParamsInLatex())
 
@@ -54,7 +52,7 @@ def studyConstantStress(tauExt=1,
 
     t = simulation.getTvalues()
 
-    start = 10000 - 1000        # Consider only the last 1000 s
+    start = time - 1000        # Consider only the last 1000 s
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
     fig, axes = plt.subplots(1,2, figsize=(12, 8))
@@ -88,7 +86,7 @@ def studyConstantStress(tauExt=1,
 
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
-                   timestep_dt=0.01):
+                   timestep_dt=0.05):
     
     Path(folder_name).mkdir(exist_ok=True, parents=True)
 
@@ -159,4 +157,4 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
 
 
 if __name__ == "__main__":
-    studyDepinning(folder_name="results/7-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
+    studyDepinning(folder_name="results/9-feb-n2", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)

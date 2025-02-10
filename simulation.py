@@ -32,17 +32,20 @@ class PartialDislocationsSimulation:
 
         self.tauExt = tauExt
 
-        self.c_gamma = c_gamma # Parameter in the interaction force, should be small
+        self.c_gamma = c_gamma                  # Parameter in the interaction force, should be small
         # self.c_gamma = self.deltaR*50
 
-        self.d0 = d0 # Initial distance
+        self.d0 = d0                            # Initial distance
 
-        self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random sterss field
+        self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random stress field
 
         self.y2 = list()
         self.y1 = list()
 
         self.has_simulation_been_run = False
+
+        self.time_elapsed = 0                   # The time elapsed since the beginning of simulation in seconds
+        self.tau_cutoff = 5000                  # Time when tau is switched on in seconds
 
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
@@ -81,10 +84,15 @@ class PartialDislocationsSimulation:
         return np.arange(self.bigN)*self.deltaL
     
     def tau(self, y): # Should be static in time. The index is again the x coordinate here
-        # TODO: implement time dependence to allow for initial relaxation
         yDisc = (np.round(y).astype(int) & self.bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
-
+    
+    def tau_ext(self):
+        if self.time_elapsed >= self.tau_cutoff:
+            return self.tauExt
+        else:
+            return 0
+    
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
         #return -(c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
@@ -118,16 +126,18 @@ class PartialDislocationsSimulation:
             self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
             + self.b_p*self.tau(y1) # The random stress term
             + self.force1(y1, y2) # Interaction force
-            + (self.smallB/2)*self.tauExt*np.ones(self.bigN) # The external stress term
+            + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
         dy2 = ( 
             self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
             + self.b_p*self.tau(y2) 
             + self.force2(y1, y2)
-            + (self.smallB/2)*self.tauExt*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
+            + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
         
         newY1 = (y1 + dy1*dt)
         newY2 = (y2 + dy2*dt)
+
+        self.time_elapsed += self.dt    # Update how much time has elapsed by adding dt
 
         return (newY1, newY2)
 
