@@ -16,7 +16,8 @@ def studyAvgDistance():
         sim_i = PartialDislocationsSimulation(timestep_dt=0.5, time=100, c_gamma=60, cLT1=4, cLT2=4)
 
         t = sim_i.getTvalues()
-        avgI = sim_i.run_simulation()
+        sim_i.run_simulation()
+        avgI = sim_i.getAverageDistances()
 
         axes_flat[i].plot(t,avgI)
         axes_flat[i].set_xlabel("Time (s)")
@@ -38,7 +39,8 @@ def studyConstantStress(tauExt=1,
                                               cLT1=0.1, cLT2=0.1)
     print(simulation.getParamsInLatex())
 
-    avgD = simulation.run_simulation()
+    simulation.run_simulation()
+    avgD = simulation.getAverageDistances()
 
     # Dump the simulation object to a pickle
     # Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
@@ -119,12 +121,11 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
                                                cLT1=gradient_term, cLT2=gradient_term, 
                                                deltaR=1, tauExt=tau_ext, d0=39)
     
-    avgDists = simulation.run_simulation()
-    simulation.run_further(200,new_dt=total_dt)
+    simulation.run_simulation()
+    simulation.run_further(50,new_dt=total_dt)
 
     # Get revelant info from simulation
     y1,y2 = simulation.getLineProfiles()
-    print(len(y1), len(y2))
 
     x = simulation.getXValues()
     t_axis = simulation.getTvalues()
@@ -151,11 +152,13 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
 
     frames[0].save(f"lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=20, loop=0)
 
-    # plt.clf()
-    # plt.plot(t_axis, avgDists)
-    # plt.title("Average distance")
-    # plt.xlabel("Time t (s)")
-    # plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
+    avgDists = simulation.getAverageDistances()
+
+    plt.clf()
+    plt.plot(t_axis, avgDists)
+    plt.title("Average distance")
+    plt.xlabel("Time t (s)")
+    plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
     pass
 
 

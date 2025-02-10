@@ -149,8 +149,6 @@ class PartialDislocationsSimulation:
         y20 = np.zeros(self.bigN, dtype=float)
         self.y2.append(y20)
 
-        averageDist = [np.average(y10-y20)]
-
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
             y2_previous = self.y2[i-1]
@@ -158,11 +156,8 @@ class PartialDislocationsSimulation:
             (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous)
             self.y1.append(y1_i)
             self.y2.append(y2_i)
-
-            averageDist.append(np.average(y1_i-y2_i))
         
         self.has_simulation_been_run = True
-        return averageDist
     
     def run_further(self, new_time:int, new_dt:int = 0.05):
         # Runs the simulation further in time with a new timestep if need be
@@ -191,6 +186,9 @@ class PartialDislocationsSimulation:
         print("Simulation has not been run yet.")
         return (self.y1, self.y2) # Retuns empty lists
     
+    def getAverageDistances(self):
+        return np.average(self.y1, axis=1) - np.average(self.y2, axis=1)
+    
     def getCM(self):
         # Return the centres of mass of the two lines as functions of time
         if len(self.y1) == 0 or len(self.y2) == 0:
@@ -199,7 +197,7 @@ class PartialDislocationsSimulation:
         y1_CM = np.mean(self.y1, axis=1)
         y2_CM = np.mean(self.y2, axis=1)
 
-        total_CM = (y1_CM + y2_CM)/2    # This is supposed to be the centre of mass of the entire system
+        total_CM = (y1_CM + y2_CM)/2    # TODO: This is supposed to be the centre of mass of the entire system
 
         return (y1_CM,y2_CM,total_CM)
     
