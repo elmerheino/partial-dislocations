@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from simulation import PartialDislocationsSimulation
 from pathlib import Path
-import pickle
+# import pickle
 from tqdm import tqdm
 import json
+import multiprocessing as mp
 
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -185,8 +186,12 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
     pass
 
+def depinning_mp(seed):
+    studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=25000, seed=seed)
 
 if __name__ == "__main__":
     # studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
-    studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=100)
+    #studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=100)
+    with mp.Pool(mp.cpu_count()) as pool:
+        r = pool.map(depinning_mp, [1011, 1213, 1415])
     # makeGif()
