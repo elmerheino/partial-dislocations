@@ -4,6 +4,7 @@ from PIL import Image
 from simulation import PartialDislocationsSimulation
 from pathlib import Path
 import pickle
+from tqdm import tqdm
 
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -30,64 +31,32 @@ def studyAvgDistance():
 def studyConstantStress(tauExt=1, 
                         folder_name="results", # Leave out the final / when defining value
                         timestep_dt=0.05,
-                        time=20000):
+                        time=20000, seed=None):
     
     # Run simulations with varying external stress
 
     simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
                                               timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
-                                              cLT1=0.1, cLT2=0.1)
-    print(simulation.getParamsInLatex())
+                                              cLT1=0.1, cLT2=0.1, seed=seed)
+    # print(" ".join(simulation.getParamsInLatex()))
 
     simulation.run_simulation()
-    avgD = simulation.getAverageDistances()
 
     # Dump the simulation object to a pickle
-    Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
-    with open(f"{folder_name}/pickles/simulation-state-tau-{tauExt}.pickle", "wb") as fp:
-        pickle.dump(simulation, fp)
+    # Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
+    # with open(f"{folder_name}/pickles/simulation-state-tau-{tauExt}.pickle", "wb") as fp:
+    #     pickle.dump(simulation, fp)
 
-    y1, y2 = simulation.getLineProfiles()
-
-    cm_y1 = np.average(y1, axis=1)
-    cm_y2 = np.average(y2, axis=1)
-
-    t = simulation.getTvalues()
-
-    start = time - 1000        # Consider only the last 1000 s
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
-    fig, axes = plt.subplots(1,2, figsize=(12, 8))
-
-    axes_flat = axes.ravel()
-
-    axes[0].plot(t, np.gradient(cm_y1), color="black", label="$y_1$") # Plot the velocity of the cm of y_1
-    axes[0].plot(t, np.gradient(cm_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
-    axes[0].plot([start,simulation.time], rV1*np.ones(2), '-', color="red")
-    axes[0].plot([start,simulation.time], rV2*np.ones(2), '-' ,color="blue")
-
-    axes[0].set_title(simulation.getTitleForPlot())
-    axes[0].set_xlabel("Time t (s)")
-    axes[0].set_ylabel("$ v_{CM} $")
-    axes[0].legend()
-
-    
-    axes[1].plot(t, avgD, label="Average distance")
-
-    axes[1].set_title(simulation.getTitleForPlot())
-    axes[1].set_xlabel("Time t (s)")
-    axes[1].set_ylabel("$ d $")
-    axes[1].legend()
-
-    plt.tight_layout()
-    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png") # It's nice to have a plot from each individual simulation
-    plt.clf()
-    plt.close()
+    # makeStressPlot(simulation, folder_name)
 
     return (rV1, rV2, totV2)
 
-def makeStressPlot(sim: PartialDislocationsSimulation, folder_name="results"):
+def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
     # Make a plot with velocities and average distance from the given simulation sim
+
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
 
     t = sim.getTvalues()
     avgD = sim.getAverageDistances()
@@ -129,25 +98,33 @@ def makeStressPlot(sim: PartialDislocationsSimulation, folder_name="results"):
 
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
-                   timestep_dt=0.05):
+                   timestep_dt=0.05, time=30000):
     
     Path(folder_name).mkdir(exist_ok=True, parents=True)
 
     stresses = np.linspace(tau_min, tau_max, points)
     r_velocities = list()
 
-    for s in stresses:
-        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt)
-        print(f"v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
+    seed = 123 # Choose a seed to fix the stress field for this study
+
+    for s,p in zip(stresses, tqdm(range(points), desc="Running simulations", unit="simulation")):
+        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time)
+        # print(f"Simulation finished with : v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
         r_velocities.append(rel_tot)
     
+    makeDepinningPlot(stresses, r_velocities, folder_name=folder_name)
+    
+
+def makeDepinningPlot(stresses, relVelocities, folder_name="results"):
     plt.clf()
-    plt.scatter(stresses, r_velocities, marker='x')
+    plt.scatter(stresses, relVelocities, marker='x')
     plt.title("Depinning")
     plt.xlabel("$\\tau_{ext}$")
     plt.ylabel("$v_{CM}$")
-    plt.savefig(f"{folder_name}/depinning-{tau_min}-{tau_max}-{points}.png")
+    plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}.png")
     plt.show()
+
+    pass
 
 def makePotentialPlot():
     sim = PartialDislocationsSimulation()
@@ -204,5 +181,6 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
 
 
 if __name__ == "__main__":
-    studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
+    # studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
+    studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=25000)
     # makeGif()

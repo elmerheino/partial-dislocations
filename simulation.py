@@ -8,7 +8,7 @@ class PartialDislocationsSimulation:
                 bigN=1024, length=1024, time=500, 
                 timestep_dt=0.01, deltaR=1, bigB=1, 
                 smallB=1, b_p=1, cLT1=2, cLT2=2, mu=1, 
-                tauExt=0, d0=40, c_gamma=50):
+                tauExt=0, d0=40, c_gamma=50, seed:float =None):
         
         self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
         self.length = length                    # Length L of the actual line
@@ -36,7 +36,9 @@ class PartialDislocationsSimulation:
         # self.c_gamma = self.deltaR*50
 
         self.d0 = d0                            # Initial distance
-
+        if seed != None:
+            np.random.seed(seed)
+        
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random stress field
 
         self.y2 = list()
