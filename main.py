@@ -120,9 +120,12 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
                                                deltaR=1, tauExt=tau_ext, d0=39)
     
     avgDists = simulation.run_simulation()
+    simulation.run_further(200,new_dt=total_dt)
 
     # Get revelant info from simulation
     y1,y2 = simulation.getLineProfiles()
+    print(len(y1), len(y2))
+
     x = simulation.getXValues()
     t_axis = simulation.getTvalues()
 
@@ -131,30 +134,31 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     # Make the gif
     frames = list()
     counter = 0
-    for h1,h2,t in zip(y1,y2,np.arange(total_time/total_dt)):
-        counter = counter + 1
-        time_at_t = counter*total_dt
+    for h1,h2,t in zip(y1,y2,t_axis):
+        # counter = counter + 1
+        # time_at_t = counter*total_dt
 
         plt.plot(x, h1, color="blue")
         plt.plot(x, h2, color="red")
 
         plt.legend(["line 1", "line 2"])
         plt.title(gifTitle)
-        plt.xlabel(f"t={time_at_t}")
+        plt.xlabel(f"t={t:.2f}")
 
         plt.savefig(f"frames/tmp-{t}.png")
         plt.clf()
         frames.append(Image.open(f"frames/tmp-{t}.png"))
 
-    frames[0].save(f"lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=50, loop=0)
+    frames[0].save(f"lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=20, loop=0)
 
-    plt.clf()
-    plt.plot(t_axis, avgDists)
-    plt.title("Average distance")
-    plt.xlabel("Time t (s)")
-    plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
+    # plt.clf()
+    # plt.plot(t_axis, avgDists)
+    # plt.title("Average distance")
+    # plt.xlabel("Time t (s)")
+    # plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
     pass
 
 
 if __name__ == "__main__":
-    studyDepinning(folder_name="results/9-feb-n2", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
+    # studyDepinning(folder_name="results/9-feb-n2", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
+    makeGif()

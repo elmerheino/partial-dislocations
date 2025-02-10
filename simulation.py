@@ -137,7 +137,7 @@ class PartialDislocationsSimulation:
         newY1 = (y1 + dy1*dt)
         newY2 = (y2 + dy2*dt)
 
-        self.time_elapsed += self.dt    # Update how much time has elapsed by adding dt
+        self.time_elapsed += dt    # Update how much time has elapsed by adding dt
 
         return (newY1, newY2)
 
@@ -163,6 +163,26 @@ class PartialDislocationsSimulation:
         
         self.has_simulation_been_run = True
         return averageDist
+    
+    def run_further(self, new_time:int, new_dt:int = 0.05):
+        # Runs the simulation further in time with a new timestep if need be
+        # self.dt = new_dt
+        # TODO: Implement the possibility to change the timestep
+
+        self.time = self.time + new_time
+        new_timesteps = round(new_time/self.dt)
+
+        for i in range(self.timesteps,self.timesteps+new_timesteps):
+            y1_previous = self.y1[i-1]
+            y2_previous = self.y2[i-1]
+
+            (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous)
+            self.y1.append(y1_i)
+            self.y2.append(y2_i)
+        
+        self.timesteps += new_timesteps # Update the no. of timesteps so that getTValues will function properly
+
+        return 0
         
     def getLineProfiles(self):
         if self.has_simulation_been_run:
