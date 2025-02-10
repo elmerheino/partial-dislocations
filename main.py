@@ -43,9 +43,9 @@ def studyConstantStress(tauExt=1,
     avgD = simulation.getAverageDistances()
 
     # Dump the simulation object to a pickle
-    # Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
-    # with open(f"{folder_name}/pickles/simulation-state-tau-{tauExt}.pickle", "wb") as fp:
-    #     pickle.dump(simulation, fp)
+    Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
+    with open(f"{folder_name}/pickles/simulation-state-tau-{tauExt}.pickle", "wb") as fp:
+        pickle.dump(simulation, fp)
 
     y1, y2 = simulation.getLineProfiles()
 
@@ -85,6 +85,47 @@ def studyConstantStress(tauExt=1,
     plt.close()
 
     return (rV1, rV2, totV2)
+
+def makeStressPlot(sim: PartialDislocationsSimulation, folder_name="results"):
+    # Make a plot with velocities and average distance from the given simulation sim
+
+    t = sim.getTvalues()
+    avgD = sim.getAverageDistances()
+    start = sim.time - 1000
+    rV1, rV2, totV2 = sim.getRelaxedVelocity(time_to_consider=1000)
+
+    cm_y1, cm_y2, cm_tot = sim.getCM()
+
+    tauExt = sim.tauExt
+
+    fig, axes = plt.subplots(1,2, figsize=(12, 8))
+
+    axes_flat = axes.ravel()
+
+    axes[0].plot(t, np.gradient(cm_y1), color="black", label="$y_1$") # Plot the velocity of the cm of y_1
+    axes[0].plot(t, np.gradient(cm_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
+    axes[0].plot([start,sim.time], rV1*np.ones(2), '-', color="red")
+    axes[0].plot([start,sim.time], rV2*np.ones(2), '-' ,color="blue")
+
+    axes[0].set_title(sim.getTitleForPlot())
+    axes[0].set_xlabel("Time t (s)")
+    axes[0].set_ylabel("$ v_{CM} $")
+    axes[0].legend()
+
+    
+    axes[1].plot(t, avgD, label="Average distance")
+
+    axes[1].set_title(sim.getTitleForPlot())
+    axes[1].set_xlabel("Time t (s)")
+    axes[1].set_ylabel("$ d $")
+    axes[1].legend()
+
+    plt.tight_layout()
+    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png") # It's nice to have a plot from each individual simulation
+    plt.clf()
+    plt.close()
+
+    pass
 
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
@@ -163,5 +204,5 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
 
 
 if __name__ == "__main__":
-    # studyDepinning(folder_name="results/9-feb-n2", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
-    makeGif()
+    studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
+    # makeGif()
