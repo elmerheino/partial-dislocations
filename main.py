@@ -5,6 +5,7 @@ from simulation import PartialDislocationsSimulation
 from pathlib import Path
 import pickle
 from tqdm import tqdm
+import json
 
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -98,33 +99,38 @@ def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
 
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
-                   timestep_dt=0.05, time=30000):
+                   timestep_dt=0.05, time=30000, seed=123): # Fix the stress field for different tau_ext
     
     Path(folder_name).mkdir(exist_ok=True, parents=True)
 
     stresses = np.linspace(tau_min, tau_max, points)
     r_velocities = list()
 
-    seed = 123 # Choose a seed to fix the stress field for this study
-
     for s,p in zip(stresses, tqdm(range(points), desc="Running simulations", unit="simulation")):
         rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time)
         # print(f"Simulation finished with : v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
         r_velocities.append(rel_tot)
     
-    makeDepinningPlot(stresses, r_velocities, folder_name=folder_name)
+    makeDepinningPlot(stresses, r_velocities, time, seed, folder_name=folder_name)
+
+    results = {
+        "stresses":stresses.tolist(),
+        "relaxed_velocities":r_velocities,
+        "seed":seed
+    }
+
+    with open(f"{folder_name}/depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json", 'w') as fp:
+        json.dump(results,fp)
     
 
-def makeDepinningPlot(stresses, relVelocities, folder_name="results"):
+def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"):
     plt.clf()
     plt.scatter(stresses, relVelocities, marker='x')
     plt.title("Depinning")
     plt.xlabel("$\\tau_{ext}$")
     plt.ylabel("$v_{CM}$")
-    plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}.png")
-    plt.show()
-
-    pass
+    plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png")
+    # plt.show()
 
 def makePotentialPlot():
     sim = PartialDislocationsSimulation()
@@ -182,5 +188,5 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
 
 if __name__ == "__main__":
     # studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
-    studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=25000)
+    studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=100)
     # makeGif()
