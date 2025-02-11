@@ -111,10 +111,6 @@ class PartialDislocationsSimulation:
         numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
         return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
 
-    def derivativePeriodic(self, x, dl):
-        res = (np.roll(x, -1) - np.roll(x,1))/(2*dl)
-        return res
-
     def secondDerivative(self, x):
         x_hat = fft.fft(x)
         k = fft.fftfreq(n=self.bigN, d=self.deltaL)*2*np.pi

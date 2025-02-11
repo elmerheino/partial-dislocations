@@ -187,11 +187,11 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     pass
 
 def depinning_mp(seed):
-    studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=25000, seed=seed)
+    studyDepinning(folder_name="results/11-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=25000, seed=seed)
 
 if __name__ == "__main__":
     # studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
     #studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=100)
-    with mp.Pool(mp.cpu_count()) as pool:
-        r = pool.map(depinning_mp, [1011, 1213, 1415])
+    with mp.Pool(mp.cpu_count() - 5) as pool:
+        r = pool.map(depinning_mp, range(2000,2000+10))
     # makeGif()
