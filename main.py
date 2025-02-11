@@ -103,15 +103,26 @@ def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
 def studyDepinning_mp(tau_min=2.85, tau_max=3.05, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
                    timestep_dt=0.05, time=10000, seed=123):
-    # Multiprocessing compatible version of a single depinning study
+    # Multiprocessing compatible version of a single depinning study, here the studies and stresses
+    # are distributed between threads by stress letting python mp library determine the best way
     
     stresses = np.linspace(tau_min, tau_max, points)
     
-    with mp.Pool(5) as pool:
+    with mp.Pool(8) as pool:
         results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
     v_cm = [i[2] for i in results]
     makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
+
+    results_json = {
+        "stresses":stresses.tolist(),
+        "relaxed_velocities":v_cm,
+        "seed":seed
+    }
+
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
+    with open(f"{folder_name}/depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json", 'w') as fp:
+        json.dump(results_json,fp) 
 
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
@@ -140,6 +151,7 @@ def studyDepinning(tau_min=0, tau_max=2, points=50,
     
 
 def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"):
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
     plt.scatter(stresses, relVelocities, marker='x')
     plt.title("Depinning")
@@ -202,10 +214,12 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     pass
 
 def multiple_depinnings_mp(seed):
+    # Helper function to run a depinning study on a single thread, one study per thread
     studyDepinning(folder_name="results/11-feb-n2", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=seed)
 
 if __name__ == "__main__":
-    # with mp.Pool(mp.cpu_count() - 5) as pool:
-    #     r = pool.map(multiple_depinnings_mp, range(2000,2000+1))
-    # studyDepinning(folder_name="results/11-feb-n3", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=3424)
-    studyDepinning_mp()
+    # Run multiple such depinning studies with varying seeds
+    studyDepinning_mp(seed=2,folder_name="results/11-feb-n4", tau_min=1, tau_max=6)
+    seeds = [1,2,3,4,5,6,7,8,9,10]
+    for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
+        studyDepinning_mp(seed=seed, folder_name="results/11-feb-n4", tau_min=2.85, tau_max=3.1)
