@@ -41,8 +41,9 @@ class PartialDislocationsSimulation:
         
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random stress field
 
-        self.y2 = list()
-        self.y1 = list()
+        # Pre-allocate memory here
+        self.y2 = np.empty((self.timesteps, self.bigN))
+        self.y1 = np.empty((self.timesteps, self.bigN))
 
         self.has_simulation_been_run = False
 
@@ -142,18 +143,18 @@ class PartialDislocationsSimulation:
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-        self.y1.append(y10)
+        self.y1[0] = y10
 
         y20 = np.zeros(self.bigN, dtype=float)
-        self.y2.append(y20)
+        self.y2[0] = y20
 
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
             y2_previous = self.y2[i-1]
 
             (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous)
-            self.y1.append(y1_i)
-            self.y2.append(y2_i)
+            self.y1[i] = y1_i
+            self.y2[i] = y2_i
         
         self.has_simulation_been_run = True
     
