@@ -87,7 +87,7 @@ class PartialDislocationsSimulation:
         return np.arange(self.bigN)*self.deltaL
     
     def tau(self, y): # Should be static in time. The index is again the x coordinate here
-        yDisc = (np.round(y).astype(int) & self.bigN ) - 1 # Round the y coordinate to an integer and wrap around bigN
+        yDisc = np.remainder(np.round(y), self.bigN).astype(np.int32) # Round the y coordinate to an integer and wrap around bigN
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
     
     def tau_ext(self):
