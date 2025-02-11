@@ -7,6 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 import json
 import multiprocessing as mp
+from functools import partial
 
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -98,6 +99,20 @@ def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
 
     pass
 
+
+def studyDepinning_mp(tau_min=2.85, tau_max=3.05, points=50, 
+                   folder_name="results",            # Leave out the final / when defining value
+                   timestep_dt=0.05, time=10000, seed=123):
+    # Multiprocessing compatible version of a single depinning study
+    
+    stresses = np.linspace(tau_min, tau_max, points)
+    
+    with mp.Pool(5) as pool:
+        results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
+    
+    v_cm = [i[2] for i in results]
+    makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
+
 def studyDepinning(tau_min=0, tau_max=2, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
                    timestep_dt=0.05, time=30000, seed=123): # Fix the stress field for different tau_ext
@@ -108,7 +123,7 @@ def studyDepinning(tau_min=0, tau_max=2, points=50,
     r_velocities = list()
 
     for s,p in zip(stresses, tqdm(range(points), desc="Running simulations", unit="simulation")):
-        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time)
+        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed)
         # print(f"Simulation finished with : v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
         r_velocities.append(rel_tot)
     
@@ -186,12 +201,11 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
     pass
 
-def depinning_mp(seed):
-    studyDepinning(folder_name="results/11-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=25000, seed=seed)
+def multiple_depinnings_mp(seed):
+    studyDepinning(folder_name="results/11-feb-n2", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=seed)
 
 if __name__ == "__main__":
-    # studyDepinning(folder_name="/Volumes/Tiedostoja/dislocationData/10-feb-n1", tau_min=1.4, tau_max=1.65, timestep_dt=0.05)
-    #studyDepinning(folder_name="results/10-feb-n4", tau_min=1.4, tau_max=1.65, timestep_dt=0.05, time=100)
-    with mp.Pool(mp.cpu_count() - 5) as pool:
-        r = pool.map(depinning_mp, range(2000,2000+10))
-    # makeGif()
+    # with mp.Pool(mp.cpu_count() - 5) as pool:
+    #     r = pool.map(multiple_depinnings_mp, range(2000,2000+1))
+    # studyDepinning(folder_name="results/11-feb-n3", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=3424)
+    studyDepinning_mp()
