@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy import fft
 
 class PartialDislocationsSimulation:
@@ -218,25 +217,3 @@ class PartialDislocationsSimulation:
         v_relaxed_tot = np.average(vTot_CM[start:self.timesteps])
 
         return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
-
-    def jotain_saatoa_potentiaaleilla(self):
-        forces_f1 = list()
-        forces_f2 = list()
-
-        for i in range(0,300):
-            y10 = np.ones(1)*i # Generate lines at distance i apart with length 1
-            y20 = np.zeros(1)
-
-            f1 = self.force1(y10,y20)
-            f2 = self.force2(y10,y20)
-
-            forces_f1.append(f1)
-            forces_f2.append(f2)
-        
-        plt.plot(forces_f1)
-        plt.plot(forces_f2)
-
-        plt.legend(["f_1", "f_2"])
-
-        plt.show()
-        pass
