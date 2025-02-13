@@ -35,8 +35,7 @@ def studyConstantStress(tauExt=1,
                         folder_name="results", # Leave out the final / when defining value
                         timestep_dt=0.05,
                         time=20000, seed=None):
-    
-    # Run simulations with varying external stress
+    # Run a simulation with a specified constant stress
 
     simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
                                               timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
@@ -55,50 +54,6 @@ def studyConstantStress(tauExt=1,
     # makeStressPlot(simulation, folder_name)
 
     return (rV1, rV2, totV2)
-
-def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
-    # Make a plot with velocities and average distance from the given simulation sim
-
-    Path(folder_name).mkdir(exist_ok=True, parents=True)
-
-    t = sim.getTvalues()
-    avgD = sim.getAverageDistances()
-    start = sim.time - 1000
-    rV1, rV2, totV2 = sim.getRelaxedVelocity(time_to_consider=1000)
-
-    cm_y1, cm_y2, cm_tot = sim.getCM()
-
-    tauExt = sim.tauExt
-
-    fig, axes = plt.subplots(1,2, figsize=(12, 8))
-
-    axes_flat = axes.ravel()
-
-    axes[0].plot(t, np.gradient(cm_y1), color="black", label="$y_1$") # Plot the velocity of the cm of y_1
-    axes[0].plot(t, np.gradient(cm_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
-    axes[0].plot([start,sim.time], rV1*np.ones(2), '-', color="red")
-    axes[0].plot([start,sim.time], rV2*np.ones(2), '-' ,color="blue")
-
-    axes[0].set_title(sim.getTitleForPlot())
-    axes[0].set_xlabel("Time t (s)")
-    axes[0].set_ylabel("$ v_{CM} $")
-    axes[0].legend()
-
-    
-    axes[1].plot(t, avgD, label="Average distance")
-
-    axes[1].set_title(sim.getTitleForPlot())
-    axes[1].set_xlabel("Time t (s)")
-    axes[1].set_ylabel("$ d $")
-    axes[1].legend()
-
-    plt.tight_layout()
-    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png") # It's nice to have a plot from each individual simulation
-    plt.clf()
-    plt.close()
-
-    pass
-
 
 def studyDepinning_mp(tau_min=2.85, tau_max=3.05, points=50, 
                    folder_name="results",            # Leave out the final / when defining value
@@ -160,6 +115,51 @@ def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"
     plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png")
     # plt.show()
 
+def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
+    # Make a plot with velocities and average distance from the given simulation sim
+    # The sim object must have methods: getTValues, getAverageDistance, getRelaxedVeclovity
+    # and getCM
+
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
+
+    t = sim.getTvalues()
+    avgD = sim.getAverageDistances()
+    start = sim.time - 1000
+    rV1, rV2, totV2 = sim.getRelaxedVelocity(time_to_consider=1000)
+
+    cm_y1, cm_y2, cm_tot = sim.getCM()
+
+    tauExt = sim.tauExt
+
+    fig, axes = plt.subplots(1,2, figsize=(12, 8))
+
+    axes_flat = axes.ravel()
+
+    axes[0].plot(t, np.gradient(cm_y1), color="black", label="$y_1$") # Plot the velocity of the cm of y_1
+    axes[0].plot(t, np.gradient(cm_y2), color="red", label="$y_2$") # Plot the velocity of the average of y_2
+    axes[0].plot([start,sim.time], rV1*np.ones(2), '-', color="red")
+    axes[0].plot([start,sim.time], rV2*np.ones(2), '-' ,color="blue")
+
+    axes[0].set_title(sim.getTitleForPlot())
+    axes[0].set_xlabel("Time t (s)")
+    axes[0].set_ylabel("$ v_{CM} $")
+    axes[0].legend()
+
+    
+    axes[1].plot(t, avgD, label="Average distance")
+
+    axes[1].set_title(sim.getTitleForPlot())
+    axes[1].set_xlabel("Time t (s)")
+    axes[1].set_ylabel("$ d $")
+    axes[1].legend()
+
+    plt.tight_layout()
+    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png") # It's nice to have a plot from each individual simulation
+    plt.clf()
+    plt.close()
+
+    pass
+
 def makePotentialPlot():
     sim = PartialDislocationsSimulation()
     sim.jotain_saatoa_potentiaaleilla()
@@ -214,12 +214,12 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     pass
 
 def multiple_depinnings_mp(seed):
-    # Helper function to run a depinning study on a single thread, one study per thread
+    # Helper function to run depinning studies one study per thread
     studyDepinning(folder_name="results/11-feb-n2", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=seed)
 
 if __name__ == "__main__":
     # Run multiple such depinning studies with varying seeds
-    studyDepinning_mp(seed=2,folder_name="results/11-feb-n4", tau_min=1, tau_max=6)
-    seeds = [1,2,3,4,5,6,7,8,9,10]
+    studyDepinning_mp(seed=2,folder_name="results/13-feb-n1", tau_min=1, tau_max=6)
+    seeds = range(11,21)
     for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
-        studyDepinning_mp(seed=seed, folder_name="results/11-feb-n4", tau_min=2.85, tau_max=3.1)
+        studyDepinning_mp(seed=seed, folder_name="results/13-feb-n1", tau_min=2.85, tau_max=3.1)
