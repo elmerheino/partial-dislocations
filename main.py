@@ -31,23 +31,50 @@ def studyAvgDistance():
     plt.tight_layout()
     plt.show()
 
-def studyConstantStress(tauExt=1, 
-                        folder_name="results", # Leave out the final / when defining value
-                        timestep_dt=0.05,
-                        time=20000, seed=None):
+    
+def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
+    # Dumps the results of a simulation to a json file
+    if not sim.has_simulation_been_run:
+        raise Exception("Simulation has not been run.")
+    
+    parameters = [
+        sim.bigN, sim.length, sim.time, sim.dt,
+        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
+        sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
+        sim.d0, sim.seed
+        ] # From these parameters you should be able to replicate the simulation
+    
+    y1_as_list = [list(row) for row in sim.y1]  # Convert the ndarray to a list of lists
+    y2_as_list = [list(row) for row in sim.y2]
+
+    result = {
+        "parameters":parameters,
+        "y1":y1_as_list,
+        "y2":y2_as_list
+    }
+
+    dump_path = Path(folder_name).joinpath("json-dumps")
+    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
+    dump_path.mkdir(exist_ok=True, parents=True)
+
+    dump_path = dump_path.joinpath(f"sim-{sim.tauExt}.json")
+    with open(str(dump_path), "w") as fp:
+        json.dump(result,fp)
+    pass
+
+def studyConstantStress(tauExt,
+                        timestep_dt,
+                        time, seed=None, folder_name="results",):
     # Run a simulation with a specified constant stress
 
-    simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=200, length=200, 
+    simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=1024, length=1024, 
                                               timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1, seed=seed)
     # print(" ".join(simulation.getParamsInLatex()))
 
     simulation.run_simulation()
 
-    # Dump the simulation object to a pickle
-    # Path(f"{folder_name}/pickles").mkdir(exist_ok=True, parents=True)
-    # with open(f"{folder_name}/pickles/simulation-state-tau-{tauExt}.pickle", "wb") as fp:
-    #     pickle.dump(simulation, fp)
+    dumpResults(simulation, folder_name)
 
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
@@ -55,10 +82,9 @@ def studyConstantStress(tauExt=1,
 
     return (rV1, rV2, totV2)
 
-def studyDepinning_mp(tau_min=2.85, tau_max=3.05, points=50, 
-                   folder_name="results",            # Leave out the final / when defining value
-                   timestep_dt=0.05, time=10000, seed=123):
-    # Multiprocessing compatible version of a single depinning study, here the studies and stresses
+def studyDepinning_mp(tau_min, tau_max, points,
+                   timestep_dt, time, seed=123, folder_name="results"):
+    # Multiprocessing compatible version of a single depinning study, here the studies
     # are distributed between threads by stress letting python mp library determine the best way
     
     stresses = np.linspace(tau_min, tau_max, points)
@@ -66,22 +92,32 @@ def studyDepinning_mp(tau_min=2.85, tau_max=3.05, points=50,
     with mp.Pool(8) as pool:
         results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
+    
+    v1_rel = [i[0] for i in results]
+    v2_rel = [i[1] for i in results]
     v_cm = [i[2] for i in results]
+
     makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
 
     results_json = {
         "stresses":stresses.tolist(),
-        "relaxed_velocities":v_cm,
-        "seed":seed
+        "v1_rel": v1_rel,
+        "v2_rel": v2_rel,
+        "relaxed_velocities_total":v_cm,
+        "seed":seed,
+        "time":time,
+        "dt":timestep_dt
     }
 
-    Path(folder_name).mkdir(exist_ok=True, parents=True)
-    with open(f"{folder_name}/depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json", 'w') as fp:
-        json.dump(results_json,fp) 
+    depining_path = Path(folder_name)
+    depining_path = depining_path.joinpath("depinning-dumps")
+    depining_path.mkdir(exist_ok=True, parents=True)
+    depining_path = depining_path.joinpath(f"depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json")
+    with open(str(depining_path), 'w') as fp:
+        json.dump(results_json,fp)
 
-def studyDepinning(tau_min=0, tau_max=2, points=50, 
-                   folder_name="results",            # Leave out the final / when defining value
-                   timestep_dt=0.05, time=30000, seed=123): # Fix the stress field for different tau_ext
+def studyDepinning(tau_min, tau_max, points,
+                   timestep_dt, time,folder_name="results", seed=None): # Fix the stress field for different tau_ext
     
     Path(folder_name).mkdir(exist_ok=True, parents=True)
 
@@ -160,10 +196,6 @@ def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
 
     pass
 
-def makePotentialPlot():
-    sim = PartialDislocationsSimulation()
-    sim.jotain_saatoa_potentiaaleilla()
-
 def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
     # Run the simulation
     total_time = 400
@@ -219,7 +251,9 @@ def multiple_depinnings_mp(seed):
 
 if __name__ == "__main__":
     # Run multiple such depinning studies with varying seeds
-    studyDepinning_mp(seed=2,folder_name="results/13-feb-n1", tau_min=1, tau_max=6)
+    time = 10000
+    dt = 0.5
+    studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=2, folder_name="/Volumes/Tiedostoja/dislocationData/13-feb-n3")
     seeds = range(11,21)
     for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
-        studyDepinning_mp(seed=seed, folder_name="results/13-feb-n1", tau_min=2.85, tau_max=3.1)
+        studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=seed, folder_name="results/13-feb-n2")
