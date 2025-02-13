@@ -7,7 +7,7 @@ class PartialDislocationsSimulation:
                 bigN=1024, length=1024, time=500, 
                 timestep_dt=0.01, deltaR=1, bigB=1, 
                 smallB=1, b_p=1, cLT1=2, cLT2=2, mu=1, 
-                tauExt=0, d0=40, c_gamma=50, seed:float =None):
+                tauExt=0, d0=40, c_gamma=50, seed:int =None):
         
         self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
         self.length = length                    # Length L of the actual line
@@ -35,6 +35,7 @@ class PartialDislocationsSimulation:
         # self.c_gamma = self.deltaR*50
 
         self.d0 = d0                            # Initial distance
+        self.seed = seed
         if seed != None:
             np.random.seed(seed)
         
@@ -47,7 +48,7 @@ class PartialDislocationsSimulation:
         self.has_simulation_been_run = False
 
         self.time_elapsed = 0                   # The time elapsed since the beginning of simulation in seconds
-        self.tau_cutoff = 5000                  # Time when tau is switched on in seconds
+        self.tau_cutoff = self.time/3                  # Time when tau is switched on in seconds
 
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
