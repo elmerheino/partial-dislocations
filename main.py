@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from simulation import PartialDislocationsSimulation
 from pathlib import Path
-# import pickle
+import pickle
 from tqdm import tqdm
 import json
 import multiprocessing as mp
@@ -41,7 +41,7 @@ def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
         sim.bigN, sim.length, sim.time, sim.dt,
         sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
         sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
-        sim.d0, sim.seed
+        sim.d0, sim.seed, sim.tau_cutoff
         ] # From these parameters you should be able to replicate the simulation
     
     y1_as_list = [list(row) for row in sim.y1]  # Convert the ndarray to a list of lists
@@ -49,18 +49,39 @@ def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
 
     result = {
         "parameters":parameters,
-        "y1":y1_as_list,
-        "y2":y2_as_list
+        "y1":sim.y1,
+        "y2":sim.y2
     }
 
-    dump_path = Path(folder_name).joinpath("json-dumps")
+    dump_path = Path(folder_name).joinpath("pickle-dumps")
     dump_path = dump_path.joinpath(f"seed-{sim.seed}")
     dump_path.mkdir(exist_ok=True, parents=True)
 
     dump_path = dump_path.joinpath(f"sim-{sim.tauExt}.json")
-    with open(str(dump_path), "w") as fp:
-        json.dump(result,fp)
+    with open(str(dump_path), "wb") as fp:
+        pickle.dump(result,fp)
     pass
+
+def loadResults(file_path):
+    # Load the results from a file at file_path to a new simulation object for further processing
+
+    with open(file_path, "rb") as fp:
+        res_dict = pickle.load(fp)
+
+    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = res_dict["parameters"]
+    res = PartialDislocationsSimulation(bigN=bigN, bigB=bigB, length=length,
+                                        time=time,timestep_dt=dt, deltaR=deltaR, 
+                                        smallB=smallB, b_p=b_p, cLT1=cLT1, cLT2=cLT2,
+                                        mu=mu, tauExt=tauExt, c_gamma=c_gamma, d0=d0, seed=seed)
+    
+    # Modify the internal state of the object according to preferences
+    res.tau_cutoff = tau_cutoff
+    res.has_simulation_been_run = True
+
+    res.y1 = res_dict["y1"]
+    res.y2 = res_dict["y2"]
+
+    return res
 
 def studyConstantStress(tauExt,
                         timestep_dt,
@@ -196,32 +217,27 @@ def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
 
     pass
 
-def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
+def makeGif(sim : PartialDislocationsSimulation, file_path : str):
     # Run the simulation
     total_time = 400
 
-    simulation = PartialDislocationsSimulation(time=total_time, timestep_dt=total_dt, bigN=200, length=200, 
-                                               c_gamma=potential_term,
-                                               cLT1=gradient_term, cLT2=gradient_term, 
-                                               deltaR=1, tauExt=tau_ext, d0=39)
-    
-    simulation.run_simulation()
-    simulation.run_further(50,new_dt=total_dt)
-
     # Get revelant info from simulation
-    y1,y2 = simulation.getLineProfiles()
+    y1,y2 = sim.getLineProfiles()
 
-    x = simulation.getXValues()
-    t_axis = simulation.getTvalues()
+    x = sim.getXValues()
+    t_axis = sim.getTvalues()
 
-    gifTitle = simulation.getTitleForPlot()
+    gifTitle = sim.getTitleForPlot()
 
     # Make the gif
     frames = list()
-    counter = 0
+    save_path = Path(file_path)
+    save_path.mkdir(exist_ok=True, parents=True)
+
+    frames_path = save_path.joinpath("frames")
+    frames_path.mkdir(exist_ok=True, parents=True)
+
     for h1,h2,t in zip(y1,y2,t_axis):
-        # counter = counter + 1
-        # time_at_t = counter*total_dt
 
         plt.plot(x, h1, color="blue")
         plt.plot(x, h2, color="red")
@@ -230,19 +246,24 @@ def makeGif(gradient_term=0.5, potential_term=60, total_dt=0.25, tau_ext=1):
         plt.title(gifTitle)
         plt.xlabel(f"t={t:.2f}")
 
-        plt.savefig(f"frames/tmp-{t}.png")
+        
+        frame_path = frames_path.joinpath(f"tmp-{t}.png")
+        plt.savefig(str(frame_path))
         plt.clf()
-        frames.append(Image.open(f"frames/tmp-{t}.png"))
+        
+        frames.append(Image.open(str(frame_path)))
 
-    frames[0].save(f"lines-moving-aroung-C-{gradient_term}-C_gamma-{potential_term}.gif", save_all=True, append_images=frames[1:], duration=20, loop=0)
+    gif_path = save_path.joinpath(f"lines-moving-aroung-C-{sim.cLT1:.4f}-C_gamma-{sim.c_gamma:.4f}.gif")
+    frames[0].save(str(gif_path), save_all=True, append_images=frames[1:], duration=20, loop=0)
 
-    avgDists = simulation.getAverageDistances()
+    avgDists = sim.getAverageDistances()
 
     plt.clf()
     plt.plot(t_axis, avgDists)
     plt.title("Average distance")
     plt.xlabel("Time t (s)")
-    plt.savefig(f"avg_dist-C-{gradient_term}-G-{potential_term}.png")
+    avg_dist_path = save_path.joinpath(f"avg_dist-C-{sim.cLT1:.4f}-G-{sim.c_gamma:.4f}.png")
+    plt.savefig(str(avg_dist_path))
     pass
 
 def multiple_depinnings_mp(seed):
@@ -251,9 +272,12 @@ def multiple_depinnings_mp(seed):
 
 if __name__ == "__main__":
     # Run multiple such depinning studies with varying seeds
-    time = 10000
+    #time = 10000
     dt = 0.5
-    studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=2, folder_name="/Volumes/Tiedostoja/dislocationData/13-feb-n3")
-    seeds = range(11,21)
-    for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
-        studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=seed, folder_name="results/13-feb-n2")
+    #studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=2, folder_name="/Volumes/Tiedostoja/dislocationData/14-feb-n1")
+    # seeds = range(11,21)
+    # for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
+    #     studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=seed, folder_name="results/13-feb-n2")
+
+    loadedSim = loadResults("joku-simulaatio.pickle")
+    makeGif(loadedSim, "results/gifs")
