@@ -8,6 +8,7 @@ from tqdm import tqdm
 import json
 import multiprocessing as mp
 from functools import partial
+from argparse import ArgumentParser
 
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -57,7 +58,7 @@ def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     dump_path = dump_path.joinpath(f"seed-{sim.seed}")
     dump_path.mkdir(exist_ok=True, parents=True)
 
-    dump_path = dump_path.joinpath(f"sim-{sim.tauExt}.json")
+    dump_path = dump_path.joinpath(f"sim-{sim.tauExt:.4f}.pickle")
     with open(str(dump_path), "wb") as fp:
         pickle.dump(result,fp)
     pass
@@ -103,8 +104,8 @@ def studyConstantStress(tauExt,
 
     return (rV1, rV2, totV2)
 
-def studyDepinning_mp(tau_min, tau_max, points,
-                   timestep_dt, time, seed=123, folder_name="results"):
+def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
+                   timestep_dt:float, time:float, seed:int=None, folder_name="results"):
     # Multiprocessing compatible version of a single depinning study, here the studies
     # are distributed between threads by stress letting python mp library determine the best way
     
@@ -270,14 +271,34 @@ def multiple_depinnings_mp(seed):
     # Helper function to run depinning studies one study per thread
     studyDepinning(folder_name="results/11-feb-n2", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=seed)
 
-if __name__ == "__main__":
+def jotain_roskaa():
     # Run multiple such depinning studies with varying seeds
-    #time = 10000
+    time = 10000
     dt = 0.5
-    #studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=2, folder_name="/Volumes/Tiedostoja/dislocationData/14-feb-n1")
-    # seeds = range(11,21)
-    # for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
-    #     studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=seed, folder_name="results/13-feb-n2")
+    studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=2, folder_name="/Volumes/Tiedostoja/dislocationData/14-feb-n1")
+    seeds = range(11,21)
+    for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
+        studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=seed, folder_name="results/13-feb-n2")
 
     loadedSim = loadResults("joku-simulaatio.pickle")
     makeGif(loadedSim, "results/gifs")
+
+def triton():
+    parser = ArgumentParser(prog="Dislocation simulation")
+    parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True)
+    parser.add_argument('-f', '--folder', help='Specify the output folder for all the dumps and results.', required=True)
+    parser.add_argument('-tmin', '--tau-min', help='Start value for stress.', required=True)
+    parser.add_argument('-tmax', '--tau-max', help='End value for stress.', required=True)
+    parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
+    parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
+    parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
+
+    parsed = parser.parse_args()
+
+    studyDepinning_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
+                       time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
+                       folder_name=parsed.folder)
+    pass
+
+if __name__ == "__main__":
+    triton()
