@@ -8,7 +8,8 @@ import multiprocessing as mp
 from functools import partial
 from argparse import ArgumentParser
 from plots import *
-    
+# import time
+
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # Dumps the results of a simulation to a json file
     if not sim.has_simulation_been_run:
@@ -72,7 +73,7 @@ def studyConstantStress(tauExt,
 
     simulation.run_simulation()
 
-    dumpResults(simulation, folder_name)
+    # dumpResults(simulation, folder_name)
 
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
@@ -81,13 +82,13 @@ def studyConstantStress(tauExt,
     return (rV1, rV2, totV2)
 
 def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
-                   timestep_dt:float, time:float, seed:int=None, folder_name="results"):
+                   timestep_dt:float, time:float, seed:int=None, folder_name="results", cores=1):
     # Multiprocessing compatible version of a single depinning study, here the studies
     # are distributed between threads by stress letting python mp library determine the best way
     
     stresses = np.linspace(tau_min, tau_max, points)
     
-    with mp.Pool(8) as pool:
+    with mp.Pool(cores) as pool:
         results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
     
@@ -155,6 +156,7 @@ def jotain_roskaa():
     makeGif(loadedSim, "results/gifs")
 
 def triton():
+    # k = time.time()
     parser = ArgumentParser(prog="Dislocation simulation")
     parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True)
     parser.add_argument('-f', '--folder', help='Specify the output folder for all the dumps and results.', required=True)
@@ -163,12 +165,18 @@ def triton():
     parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
+    parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool.', required=True)
 
     parsed = parser.parse_args()
 
+    estimate = (int(parsed.time)/float(parsed.timestep))*1024*2*4*1e-6
+    # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
+
     studyDepinning_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                        time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
-                       folder_name=parsed.folder)
+                       folder_name=parsed.folder, cores=int(parsed.cores))
+    # time_elapsed = time.time() - k
+    # print(f"It took {time_elapsed} for the script to run.")
     pass
 
 if __name__ == "__main__":
