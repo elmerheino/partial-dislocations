@@ -2,7 +2,7 @@ import numpy as np
 from simulation import PartialDislocationsSimulation
 from pathlib import Path
 import pickle
-from tqdm import tqdm
+# from tqdm import tqdm
 import json
 import multiprocessing as mp
 from functools import partial
@@ -127,8 +127,9 @@ def studyDepinning(tau_min, tau_max, points,
         rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed)
         # print(f"Simulation finished with : v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
         r_velocities.append(rel_tot)
-    
-    makeDepinningPlot(stresses, r_velocities, time, seed, folder_name=folder_name)
+
+    # Comment out unnecessary io operations to minimize GIL
+    # makeDepinningPlot(stresses, r_velocities, time, seed, folder_name=folder_name)
 
     results = {
         "stresses":stresses.tolist(),
