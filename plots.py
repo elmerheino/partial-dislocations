@@ -50,7 +50,7 @@ def makeGif(sim : PartialDislocationsSimulation, file_path : str):
     plt.title("Average distance")
     plt.xlabel("Time t (s)")
     avg_dist_path = save_path.joinpath(f"avg_dist-C-{sim.cLT1:.4f}-G-{sim.c_gamma:.4f}.png")
-    plt.savefig(str(avg_dist_path))
+    plt.savefig(str(avg_dist_path), dpi=300)
     pass
 
 def makeVelocityPlot(sim: PartialDislocationsSimulation, folder_name):
@@ -92,21 +92,11 @@ def makeVelocityPlot(sim: PartialDislocationsSimulation, folder_name):
     axes[1].legend()
 
     plt.tight_layout()
-    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png") # It's nice to have a plot from each individual simulation
+    plt.savefig(f"{folder_name}/constant-stress-tau-{tauExt:.2f}.png", dpi=300) # It's nice to have a plot from each individual simulation
     plt.clf()
     plt.close()
 
     pass
-
-def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"):
-    Path(folder_name).mkdir(exist_ok=True, parents=True)
-    plt.clf()
-    plt.scatter(stresses, relVelocities, marker='x')
-    plt.title(f"Depinning, seed={seed}")
-    plt.xlabel("$\\tau_{ext}$")
-    plt.ylabel("$v_{CM}$")
-    plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png")
-    # plt.show()
 
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -129,6 +119,16 @@ def studyAvgDistance():
 
     plt.tight_layout()
     plt.show()
+
+def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"):
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
+    plt.clf()
+    plt.scatter(stresses, relVelocities, marker='x')
+    plt.title(f"Depinning, seed={seed}")
+    plt.xlabel("$\\tau_{ext}$")
+    plt.ylabel("$v_{CM}$")
+    plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png", dpi=300)
+    # plt.show()
 
 def makeDepinningPlot(stresses, vCm, time, count, folder_name="results"):
     Path(folder_name).mkdir(exist_ok=True, parents=True)
