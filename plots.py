@@ -53,7 +53,7 @@ def makeGif(sim : PartialDislocationsSimulation, file_path : str):
     plt.savefig(str(avg_dist_path))
     pass
 
-def makeStressPlot(sim: PartialDislocationsSimulation, folder_name):
+def makeVelocityPlot(sim: PartialDislocationsSimulation, folder_name):
     # Make a plot with velocities and average distance from the given simulation sim
     # The sim object must have methods: getTValues, getAverageDistance, getRelaxedVeclovity
     # and getCM

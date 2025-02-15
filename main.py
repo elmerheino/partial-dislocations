@@ -15,49 +15,40 @@ def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     if not sim.has_simulation_been_run:
         raise Exception("Simulation has not been run.")
     
-    parameters = [
+    parameters = np.array([
         sim.bigN, sim.length, sim.time, sim.dt,
         sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
         sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
         sim.d0, sim.seed, sim.tau_cutoff
-        ] # From these parameters you should be able to replicate the simulation
+        ]) # From these parameters you should be able to replicate the simulation
     
-    y1_as_list = [list(row) for row in sim.y1]  # Convert the ndarray to a list of lists
-    y2_as_list = [list(row) for row in sim.y2]
 
-    result = {
-        "parameters":parameters,
-        "y1":sim.y1,
-        "y2":sim.y2
-    }
-
-    dump_path = Path(folder_name).joinpath("pickle-dumps")
+    dump_path = Path(folder_name).joinpath("simulation-dumps")
     dump_path = dump_path.joinpath(f"seed-{sim.seed}")
     dump_path.mkdir(exist_ok=True, parents=True)
 
-    dump_path = dump_path.joinpath(f"sim-{sim.tauExt:.4f}.pickle")
-    with open(str(dump_path), "wb") as fp:
-        pickle.dump(result,fp)
+    dump_path = dump_path.joinpath(f"sim-{sim.tauExt:.4f}.npz")
+    np.savez(str(dump_path), params=parameters, y1=sim.y1, y2=sim.y2)
+
     pass
 
 def loadResults(file_path):
     # Load the results from a file at file_path to a new simulation object for further processing
 
-    with open(file_path, "rb") as fp:
-        res_dict = pickle.load(fp)
+    loaded  = np.load(file_path)
 
-    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = res_dict["parameters"]
-    res = PartialDislocationsSimulation(bigN=bigN, bigB=bigB, length=length,
+    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
+    res = PartialDislocationsSimulation(bigN=bigN.astype(int), bigB=bigB, length=length,
                                         time=time,timestep_dt=dt, deltaR=deltaR, 
                                         smallB=smallB, b_p=b_p, cLT1=cLT1, cLT2=cLT2,
-                                        mu=mu, tauExt=tauExt, c_gamma=c_gamma, d0=d0, seed=seed)
+                                        mu=mu, tauExt=tauExt, c_gamma=c_gamma, d0=d0, seed=seed.astype(int))
     
     # Modify the internal state of the object according to preferences
     res.tau_cutoff = tau_cutoff
     res.has_simulation_been_run = True
 
-    res.y1 = res_dict["y1"]
-    res.y2 = res_dict["y2"]
+    res.y1 = loaded["y1"]
+    res.y2 = loaded["y2"]
 
     return res
 
@@ -73,7 +64,7 @@ def studyConstantStress(tauExt,
 
     simulation.run_simulation()
 
-    # dumpResults(simulation, folder_name)
+    dumpResults(simulation, folder_name)
 
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
@@ -169,4 +160,7 @@ def triton():
     pass
 
 if __name__ == "__main__":
-    triton()
+    # triton()
+    # studyConstantStress(tauExt=3, timestep_dt=0.05, time=10000, seed=100, folder_name="results/15-feb-1")
+    sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
+    makeVelocityPlot(sim, "results/15-feb-1")
