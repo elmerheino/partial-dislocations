@@ -42,7 +42,7 @@ def studyConstantStress(tauExt,
                                               cLT1=0.1, cLT2=0.1, seed=seed)
     
     simulation.run_simulation()
-    dumpResults(simulation, folder_name)
+    # dumpResults(simulation, folder_name)
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
     # makeVelocityPlot(simulation, folder_name)
@@ -131,7 +131,7 @@ def triton():
     parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
-    parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool.', required=True)
+    parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.')
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
     parser.add_argument('--single', help='Simulate a single dislocation.', action="store_true")
 
@@ -140,14 +140,19 @@ def triton():
     estimate = (int(parsed.time)/float(parsed.timestep))*1024*2*4*1e-6
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
+    if parsed.cores == None:
+        cores = mp.cpu_count()
+    else:
+        cores = int(parsed.cores)
+
     if parsed.partial:
         studyDepinning_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=int(parsed.cores))
+                        folder_name=parsed.folder, cores=cores)
     elif parsed.single:
         studyDepinnningSingle_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                     time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
-                    folder_name=parsed.folder, cores=int(parsed.cores))
+                    folder_name=parsed.folder, cores=cores)
     else:
         raise Exception("Not specified which type of dislocation must be simulated.")
 
