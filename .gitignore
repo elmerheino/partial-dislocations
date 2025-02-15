@@ -175,3 +175,6 @@ lines-moving-aroung.gif
 avg_dist.png
 gifs
 results
+*.pickle
+*.out
+*.png
