@@ -40,12 +40,9 @@ def studyConstantStress(tauExt,
     simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=1024, length=1024, 
                                               timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1, seed=seed)
-    # print(" ".join(simulation.getParamsInLatex()))
-
+    
     simulation.run_simulation()
-
     dumpResults(simulation, folder_name)
-
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
 
     # makeVelocityPlot(simulation, folder_name)
@@ -86,35 +83,44 @@ def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
     with open(str(depining_path), 'w') as fp:
         json.dump(results_json,fp)
 
-def studyDepinning(tau_min, tau_max, points,
-                   timestep_dt, time,folder_name="results", seed=None): # Fix the stress field for different tau_ext
-    
-    Path(folder_name).mkdir(exist_ok=True, parents=True)
+def studyConstantStressSingle(tauExt:float, timestep_dt:float, time:float, seed:int=None, folder_name="results"):
+    # Study the velocity of a single relaxed dislocation.
+    sim = DislocationSimulation(tauExt=tauExt, bigN=1024, length=1024, 
+                                              timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
+                                              cLT1=0.1, seed=seed)
+    sim.run_simulation()
+    v_rel = sim.getRelaxedVelocity()
+    return v_rel
+
+def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
+                   timestep_dt:float, time:float, seed:int=None, folder_name="results", cores=1):
+    # Run a depinning study for a single dislocation
 
     stresses = np.linspace(tau_min, tau_max, points)
-    r_velocities = list()
 
-    for s,p in zip(stresses, tqdm(range(points), desc="Running simulations", unit="simulation")):
-        rel_v1, rel_v2, rel_tot = studyConstantStress(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed)
-        # print(f"Simulation finished with : v1_cm = {rel_v1}  v2_cm = {rel_v2}  v2_tot = {rel_tot}")
-        r_velocities.append(rel_tot)
+    with mp.Pool(cores) as pool:
+        velocities = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
+    
+    makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
 
-    # Comment out unnecessary io operations to minimize GIL
-    # makeDepinningPlot(stresses, r_velocities, time, seed, folder_name=folder_name)
-
-    results = {
+    results_json = {
         "stresses":stresses.tolist(),
-        "relaxed_velocities":r_velocities,
-        "seed":seed
+        "v_rel":velocities,
+        "seed":seed,
+        "time":time,
+        "dt":timestep_dt
     }
 
-    with open(f"{folder_name}/depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json", 'w') as fp:
-        json.dump(results,fp)
-    
-def multiple_depinnings_mp(seed):
-    # Helper function to run depinning studies one study per thread
-    studyDepinning(folder_name="results/11-feb-n2", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=seed)
+    depining_path = Path(folder_name)
+    depining_path = depining_path.joinpath("depinning-dumps")
+    depining_path.mkdir(exist_ok=True, parents=True)
+    depining_path = depining_path.joinpath(f"depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json")
+    with open(str(depining_path), 'w') as fp:
+        json.dump(results_json,fp)
 
+    pass
+
+    
 def triton():
     # k = time.time()
     parser = ArgumentParser(prog="Dislocation simulation")
@@ -126,23 +132,30 @@ def triton():
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool.', required=True)
+    parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
+    parser.add_argument('--single', help='Simulate a single dislocation.', action="store_true")
 
     parsed = parser.parse_args()
 
     estimate = (int(parsed.time)/float(parsed.timestep))*1024*2*4*1e-6
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
-    studyDepinning_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
-                       time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
-                       folder_name=parsed.folder, cores=int(parsed.cores))
+    if parsed.partial:
+        studyDepinning_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
+                        time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
+                        folder_name=parsed.folder, cores=int(parsed.cores))
+    elif parsed.single:
+        studyDepinnningSingle_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
+                    time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
+                    folder_name=parsed.folder, cores=int(parsed.cores))
+    else:
+        raise Exception("Not specified which type of dislocation must be simulated.")
+
     # time_elapsed = time.time() - k
     # print(f"It took {time_elapsed} for the script to run.")
     pass
 
 if __name__ == "__main__":
-    sim = DislocationSimulation(tauExt=0, bigN=1024, length=1024, 
-                                              timestep_dt=0.05, time=10000, d0=39, c_gamma=20, 
-                                              cLT1=0.1, cLT2=0.1, seed=0)
-    sim.run_simulation()
-    makeVelocityPlot(sim, "results")
+    # studyDepinnningSingle_mp(tau_min=2.7, tau_max=3.25, points=50, timestep_dt=0.05, time=10000, seed=1, folder_name="results/single-dislocation", cores=5)
+    triton()
     pass

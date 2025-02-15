@@ -42,7 +42,7 @@ def loadDepinningDumps(folder):
 
 if __name__ == "__main__":
     stresses, vCm = loadDepinningDumps('results/results-triton/depinning-dumps')
-    makeDepinningPlot(stresses, vCm, 10000, 100,folder_name="./")
+    makeDepinningPlotAvg(stresses, vCm, 10000, 100,folder_name="./")
 
     sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
     makeVelocityPlot(sim, "results/15-feb-1/")

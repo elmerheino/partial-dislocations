@@ -176,9 +176,9 @@ def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"
     plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png", dpi=300)
     # plt.show()
 
-def makeDepinningPlot(stresses, vCm, time, count, folder_name="results"):
+def makeDepinningPlotAvg(stresses, vCm, time, count, folder_name="results"):
     # This function is designed for data obtained by averaging.
-    
+
     Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
     averages = np.mean(vCm, axis=0)
