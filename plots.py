@@ -1,4 +1,5 @@
 from simulation import PartialDislocationsSimulation
+from singleDislocation import *
 import matplotlib.pyplot as plt
 from pathlib import Path
 from PIL import Image
@@ -98,6 +99,51 @@ def makeVelocityPlot(sim: PartialDislocationsSimulation, folder_name):
 
     pass
 
+def makeVelocityPlot(sim: DislocationSimulation, folder_name:str = "results"):
+        # Make a plot with velocities and average distance from the given simulation sim
+    # The sim object must have methods: getTValues, getAverageDistance, getRelaxedVeclovity
+    # and getCM
+
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
+
+    t = sim.getTvalues()
+    avgD = sim.getAverageDistances()
+    start = sim.time - 1000
+    vR = sim.getRelaxedVelocity(time_to_consider=1000)
+
+    cm = sim.getCM()
+
+    tauExt = sim.tauExt
+
+    fig, axes = plt.subplots(1,2, figsize=(12, 8))
+
+    axes_flat = axes.ravel()
+
+    axes[0].plot(t, np.gradient(cm), color="black", label="$y_1$") # Plot the velocity of the cm of y_1
+    axes[0].plot([start,sim.time], vR*np.ones(2), '-', color="red")
+
+    axes[0].set_title(sim.getTitleForPlot())
+    axes[0].set_xlabel("Time t (s)")
+    axes[0].set_ylabel("$ v_{CM} $")
+    axes[0].legend()
+
+    
+    axes[1].plot(t, avgD, label="Distance from y=0.")
+
+    axes[1].set_title(sim.getTitleForPlot())
+    axes[1].set_xlabel("Time t (s)")
+    axes[1].set_ylabel("$ d $")
+    axes[1].legend()
+
+    plt.tight_layout()
+    plt.savefig(f"{folder_name}/single-dislocation-tau-{tauExt:.2f}.png", dpi=300) # It's nice to have a plot from each individual simulation
+    plt.clf()
+    plt.close()
+
+    pass
+
+    pass
+
 def studyAvgDistance():
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
     axes_flat = axes.ravel()
@@ -131,6 +177,8 @@ def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"
     # plt.show()
 
 def makeDepinningPlot(stresses, vCm, time, count, folder_name="results"):
+    # This function is designed for data obtained by averaging.
+    
     Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
     averages = np.mean(vCm, axis=0)

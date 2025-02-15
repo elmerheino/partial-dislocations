@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import fft
 
-class PartialDislocationsSimulation:
+class DislocationSimulation:
 
     def __init__(self, 
                 bigN=1024, length=1024, time=500, 
@@ -24,8 +24,8 @@ class PartialDislocationsSimulation:
         # TODO: make sure the value of b aligns w/ b_p and C_LT1 and C_LT2
 
         self.b_p = b_p                          # Equal lengths of the partial burgers vectors
-        self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} 
-        self.cLT2 = cLT2
+        self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1}
+
         # TODO: make sure values of cLT1 and cLT2 align with the line tension tau
         self.mu = mu
 
@@ -42,7 +42,6 @@ class PartialDislocationsSimulation:
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random stress field
 
         # Pre-allocate memory here
-        self.y2 = np.empty((self.timesteps, self.bigN))
         self.y1 = np.empty((self.timesteps, self.bigN))
 
         self.has_simulation_been_run = False
@@ -69,7 +68,7 @@ class PartialDislocationsSimulation:
         return [
             f"N={self.bigN}", f"L={self.length}", f"t={self.time}",
             f"dt={self.dt}", f"\\Delta R = {self.deltaR}", f"C_{{LT1}} = {self.cLT1}",
-            f"C_{{LT2}} = {self.cLT2}", f"\\tau_{{ext}} = {self.tauExt}", f"b_p = {self.b_p}"]
+            f"\\tau_{{ext}} = {self.tauExt}", f"b_p = {self.b_p}"]
     
     def getTitleForPlot(self, wrap=6):
         parameters = self.getParamsInLatex()
@@ -96,22 +95,6 @@ class PartialDislocationsSimulation:
         else:
             return 0
     
-    def force1(self, y1,y2):
-        #return -np.average(y1-y2)*np.ones(bigN)
-        #return -(c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
-
-        factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
-        return factor*(1 + numerator/self.d0)
-
-    def force2(self, y1,y2):
-        #return np.average(y1-y2)*np.ones(bigN)
-        #return (c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
-
-        factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
-        return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
-
     def secondDerivative(self, x):
         x_hat = fft.fft(x)
         k = fft.fftfreq(n=self.bigN, d=self.deltaL)*2*np.pi
@@ -120,102 +103,66 @@ class PartialDislocationsSimulation:
 
         return fft.ifft(d_x_hat).real
 
-    def timestep(self, dt, y1,y2):
+    def timestep(self, dt, y1):
         dy1 = ( 
             self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
             + self.b_p*self.tau(y1) # The random stress term
-            + self.force1(y1, y2) # Interaction force
             + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
-        dy2 = ( 
-            self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
-            + self.b_p*self.tau(y2) 
-            + self.force2(y1, y2)
-            + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
         
         newY1 = (y1 + dy1*dt)
-        newY2 = (y2 + dy2*dt)
 
         self.time_elapsed += dt    # Update how much time has elapsed by adding dt
 
-        return (newY1, newY2)
-
+        return newY1
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
         self.y1[0] = y10
 
-        y20 = np.zeros(self.bigN, dtype=float)
-        self.y2[0] = y20
 
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
-            y2_previous = self.y2[i-1]
 
-            (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous)
+            y1_i = self.timestep(self.dt,y1_previous)
             self.y1[i] = y1_i
-            self.y2[i] = y2_i
         
         self.has_simulation_been_run = True
     
-    def run_further(self, new_time:int, new_dt:int = 0.05):
-        # Runs the simulation further in time with a new timestep if need be
-        # self.dt = new_dt
-        # TODO: Implement the possibility to change the timestep
-        raise Exception("Method does not work yet.")
-
-        self.time = self.time + new_time
-        new_timesteps = round(new_time/self.dt)
-
-        for i in range(self.timesteps,self.timesteps+new_timesteps):
-            y1_previous = self.y1[i-1]
-            y2_previous = self.y2[i-1]
-
-            y1_i = self.timestep(self.dt,y1_previous,y2_previous)
-            self.y1[i] = y1_i
-            self.y2[i] = y1_i
-        
-        self.timesteps += new_timesteps # Update the no. of timesteps so that getTValues will function properly
-
-        return 0
-        
     def getLineProfiles(self):
         if self.has_simulation_been_run:
-            return (self.y1, self.y2)
+            return self.y1
+        else:
+            raise Exception("Simulation has not been run.")
         
         print("Simulation has not been run yet.")
-        return (self.y1, self.y2) # Retuns empty lists
+        return self.y1 # Retuns empty lists
     
     def getAverageDistances(self):
-        return np.average(self.y1, axis=1) - np.average(self.y2, axis=1)
+        # Returns the average distance from y=0
+        return np.average(self.y1, axis=1)
     
     def getCM(self):
         # Return the centres of mass of the two lines as functions of time
-        if len(self.y1) == 0 or len(self.y2) == 0:
+        if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
 
         y1_CM = np.mean(self.y1, axis=1)
-        y2_CM = np.mean(self.y2, axis=1)
 
-        total_CM = (y1_CM + y2_CM)/2    # TODO: This is supposed to be the centre of mass of the entire system
 
-        return (y1_CM,y2_CM,total_CM)
+        return y1_CM
     
     def getRelaxedVelocity(self, time_to_consider=1000):
-        if len(self.y1) == 0 or len(self.y2) == 0:
+        if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
         
         # Returns the velocities of the centres of mass
-        y1_CM, y2_CM, tot_CM = self.getCM()
+        y1_CM = self.getCM()
         v1_CM = np.gradient(y1_CM)
-        v2_CM = np.gradient(y2_CM)
-        vTot_CM = np.gradient(tot_CM)
 
         # Condisering only time_to_consider seconds from the end
         start = round(self.timesteps - time_to_consider/self.dt)
 
         v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
-        v_relaxed_y2 = np.average(v2_CM[start:self.timesteps])
-        v_relaxed_tot = np.average(vTot_CM[start:self.timesteps])
 
-        return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
+        return v_relaxed_y1

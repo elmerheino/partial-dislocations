@@ -1,5 +1,6 @@
 import numpy as np
 from simulation import PartialDislocationsSimulation
+from singleDislocation import *
 from pathlib import Path
 from tqdm import tqdm
 import json
@@ -139,5 +140,9 @@ def triton():
     pass
 
 if __name__ == "__main__":
-    triton()
+    sim = DislocationSimulation(tauExt=0, bigN=1024, length=1024, 
+                                              timestep_dt=0.05, time=10000, d0=39, c_gamma=20, 
+                                              cLT1=0.1, cLT2=0.1, seed=0)
+    sim.run_simulation()
+    makeVelocityPlot(sim, "results")
     pass
