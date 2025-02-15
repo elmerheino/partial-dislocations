@@ -129,3 +129,19 @@ def studyAvgDistance():
 
     plt.tight_layout()
     plt.show()
+
+def makeDepinningPlot(stresses, vCm, time, count, folder_name="results"):
+    Path(folder_name).mkdir(exist_ok=True, parents=True)
+    plt.clf()
+    averages = np.mean(vCm, axis=0)
+
+    plt.scatter(stresses, averages, 10, marker='x', linewidths=1, label="mean")
+    plt.plot(stresses, averages + np.std(vCm, axis=0), '--', color="red", linewidth=1, label="$\\sigma$")
+    plt.plot(stresses, averages - np.std(vCm, axis=0), '--', color="red", linewidth=1)
+
+    plt.title(f"Depinning    N={count}")
+    plt.xlabel("$\\tau_{ext}$")
+    plt.ylabel("$v_{CM}$")
+    plt.legend()
+
+    plt.savefig(f"{folder_name}/depinning-tau-{min(stresses)}-{max(stresses)}-p-{len(stresses)}-t-{time}-N-{count}.png", dpi=300)

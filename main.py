@@ -2,7 +2,7 @@ import numpy as np
 from simulation import PartialDislocationsSimulation
 from pathlib import Path
 import pickle
-# from tqdm import tqdm
+from tqdm import tqdm
 import json
 import multiprocessing as mp
 from functools import partial
@@ -11,7 +11,7 @@ from plots import *
 # import time
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
-    # Dumps the results of a simulation to a json file
+    # Dumps the results of a simulation to a pickle file
     if not sim.has_simulation_been_run:
         raise Exception("Simulation has not been run.")
     
@@ -143,18 +143,6 @@ def studyDepinning(tau_min, tau_max, points,
 def multiple_depinnings_mp(seed):
     # Helper function to run depinning studies one study per thread
     studyDepinning(folder_name="results/11-feb-n2", tau_min=2, tau_max=4, timestep_dt=0.05, time=10000, seed=seed)
-
-def jotain_roskaa():
-    # Run multiple such depinning studies with varying seeds
-    time = 10000
-    dt = 0.5
-    studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=2, folder_name="/Volumes/Tiedostoja/dislocationData/14-feb-n1")
-    seeds = range(11,21)
-    for seed,_ in zip(seeds, tqdm(range(len(seeds)), desc="Running depinning studies", unit="study")):
-        studyDepinning_mp(tau_min=2.25, tau_max=2.75, points=50, time=time, timestep_dt=dt, seed=seed, folder_name="results/13-feb-n2")
-
-    loadedSim = loadResults("joku-simulaatio.pickle")
-    makeGif(loadedSim, "results/gifs")
 
 def triton():
     # k = time.time()

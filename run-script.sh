@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=00:15:00
+#SBATCH --time=00:10:00
 #SBATCH --mem-per-cpu=3500M
 #SBATCH --output=depinning-14-2-2025.out
 #SBATCH --array=110-210
