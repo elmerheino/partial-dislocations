@@ -86,19 +86,20 @@ class PartialDislocationsSimulation:
         # Retuns the correct distance on x axis.
         return np.arange(self.bigN)*self.deltaL
     
-    def tau(self, y): # Should be static in time. The index is again the x coordinate here
+    def tau(self, y): # Should be static in time. The index is again the x coordinate here. Takes around 9.6912e-05 s
         yDisc = np.remainder(np.round(y), self.bigN).astype(np.int32) # Round the y coordinate to an integer and wrap around bigN
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
     
-    def tau_interpolated(self, y):
+    def tau_interpolated(self, y): # Takes around 0.0131 s, which is 1000x slower than above
         x_points = np.arange(self.bigN)
-        tau_res = np.empty(self.bigN)
-        for x in x_points:
-            yp = self.stressField[x,0:self.bigN]
-            yx = y[x]
-            y_res = np.interp(yx, np.arange(self.bigN), yp, period=self.bigN)
-            tau_res[x] = y_res
-
+        # tau_res = np.empty(self.bigN)
+        # for x in x_points:
+        #     yp = self.stressField[x,0:self.bigN]
+        #     yx = y[x]
+        #     y_res = np.interp(yx, np.arange(self.bigN), yp, period=self.bigN)
+        #     tau_res[x] = y_res
+        
+        tau_res = [ np.interp(y[x], x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in x_points ]
         return tau_res
     
     def tau_ext(self):
