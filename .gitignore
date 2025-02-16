@@ -178,3 +178,4 @@ results
 *.pickle
 *.out
 *.png
+.DS_Store

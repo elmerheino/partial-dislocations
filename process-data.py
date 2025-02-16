@@ -50,7 +50,7 @@ if __name__ == "__main__":
     stresses, vCm = loadDepinningDumps('results/triton/single-dislocation/depinning-dumps/', partial=False)
     stresses1, vCm_partial = loadDepinningDumps('results/triton/depinning-dumps-partial/', partial=True)
 
-    makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm, vCm_partial], ["single", "partial"], 
+    makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
                          folder_name="results/16-feb", colors=["red", "blue"])
 
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")

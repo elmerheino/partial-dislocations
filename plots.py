@@ -184,7 +184,7 @@ def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, fold
     for stress, vCm, name,color in zip(stresses, vCms, names, colors):
         averages = np.mean(vCm, axis=0)
 
-        plt.scatter(stress, averages, 10, marker='x', linewidths=1, label=f"$\\bar{{x}}$ {name}", color=color)
+        plt.scatter(stress, averages, 10, marker='x', linewidths=1, label=f"$\\bar{{x}}$ {name} N={len(vCm)}", color=color)
         sd_plot, = plt.plot(stress, averages + np.std(vCm, axis=0), '--', linewidth=0.5, label=f"$\\sigma$ {name}")
         plt.plot(stress, averages - np.std(vCm, axis=0), '--', color=sd_plot.get_color(), linewidth=0.5)
 
