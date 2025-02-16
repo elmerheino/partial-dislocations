@@ -33,6 +33,8 @@ class Simulation(object):
 
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random stress field
 
+        self.has_simulation_been_run = False
+        
         pass
 
     def secondDerivative(self, x):

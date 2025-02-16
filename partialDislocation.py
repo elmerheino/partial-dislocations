@@ -5,44 +5,17 @@ class PartialDislocationsSimulation(Simulation):
 
     def __init__(self, cLT1=2, cLT2=2, d0=40, c_gamma=50):
         
-        self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} 
+        self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} (tension of the two lines)
         self.cLT2 = cLT2
         # TODO: make sure values of cLT1 and cLT2 align with the line tension tau, and mu
 
         self.c_gamma = c_gamma                  # Parameter in the interaction force, should be small
-        # self.c_gamma = self.deltaR*50
 
-        self.d0 = d0                            # Initial distance
+        self.d0 = d0                            # Initial distance separating the partials
 
         # Pre-allocate memory here
         self.y2 = np.empty((self.timesteps, self.bigN))
         self.y1 = np.empty((self.timesteps, self.bigN))
-
-        self.has_simulation_been_run = False
-
-    def calculateC_gamma(self, v=1, theta=np.pi/2):
-        # Calulcates the C_{\gamma} parameter based on dislocation character
-        # according to Vaid et al. (12)
-
-        secondTerm = 1 - (2*v*np.cos(2*theta))
-        c_gamma = secondTerm*(2 - v)/(8*np.pi*(1-v))
-
-    def equilibriumDistance(self, gamma=60.5, tau_gamma=486):
-        # Calculated the supposed equilibrium distance of the two lines
-        # according to Vaid et al. (11)
-
-        gamma = 60.5 # Stacking fault energy, gamma is also define through sf stress \tau_{\gamma}*b_p
-        d0 = (self.c_gamma*self.mu/gamma)*self.b_p**2
-
-    def getParamsInLatex(self):
-        return super().getParamsInLatex()+ [f"C_{{LT1}} = {self.cLT1}", f"C_{{LT2}} = {self.cLT2}"]
-    
-    def getTitleForPlot(self, wrap=6):
-        parameters = self.getParamsInLatex()
-        plot_title = " ".join([
-            "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
-        ])
-        return plot_title
         
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
@@ -159,3 +132,27 @@ class PartialDislocationsSimulation(Simulation):
         v_relaxed_tot = np.average(vTot_CM[start:self.timesteps])
 
         return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
+    
+    def calculateC_gamma(self, v=1, theta=np.pi/2):
+        # Calulcates the C_{\gamma} parameter based on dislocation character
+        # according to Vaid et al. (12)
+
+        secondTerm = 1 - (2*v*np.cos(2*theta))
+        c_gamma = secondTerm*(2 - v)/(8*np.pi*(1-v))
+
+    def equilibriumDistance(self, gamma=60.5, tau_gamma=486):
+        # Calculated the supposed equilibrium distance of the two lines
+        # according to Vaid et al. (11)
+
+        gamma = 60.5 # Stacking fault energy, gamma is also define through sf stress \tau_{\gamma}*b_p
+        d0 = (self.c_gamma*self.mu/gamma)*self.b_p**2
+
+    def getParamsInLatex(self):
+        return super().getParamsInLatex()+ [f"C_{{LT1}} = {self.cLT1}", f"C_{{LT2}} = {self.cLT2}"]
+    
+    def getTitleForPlot(self, wrap=6):
+        parameters = self.getParamsInLatex()
+        plot_title = " ".join([
+            "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
+        ])
+        return plot_title

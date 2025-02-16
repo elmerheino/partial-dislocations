@@ -10,18 +10,7 @@ class DislocationSimulation(Simulation):
 
         # Pre-allocate memory here
         self.y1 = np.empty((self.timesteps, self.bigN))
-
-        self.has_simulation_been_run = False
-    
-    def getParamsInLatex(self):
-        return super().getParamsInLatex() + [f"C_{{LT1}} = {self.cLT1}"]
-    
-    def getTitleForPlot(self, wrap=6):
-        parameters = self.getParamsInLatex()
-        plot_title = " ".join([
-            "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
-        ])
-        return plot_title
+        pass
         
     def timestep(self, dt, y1):
         dy1 = ( 
@@ -68,7 +57,7 @@ class DislocationSimulation(Simulation):
             raise Exception('simulation has probably not been run')
 
         y1_CM = np.mean(self.y1, axis=1)
-        
+
         return y1_CM
     
     def getRelaxedVelocity(self, time_to_consider=1000):
@@ -85,3 +74,13 @@ class DislocationSimulation(Simulation):
         v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
 
         return v_relaxed_y1
+    
+    def getParamsInLatex(self):
+        return super().getParamsInLatex() + [f"C_{{LT1}} = {self.cLT1}"]
+    
+    def getTitleForPlot(self, wrap=6):
+        parameters = self.getParamsInLatex()
+        plot_title = " ".join([
+            "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
+        ])
+        return plot_title
