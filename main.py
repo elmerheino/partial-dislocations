@@ -45,22 +45,7 @@ def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
 
     # makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
 
-    results_json = {
-        "stresses":stresses.tolist(),
-        "v1_rel": v1_rel,
-        "v2_rel": v2_rel,
-        "relaxed_velocities_total":v_cm,
-        "seed":seed,
-        "time":time,
-        "dt":timestep_dt
-    }
-
-    depining_path = Path(folder_name)
-    depining_path = depining_path.joinpath("depinning-dumps")
-    depining_path.mkdir(exist_ok=True, parents=True)
-    depining_path = depining_path.joinpath(f"depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json")
-    with open(str(depining_path), 'w') as fp:
-        json.dump(results_json,fp)
+    dumpDepinning(stresses, v_cm, time, seed, timestep_dt, folder_name=folder_name, extra=[v1_rel, v2_rel])
 
 def studyConstantStressSingle(tauExt:float, timestep_dt:float, time:float, seed:int=None, folder_name="results"):
     # Study the velocity of a single relaxed dislocation.
@@ -82,20 +67,7 @@ def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
     
     # makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
 
-    results_json = {
-        "stresses":stresses.tolist(),
-        "v_rel":velocities,
-        "seed":seed,
-        "time":time,
-        "dt":timestep_dt
-    }
-
-    depining_path = Path(folder_name)
-    depining_path = depining_path.joinpath("depinning-dumps")
-    depining_path.mkdir(exist_ok=True, parents=True)
-    depining_path = depining_path.joinpath(f"depinning-{tau_min}-{tau_max}-{points}-{time}-{seed}.json")
-    with open(str(depining_path), 'w') as fp:
-        json.dump(results_json,fp)
+    dumpDepinning(stresses, velocities, time, seed, timestep_dt, folder_name=folder_name)
 
     pass
 

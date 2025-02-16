@@ -5,7 +5,7 @@ import numpy as np
 from simulation import PartialDislocationsSimulation
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
-    # Dumps the results of a simulation to a pickle file
+    # Dumps the results of a simulation to a npz file
     if not sim.has_simulation_been_run:
         raise Exception("Simulation has not been run.")
     
@@ -47,6 +47,26 @@ def loadResults(file_path):
 
     return res
 
+def dumpDepinning(tauExts:np.ndarray, v_rels:list, time, seed, dt, folder_name:str, extra:list = None):
+    results_json = {
+        "stresses":tauExts.tolist(),
+        "v_rel":v_rels,
+        "seed":seed,
+        "time":time,
+        "dt":dt
+    }
+    if extra != None:
+        results_json["extra"] = extra
+
+    depining_path = Path(folder_name)
+    depining_path = depining_path.joinpath("depinning-dumps")
+    depining_path.mkdir(exist_ok=True, parents=True)
+    depining_path = depining_path.joinpath(f"depinning-{min(tauExts)}-{max(tauExts)}-{len(tauExts)}-{time}-{seed}.json")
+    with open(str(depining_path), 'w') as fp:
+        json.dump(results_json,fp)
+
+    pass
+
 def loadDepinningDumps(folder, partial:bool):
     vCm = list()
     stresses = None
@@ -60,10 +80,7 @@ def loadDepinningDumps(folder, partial:bool):
             if stresses == None:
                 stresses = depinning["stresses"]
             
-            if partial:
-                vCm_i = depinning["relaxed_velocities_total"] # TODO: Unify this for single and partial dislocation
-            else:
-                vCm_i = depinning["v_rel"]
+            vCm_i = depinning["v_rel"]
             vCm.append(vCm_i)
     
     return (stresses, np.array(vCm))
