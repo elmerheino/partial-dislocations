@@ -8,29 +8,8 @@ import multiprocessing as mp
 from functools import partial
 from argparse import ArgumentParser
 from plots import *
+from processData import *
 # import time
-
-def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
-    # Dumps the results of a simulation to a pickle file
-    if not sim.has_simulation_been_run:
-        raise Exception("Simulation has not been run.")
-    
-    parameters = np.array([
-        sim.bigN, sim.length, sim.time, sim.dt,
-        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
-        sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
-        sim.d0, sim.seed, sim.tau_cutoff
-        ]) # From these parameters you should be able to replicate the simulation
-    
-
-    dump_path = Path(folder_name).joinpath("simulation-dumps")
-    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
-    dump_path.mkdir(exist_ok=True, parents=True)
-
-    dump_path = dump_path.joinpath(f"sim-{sim.tauExt:.4f}.npz")
-    np.savez(str(dump_path), params=parameters, y1=sim.y1, y2=sim.y2)
-
-    pass
 
 def studyConstantStress(tauExt,
                         timestep_dt,
@@ -64,7 +43,7 @@ def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
     v2_rel = [i[1] for i in results]
     v_cm = [i[2] for i in results]
 
-    makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
+    # makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
 
     results_json = {
         "stresses":stresses.tolist(),
@@ -101,7 +80,7 @@ def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
     with mp.Pool(cores) as pool:
         velocities = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
-    makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
+    # makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
 
     results_json = {
         "stresses":stresses.tolist(),

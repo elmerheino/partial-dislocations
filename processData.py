@@ -4,6 +4,28 @@ from plots import *
 import numpy as np
 from simulation import PartialDislocationsSimulation
 
+def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
+    # Dumps the results of a simulation to a pickle file
+    if not sim.has_simulation_been_run:
+        raise Exception("Simulation has not been run.")
+    
+    parameters = np.array([
+        sim.bigN, sim.length, sim.time, sim.dt,
+        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
+        sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
+        sim.d0, sim.seed, sim.tau_cutoff
+        ]) # From these parameters you should be able to replicate the simulation
+    
+
+    dump_path = Path(folder_name).joinpath("simulation-dumps")
+    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
+    dump_path.mkdir(exist_ok=True, parents=True)
+
+    dump_path = dump_path.joinpath(f"sim-{sim.tauExt:.4f}.npz")
+    np.savez(str(dump_path), params=parameters, y1=sim.y1, y2=sim.y2)
+
+    pass
+
 def loadResults(file_path):
     # Load the results from a file at file_path to a new simulation object for further processing
 
