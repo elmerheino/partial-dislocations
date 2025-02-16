@@ -25,25 +25,34 @@ def loadResults(file_path):
 
     return res
 
-def loadDepinningDumps(folder):
+def loadDepinningDumps(folder, partial:bool):
     vCm = list()
     stresses = None
     for file in Path(folder).iterdir():
         with open(file, "r") as fp:
-            depinning = json.load(fp)
+            try:
+                depinning = json.load(fp)
+            except:
+                print(f"File {file} is corrupted.")
 
             if stresses == None:
                 stresses = depinning["stresses"]
-
-            vCm_i = depinning["relaxed_velocities_total"]
+            
+            if partial:
+                vCm_i = depinning["relaxed_velocities_total"] # TODO: Unify this for single and partial dislocation
+            else:
+                vCm_i = depinning["v_rel"]
             vCm.append(vCm_i)
     
     return (stresses, np.array(vCm))
 
 if __name__ == "__main__":
-    stresses, vCm = loadDepinningDumps('results/results-triton/depinning-dumps')
-    makeDepinningPlotAvg(stresses, vCm, 10000, 100,folder_name="./")
+    stresses, vCm = loadDepinningDumps('results/triton/single-dislocation/depinning-dumps/', partial=False)
+    stresses1, vCm_partial = loadDepinningDumps('results/triton/depinning-dumps-partial/', partial=True)
 
-    sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
-    makeVelocityPlot(sim, "results/15-feb-1/")
+    makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm, vCm_partial], ["single", "partial"], 
+                         folder_name="results/16-feb", colors=["red", "blue"])
+
+    # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
+    # makeVelocityPlot(sim, "results/15-feb-1/")
     # makeGif(sim, "results/15-feb-1/")

@@ -176,20 +176,21 @@ def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"
     plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png", dpi=300)
     # plt.show()
 
-def makeDepinningPlotAvg(stresses, vCm, time, count, folder_name="results"):
+def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, folder_name="results", colors=["red"]):
     # This function is designed for data obtained by averaging.
 
     Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
-    averages = np.mean(vCm, axis=0)
+    for stress, vCm, name,color in zip(stresses, vCms, names, colors):
+        averages = np.mean(vCm, axis=0)
 
-    plt.scatter(stresses, averages, 10, marker='x', linewidths=1, label="mean")
-    plt.plot(stresses, averages + np.std(vCm, axis=0), '--', color="red", linewidth=1, label="$\\sigma$")
-    plt.plot(stresses, averages - np.std(vCm, axis=0), '--', color="red", linewidth=1)
+        plt.scatter(stress, averages, 10, marker='x', linewidths=1, label=f"$\\bar{{x}}$ {name}", color=color)
+        sd_plot, = plt.plot(stress, averages + np.std(vCm, axis=0), '--', linewidth=0.5, label=f"$\\sigma$ {name}")
+        plt.plot(stress, averages - np.std(vCm, axis=0), '--', color=sd_plot.get_color(), linewidth=0.5)
 
-    plt.title(f"Depinning    N={count}")
-    plt.xlabel("$\\tau_{ext}$")
-    plt.ylabel("$v_{CM}$")
-    plt.legend()
+        plt.title(f"Depinning    N={count}")
+        plt.xlabel("$\\tau_{ext}$")
+        plt.ylabel("$v_{CM}$")
+        plt.legend()
 
-    plt.savefig(f"{folder_name}/depinning-tau-{min(stresses)}-{max(stresses)}-p-{len(stresses)}-t-{time}-N-{count}.png", dpi=300)
+    plt.savefig(f"{folder_name}/depinning-tau-{min(stresses[0])}-{max(stresses[0])}-p-{len(stresses[0])}-t-{time}-N-{count}.png", dpi=300)
