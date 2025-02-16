@@ -1,5 +1,5 @@
 import numpy as np
-from simulation import PartialDislocationsSimulation
+from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import *
 from pathlib import Path
 from tqdm import tqdm

@@ -1,4 +1,4 @@
-from simulation import PartialDislocationsSimulation
+from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import *
 import matplotlib.pyplot as plt
 from pathlib import Path
