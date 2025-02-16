@@ -90,6 +90,17 @@ class PartialDislocationsSimulation:
         yDisc = np.remainder(np.round(y), self.bigN).astype(np.int32) # Round the y coordinate to an integer and wrap around bigN
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
     
+    def tau_interpolated(self, y):
+        x_points = np.arange(self.bigN)
+        tau_res = np.empty(self.bigN)
+        for x in x_points:
+            yp = self.stressField[x,0:self.bigN]
+            yx = y[x]
+            y_res = np.interp(yx, np.arange(self.bigN), yp, period=self.bigN)
+            tau_res[x] = y_res
+
+        return tau_res
+    
     def tau_ext(self):
         if self.time_elapsed >= self.tau_cutoff:
             return self.tauExt

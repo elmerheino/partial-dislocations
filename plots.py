@@ -194,3 +194,34 @@ def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, fold
         plt.legend()
 
     plt.savefig(f"{folder_name}/depinning-tau-{min(stresses[0])}-{max(stresses[0])}-p-{len(stresses[0])}-t-{time}-N-{count}.png", dpi=300)
+
+def plotRandTau():
+    sim = PartialDislocationsSimulation()
+    x = 100
+    z = list()
+    y = np.linspace(1024-10,1024+10,100)
+    for y_i in y:
+        y_all = y_i*np.ones(sim.bigN)
+        z_i = sim.tau(y_all)[x]
+        z.append(z_i)
+
+    x = 100
+    z_1 = list()
+    y_1 = np.linspace(1024-10,1024+10,100)
+    for y_i in y_1:
+        y_all = y_i*np.ones(sim.bigN)
+        z_i = sim.tau_interpolated(y_all)[x]
+        z_1.append(z_i)
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 4))  # 1 row, 3 columns
+    axes[0].plot(y, z)
+    axes[0].set_title("Cross section of $z = \\tau(100,y)$ when x=100")
+    axes[0].set_xlabel("$y$")
+    axes[0].set_ylabel("$z$")
+
+    axes[1].plot(y_1, z_1)
+    axes[1].set_title("Interpolated Cross section of $z = \\tau(100,y)$ when x=100")
+    axes[1].set_xlabel("$y$")
+    axes[1].set_ylabel("$z$")
+
+    plt.show()
