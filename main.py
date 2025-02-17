@@ -55,6 +55,7 @@ def studyConstantStressSingle(tauExt:float, timestep_dt:float, time:float, seed:
                                               cLT1=0.1, seed=seed)
     sim.run_simulation()
     v_rel = sim.getRelaxedVelocity()
+    makeVelocityPlotSingle(sim, folder_name=folder_name)
     return v_rel
 
 def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,

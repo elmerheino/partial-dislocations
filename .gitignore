@@ -179,3 +179,5 @@ results
 *.out
 *.png
 .DS_Store
+.vscode
+debug
