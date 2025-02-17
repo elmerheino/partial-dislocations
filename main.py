@@ -8,6 +8,8 @@ from plots import *
 from processData import *
 # import time
 
+save_plots = True
+
 def studyConstantStress(tauExt,
                         timestep_dt,
                         time, seed=None, folder_name="results"):
@@ -21,7 +23,8 @@ def studyConstantStress(tauExt,
     # dumpResults(simulation, folder_name)
     rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=time/10) # The velocities after relaxation
 
-    makeVelocityPlot(simulation, folder_name)
+    if save_plots:
+        makeVelocityPlot(simulation, folder_name)
 
     return (rV1, rV2, totV2)
 
@@ -49,7 +52,8 @@ def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
     v2_rel = [i[1] for i in results]
     v_cm = [i[2] for i in results]
 
-    makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
+    if save_plots:
+        makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
 
     dumpDepinning(stresses, v_cm, time, seed, timestep_dt, folder_name=folder_name, extra=[v1_rel, v2_rel])
 
@@ -60,7 +64,10 @@ def studyConstantStressSingle(tauExt:float, timestep_dt:float, time:float, seed:
                                               cLT1=0.1, seed=seed)
     sim.run_simulation()
     v_rel = sim.getRelaxedVelocity()
-    makeVelocityPlotSingle(sim, folder_name=folder_name)
+
+    if save_plots:
+        makeVelocityPlotSingle(sim, folder_name=folder_name)
+
     return v_rel
 
 def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
@@ -77,7 +84,8 @@ def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
     # with mp.Pool(cores) as pool:
     #     results = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
-    # makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
+    if save_plots:
+        makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
 
     dumpDepinning(stresses, velocities, time, seed, timestep_dt, folder_name=folder_name)
 
