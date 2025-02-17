@@ -4,10 +4,12 @@ from simulation import Simulation
 
 class DislocationSimulation(Simulation):
 
-    def __init__(self, cLT1=2):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, seed=None, d0=40):
+        super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1}
-
+        self.d0 = d0
+        
         # Pre-allocate memory here
         self.y1 = np.empty((self.timesteps, self.bigN))
         pass
@@ -28,7 +30,6 @@ class DislocationSimulation(Simulation):
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
         self.y1[0] = y10
-
 
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
