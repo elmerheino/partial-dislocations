@@ -1,9 +1,6 @@
 import numpy as np
-from simulation import PartialDislocationsSimulation
+from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import *
-from pathlib import Path
-from tqdm import tqdm
-import json
 import multiprocessing as mp
 from functools import partial
 from argparse import ArgumentParser
@@ -13,18 +10,18 @@ from processData import *
 
 def studyConstantStress(tauExt,
                         timestep_dt,
-                        time, seed=None, folder_name="results",):
+                        time, seed=None, folder_name="results"):
     # Run a simulation with a specified constant stress
 
-    simulation = PartialDislocationsSimulation(tauExt=tauExt, bigN=1024, length=1024, 
-                                              timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
+    simulation = PartialDislocationsSimulation(deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, tauExt=tauExt, bigN=1024, length=1024, 
+                                              dt=timestep_dt, time=time, d0=39, c_gamma=20, 
                                               cLT1=0.1, cLT2=0.1, seed=seed)
     
     simulation.run_simulation()
     # dumpResults(simulation, folder_name)
-    rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=1000) # The velocities after relaxation
+    rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=time/10) # The velocities after relaxation
 
-    # makeVelocityPlot(simulation, folder_name)
+    makeVelocityPlot(simulation, folder_name)
 
     return (rV1, rV2, totV2)
 
@@ -43,22 +40,27 @@ def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
     # with mp.Pool(cores) as pool:
     #     results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
+    # results = list()
+    # for s in stresses:
+    #     r = studyConstantStress(tauExt=s,folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed)
+    #     results.append(r)
     
     v1_rel = [i[0] for i in results]
     v2_rel = [i[1] for i in results]
     v_cm = [i[2] for i in results]
 
-    # makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
+    makeDepinningPlot(stresses, v_cm, time, seed, folder_name=folder_name)
 
     dumpDepinning(stresses, v_cm, time, seed, timestep_dt, folder_name=folder_name, extra=[v1_rel, v2_rel])
 
 def studyConstantStressSingle(tauExt:float, timestep_dt:float, time:float, seed:int=None, folder_name="results"):
     # Study the velocity of a single relaxed dislocation.
-    sim = DislocationSimulation(tauExt=tauExt, bigN=1024, length=1024, 
-                                              timestep_dt=timestep_dt, time=time, d0=39, c_gamma=20, 
+    sim = DislocationSimulation(deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, tauExt=tauExt, bigN=1024, length=1024, 
+                                              dt=timestep_dt, time=time, 
                                               cLT1=0.1, seed=seed)
     sim.run_simulation()
     v_rel = sim.getRelaxedVelocity()
+    makeVelocityPlotSingle(sim, folder_name=folder_name)
     return v_rel
 
 def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
@@ -122,6 +124,5 @@ def triton():
     pass
 
 if __name__ == "__main__":
-    # studyDepinnningSingle_mp(tau_min=2.7, tau_max=3.25, points=50, timestep_dt=0.05, time=10000, seed=1, folder_name="results/single-dislocation", cores=5)
     triton()
     pass

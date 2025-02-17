@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 from plots import *
 import numpy as np
-from simulation import PartialDislocationsSimulation
+from partialDislocation import PartialDislocationsSimulation
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin

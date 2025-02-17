@@ -1,4 +1,4 @@
-from simulation import PartialDislocationsSimulation
+from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import *
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -63,8 +63,8 @@ def makeVelocityPlot(sim: PartialDislocationsSimulation, folder_name):
 
     t = sim.getTvalues()
     avgD = sim.getAverageDistances()
-    start = sim.time - 1000
-    rV1, rV2, totV2 = sim.getRelaxedVelocity(time_to_consider=1000)
+    start = sim.time - sim.time/10 # Consider the last 10% of time
+    rV1, rV2, totV2 = sim.getRelaxedVelocity(time_to_consider=sim.time/10)
 
     cm_y1, cm_y2, cm_tot = sim.getCM()
 
@@ -99,7 +99,7 @@ def makeVelocityPlot(sim: PartialDislocationsSimulation, folder_name):
 
     pass
 
-def makeVelocityPlot(sim: DislocationSimulation, folder_name:str = "results"):
+def makeVelocityPlotSingle(sim: DislocationSimulation, folder_name:str = "results"):
         # Make a plot with velocities and average distance from the given simulation sim
     # The sim object must have methods: getTValues, getAverageDistance, getRelaxedVeclovity
     # and getCM
@@ -108,8 +108,8 @@ def makeVelocityPlot(sim: DislocationSimulation, folder_name:str = "results"):
 
     t = sim.getTvalues()
     avgD = sim.getAverageDistances()
-    start = sim.time - 1000
-    vR = sim.getRelaxedVelocity(time_to_consider=1000)
+    start = sim.time - sim.time/10
+    vR = sim.getRelaxedVelocity(time_to_consider=sim.time/10)
 
     cm = sim.getCM()
 
@@ -139,8 +139,6 @@ def makeVelocityPlot(sim: DislocationSimulation, folder_name:str = "results"):
     plt.savefig(f"{folder_name}/single-dislocation-tau-{tauExt:.2f}.png", dpi=300) # It's nice to have a plot from each individual simulation
     plt.clf()
     plt.close()
-
-    pass
 
     pass
 
