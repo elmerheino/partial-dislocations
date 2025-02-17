@@ -34,9 +34,14 @@ def studyDepinning_mp(tau_min:float, tau_max:float, points:int,
     # are distributed between threads by stress letting python mp library determine the best way
     
     stresses = np.linspace(tau_min, tau_max, points)
-    
-    with mp.Pool(cores) as pool:
-        results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
+    results = list()
+
+    for s in stresses:
+        r_i = studyConstantStress(folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed, tauExt=s)
+        results.append(r_i)
+
+    # with mp.Pool(cores) as pool:
+    #     results = pool.map(partial(studyConstantStress, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
     
     v1_rel = [i[0] for i in results]
@@ -61,9 +66,14 @@ def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
     # Run a depinning study for a single dislocation
 
     stresses = np.linspace(tau_min, tau_max, points)
+    velocities = list()
 
-    with mp.Pool(cores) as pool:
-        velocities = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
+    for s in stresses:
+        v_i = studyConstantStressSingle(tauExt=s, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed)
+        velocities.append(v_i)
+
+    # with mp.Pool(cores) as pool:
+    #     results = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
     # makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
 

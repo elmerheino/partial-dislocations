@@ -20,7 +20,7 @@ class PartialDislocationsSimulation:
         self.deltaR = deltaR                    # Parameters for the random noise
 
         self.bigB = bigB                        # Bulk modulus
-        self.smallB = smallB                    # Size of Burgers vector 
+        self.smallB = smallB                    # Size of Burgers vector
         # TODO: make sure the value of b aligns w/ b_p and C_LT1 and C_LT2
 
         self.b_p = b_p                          # Equal lengths of the partial burgers vectors
@@ -99,7 +99,7 @@ class PartialDislocationsSimulation:
         #     y_res = np.interp(yx, np.arange(self.bigN), yp, period=self.bigN)
         #     tau_res[x] = y_res
         
-        tau_res = [ np.interp(y[x], x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in x_points ]
+        tau_res = [ np.interp(y[x], x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in x_points ] #TODO: Tee intepolaatio ite
         return tau_res
     
     def tau_ext(self):
@@ -121,7 +121,7 @@ class PartialDislocationsSimulation:
         #return (c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
 
         factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
+        numerator = ( np.average(y2 - y1) )*np.ones(self.bigN)
         return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
 
     def secondDerivative(self, x):

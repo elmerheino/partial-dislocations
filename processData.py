@@ -5,6 +5,7 @@ import numpy as np
 from simulation import PartialDislocationsSimulation
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
+    # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
     # Dumps the results of a simulation to a npz file
     if not sim.has_simulation_been_run:
         raise Exception("Simulation has not been run.")
