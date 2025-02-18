@@ -85,7 +85,7 @@ def studyDepinnningSingle_mp(tau_min:float, tau_max:float, points:int,
     #     velocities.append(v_i)
 
     with mp.Pool(cores) as pool:
-        results = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
+        velocities = pool.map(partial(studyConstantStressSingle, folder_name=folder_name, timestep_dt=timestep_dt, time=time, seed=seed), stresses)
     
     if save_plots:
         makeDepinningPlot(stresses, velocities, time, seed=seed, folder_name=folder_name)
