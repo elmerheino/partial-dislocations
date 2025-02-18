@@ -27,6 +27,37 @@ def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
 
     pass
 
+def saveLastState_partial(sim: PartialDislocationsSimulation, folder_name):
+    parameters = np.array([
+        sim.bigN, sim.length, sim.time, sim.dt,
+        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
+        sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
+        sim.d0, sim.seed, sim.tau_cutoff
+        ]) # From these parameters you should be able to replicate the simulation
+
+    dump_path = Path(folder_name).joinpath("simulation-dumps")
+    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
+    dump_path.mkdir(exist_ok=True, parents=True)
+
+    dump_path = dump_path.joinpath(f"sim-partial-tauExt-{sim.tauExt:.4f}-at-t-{sim.time}.npz")
+    np.savez(str(dump_path), params=parameters, y1=sim.y1[sim.timesteps-1], y2=sim.y2[sim.timesteps-1])
+
+def saveLastState_single(sim: DislocationSimulation, folder_name):
+    parameters = np.array([
+        sim.bigN, sim.length, sim.time, sim.dt,
+        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
+        sim.cLT1, sim.mu, sim.tauExt,
+        sim.d0, sim.seed, sim.tau_cutoff
+        ]) # From these parameters you should be able to replicate the simulation
+
+    dump_path = Path(folder_name).joinpath("simulation-dumps")
+    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
+    dump_path.mkdir(exist_ok=True, parents=True)
+
+    dump_path = dump_path.joinpath(f"sim-single-tauExt-{sim.tauExt:.4f}-at-t-{sim.time}.npz")
+    np.savez(str(dump_path), params=parameters, y1=sim.y1[sim.timesteps-1])
+
+
 def loadResults(file_path):
     # Load the results from a file at file_path to a new simulation object for further processing
 
