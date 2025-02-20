@@ -57,7 +57,29 @@ def saveLastState_single(sim: DislocationSimulation, folder_name):
     dump_path = dump_path.joinpath(f"sim-single-tauExt-{sim.tauExt:.4f}-at-t-{sim.time}.npz")
     np.savez(str(dump_path), params=parameters, y1=sim.y1[sim.timesteps-1])
 
+def plotDislocation(type:str,path_to_file):
+    # Loads and plots a dislocation a a certain point in time
+    loaded = np.load(path_to_file)
 
+    if type == "partial":
+        bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
+        y1, y2 = loaded["y1"], loaded["y2"]
+        x_axis = np.arange(bigN)*(length/bigN)
+        plt.plot(x_axis, y1, label="$y_1 (x)$")
+        plt.plot(x_axis, y2, label="$y_2 (x)$")
+        plt.title(f"Partial dislocation at time t={time} w/ $\\tau_{{ext}}$ = {tauExt}")
+        plt.legend()
+        plt.show()
+
+    elif type == "single":
+        bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
+        y1 = loaded["y1"]
+        x_axis = np.arange(bigN)*(length/bigN)
+        plt.plot(x_axis, y1, label="$y_1 (x)$")
+        plt.legend()
+        plt.title(f"Single dislocation at time t={time} w/ $\\tau_{{ext}}$ = {tauExt}")
+        plt.show()
+    
 def loadResults(file_path):
     # Load the results from a file at file_path to a new simulation object for further processing
 
@@ -113,17 +135,39 @@ def loadDepinningDumps(folder, partial:bool):
                 stresses = depinning["stresses"]
             
             vCm_i = depinning["v_rel"]
+            if len(vCm_i) == 0: # Check for empty lists
+                print(f"There was problem loading data with seed {depinning["seed"]}")
+                continue
+
             vCm.append(vCm_i)
-    
-    return (stresses, np.array(vCm))
+
+    return (stresses, vCm)
+
+def calculateCoarseness(path_to_dislocation, l):
+    # Given a path to a single dislocation at some time t calculate the coarseness.
+    loaded = np.load(path_to_dislocation)
+    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
+    y = np.array(loaded["y1"])
+
+    deltaL = length/bigN
+    avgY = np.average(y)
+
+    res = [ (y[i] - avgY)*(y[i+l] - avgY) for i in np.arange(bigN - l) ] # TODO: check fomula here
+
+    pass
 
 if __name__ == "__main__":
-    stresses, vCm = loadDepinningDumps('results/triton/single-dislocation/depinning-dumps/', partial=False)
-    stresses1, vCm_partial = loadDepinningDumps('results/triton/depinning-dumps-partial/', partial=True)
+    stresses, vCm = loadDepinningDumps('results/18-feb/single-dislocation/depinning-dumps', partial=False)
+    stresses1, vCm_partial = loadDepinningDumps('results/18-feb/partial-dislocation/depinning-dumps', partial=True)
 
     makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
-                         folder_name="results/16-feb", colors=["red", "blue"])
-
+                         folder_name="results/18-feb", colors=["red", "blue"])
+    
+    # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
     # makeVelocityPlot(sim, "results/15-feb-1/")
     # makeGif(sim, "results/15-feb-1/")
+
+    # Plots dislocations at some single time step
+    plotDislocation("single", "results/18-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9888-at-t-10000.0.npz")
+    plotDislocation("partial", "results/18-feb/partial-dislocation/simulation-dumps/seed-100/sim-partial-tauExt-2.9888-at-t-10000.0.npz")

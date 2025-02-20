@@ -179,7 +179,7 @@ def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, fold
 
     Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
-    for stress, vCm, name,color in zip(stresses, vCms, names, colors):
+    for stress, vCm, name, color in zip(stresses, vCms, names, colors):
         averages = np.mean(vCm, axis=0)
 
         plt.scatter(stress, averages, 10, marker='x', linewidths=1, label=f"$\\bar{{x}}$ {name} N={len(vCm)}", color=color)
@@ -223,3 +223,6 @@ def plotRandTau():
     axes[1].set_ylabel("$z$")
 
     plt.show()
+
+def plotDislocation(y1, y2):
+    pass
