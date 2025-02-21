@@ -6,7 +6,8 @@ from processData import *
 
 class Depinning(object):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, sequential=False):
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1,
+                  b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, sequential=False):
         # The common constructor for both types of depinning simulations
         self.tau_min = tau_min
         self.tau_max = tau_max
@@ -35,8 +36,11 @@ class Depinning(object):
 
 class DepinningPartial(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, c_gamma=20, cLT1=0.1, cLT2=0.1, sequential=False):
-        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, seed, bigN, length, d0, sequential)
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, 
+                 mu=1, seed=None, bigN=1024, length=1024, d0=39, c_gamma=20, cLT1=0.1, cLT2=0.1, sequential=False):
+        
+        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, 
+                         seed, bigN, length, d0, sequential)
         # The initializations specific to a partial dislocation depinning simulation.
         self.cLT1 = cLT1
         self.cLT2 = cLT2
@@ -67,7 +71,7 @@ class DepinningPartial(Depinning):
 
         else:
             with mp.Pool(self.cores) as pool:
-                self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), stresses)
+                self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
         
         
         v1_rel = [i[0] for i in self.results]
@@ -96,7 +100,7 @@ class DepinningSingle(Depinning):
 
     def run(self):
         velocities = list()
-        
+
         if self.sequential:
             for s in self.stresses:
                 v_i = self.studyConstantStress(tauExt=s)
