@@ -8,7 +8,7 @@ from plots import *
 from processData import *
 # import time
 
-save_plots = True
+save_plots = False      # Don't save any images of figures. Still saves all data as dumps.
 
 def studyConstantStress(tauExt,
                         timestep_dt,
