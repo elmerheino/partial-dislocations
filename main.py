@@ -6,6 +6,8 @@ from functools import partial
 from argparse import ArgumentParser
 from plots import *
 from processData import *
+from depinning import *
+
 # import time
 
 save_plots = False      # Don't save any images of figures. Still saves all data as dumps.
@@ -120,9 +122,10 @@ def triton():
         cores = int(parsed.cores)
 
     if parsed.partial:
-        studyDepinning_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
-                        time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
+        depinning = DepinningPartial(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
+                        time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
                         folder_name=parsed.folder, cores=cores)
+        v1, v2, vcm = depinning.run()
     elif parsed.single:
         studyDepinnningSingle_mp(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                     time=float(parsed.time), timestep_dt=float(parsed.timestep), seed=int(parsed.seed), 
