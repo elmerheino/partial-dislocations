@@ -4,10 +4,10 @@ from functools import partial
 from partialDislocation import PartialDislocationsSimulation
 from processData import *
 
-class DepinningPartial(object):
+class Depinning(object):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, c_gamma=20, 
-                                              cLT1=0.1, cLT2=0.1, sequential=False):
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, sequential=False):
+        # The common constructor for both types of depinning simulations
         self.tau_min = tau_min
         self.tau_max = tau_max
         self.points = points
@@ -28,14 +28,21 @@ class DepinningPartial(object):
         self.bigN = bigN
         self.length = length
         self.d0 = d0
-        self.c_gamma = c_gamma
-        self.cLT1 = cLT1
-        self.cLT2 = cLT2
 
         self.folder_name = folder_name
-    
-        pass
 
+        self.stresses = np.linspace(self.tau_min, self.tau_max, self.points)
+
+class DepinningPartial(Depinning):
+
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, c_gamma=20, cLT1=0.1, cLT2=0.1, sequential=False):
+        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, seed, bigN, length, d0, sequential)
+        # The initializations specific to a partial dislocation depinning simulation.
+        self.cLT1 = cLT1
+        self.cLT2 = cLT2
+        self.c_gamma =c_gamma
+        self.results = list()
+    
     def studyConstantStress(self, tauExt):
         simulation = PartialDislocationsSimulation(deltaR=self.deltR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p, 
                                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
@@ -48,27 +55,54 @@ class DepinningPartial(object):
         saveLastState_partial(simulation, self.folder_name)
 
         return (rV1, rV2, totV2)
-
+    
     def run(self):
         # Multiprocessing compatible version of a single depinning study, here the studies
         # are distributed between threads by stress letting python mp library determine the best way
         
-        stresses = np.linspace(self.tau_min, self.tau_max, self.points)
-        results = list()
-
         if self.sequential:
-            for s in stresses:
+            for s in self.stresses:
                 r_i = self.studyConstantStress(tauExt=s)
-                results.append(r_i)
+                self.results.append(r_i)
+
         else:
             with mp.Pool(self.cores) as pool:
-                results = pool.map(partial(DepinningPartial.studyConstantStress, self), stresses)
+                self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), stresses)
         
         
-        v1_rel = [i[0] for i in results]
-        v2_rel = [i[1] for i in results]
-        v_cm = [i[2] for i in results]
+        v1_rel = [i[0] for i in self.results]
+        v2_rel = [i[1] for i in self.results]
+        v_cm = [i[2] for i in self.results]
 
         return v1_rel, v2_rel, v_cm
 
-    
+class DepinningSingle(Depinning):
+
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR=1, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, cLT1=0.1, sequential=False):
+        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, seed, bigN, length, d0, sequential)
+        self.cLT1 = cLT1
+
+    def studyConstantStress(self, tauExt):
+        sim = DislocationSimulation(deltaR=self.deltR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p,
+                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
+                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed)
+
+        sim.run_simulation()
+        v_rel = sim.getRelaxedVelocity(time_to_consider=self.time/10) # Consider last 10% of time to get relaxed velocity.
+
+        saveLastState_single(sim, self.folder_name)
+
+        return v_rel
+
+    def run(self):
+        velocities = list()
+        
+        if self.sequential:
+            for s in self.stresses:
+                v_i = self.studyConstantStress(tauExt=s)
+                velocities.append(v_i)
+        else:
+            with mp.Pool(self.cores) as pool:
+                velocities = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
+        
+        return velocities
