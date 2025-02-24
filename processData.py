@@ -3,6 +3,7 @@ import json
 from plots import *
 import numpy as np
 from partialDislocation import PartialDislocationsSimulation
+from scipy import optimize
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
@@ -152,7 +153,7 @@ def loadDepinningDumps(folder, partial:bool):
 
             vCm.append(vCm_i)
 
-    return (stresses, vCm)
+    return (stresses, vCm) # Retuns a single list of stresses and a list of lists of velocities vCm
 
 def calculateCoarseness(path_to_dislocation, l):
     # Given a path to a single dislocation at some time t calculate the coarseness.
@@ -198,6 +199,41 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     plt.savefig(p, dpi=300)
     pass
 
+def v_fit(tau_ext, tau_crit, beta, a):
+    v_res = np.empty(len(tau_ext))
+    for n,tau in enumerate(tau_ext):
+        if tau > tau_crit:
+            v_res[n] = a*(tau - tau_crit)**beta
+        else:
+            v_res[n] = 0
+    return v_res
+
+def getCriticalForce(file_path):
+
+    with open(file_path, 'r') as fp:
+        depinning = json.load(fp)
+    
+    stresses = depinning["stresses"]
+    vcm = depinning["v_rel"]
+
+    fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[3.05, 1, 3], maxfev=800)
+
+    critical_force, beta, a = fit_params
+
+    print(f"Best fit is t_crit={critical_force}, beta={beta}, A={a}")
+
+    xnew = np.linspace(min(stresses), max(stresses), 200)
+    ynew = v_fit(xnew, *fit_params)
+
+    plt.scatter(stresses, vcm, marker='x', color="red", label="Depinning")
+    plt.plot(xnew, ynew, color="blue", label="fit")
+
+    plt.legend()
+
+    plt.show()
+
+    return critical_force
+
 if __name__ == "__main__":
     results_root = Path("results/21-feb")
 
@@ -224,3 +260,6 @@ if __name__ == "__main__":
     plotDislocation("partial", 
                     "results/21-feb/partial-dislocation/simulation-dumps/seed-100/sim-partial-tauExt-2.9101-at-t-10000.0.npz",
                     results_root)
+    
+    c = getCriticalForce(results_root.joinpath("partial-dislocation/depinning-dumps/depinning-2.9-3.15-100-10000.0-1.json"))
+    print(c)
