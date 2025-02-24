@@ -1,10 +1,13 @@
 from scipy import fft
 import numpy as np
+import math
 
 class Simulation(object):
     def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, seed=None):
 
         self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
+        self.x_points = np.arange(self.bigN)
+
         self.length = length
         self.deltaL = self.length/self.bigN     # The dx value in x direction
 
@@ -51,20 +54,37 @@ class Simulation(object):
         else:
             return 0
     
-    def tau(self, y): # Should be static in time. The index is again the x coordinate here. Takes around 9.6912e-05 s
+    def tau_no_interpolation(self,y):
         yDisc = np.remainder(np.round(y), self.bigN).astype(np.int32) # Round the y coordinate to an integer and wrap around bigN
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
     
-    def tau_interpolated(self, y): # Takes around 0.0131 s, which is 1000x slower than above
-        x_points = np.arange(self.bigN)
-        # tau_res = np.empty(self.bigN)
-        # for x in x_points:
-        #     yp = self.stressField[x,0:self.bigN]
-        #     yx = y[x]
-        #     y_res = np.interp(yx, np.arange(self.bigN), yp, period=self.bigN)
-        #     tau_res[x] = y_res
-        
-        tau_res = [ np.interp(y[x], x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in x_points ] #TODO: Tee intepolaatio ite
+    def tau(self, y): # Should be static in time. The index is again the x coordinate here. Takes around 9.6912e-05 s
+        return self.tau_interpolated(y) # x is discrete anyways here
+    
+    def tau_interpolated(self, y): # Takes around 591.99 mu s, which is 8x slower than w/o interpolation
+        # tau_res = [ np.interp(y[x], self.x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in self.x_points ]
+
+        tau_res = np.empty(self.bigN)
+        for x in self.x_points:
+            col = self.stressField[x,0:self.bigN]
+            y_x = y[x]
+
+            x1 = math.floor(y_x)
+            x2 = math.ceil(y_x)
+
+            y1 = col[x1 % self.bigN]
+            y2 = col[x2 % self.bigN]
+
+            if (x2 - x1) == 0: # handle the case where 
+                # print(f"y_x={y_x} y1={y1}=col[x1]  y2={y2}=col[x2] k={k} ")
+                tau_res[x] = y1
+                continue
+
+            k = (y2 - y1)/(x2 - x1)
+            b = y1 - k*x1
+
+            tau_res[x] = k*y_x + b
+
         return tau_res
 
     def getParamsInLatex(self):

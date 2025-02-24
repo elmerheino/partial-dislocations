@@ -195,7 +195,7 @@ def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, fold
     plt.savefig(f"{folder_name}/depinning-tau-{min(stresses[0])}-{max(stresses[0])}-p-{len(stresses[0])}-t-{time}-N-{count}.png", dpi=300)
 
 def plotRandTau():
-    sim = PartialDislocationsSimulation()
+    sim = PartialDislocationsSimulation(1024, 1024,100,0.05,1,1,1,1,1,0)
     x = 100
     z = list()
     y = np.linspace(1024-10,1024+10,100)
