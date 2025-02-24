@@ -167,6 +167,7 @@ def studyAvgDistance():
 def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"):
     Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
+    plt.figure(figsize=(8,8))
     plt.scatter(stresses, relVelocities, marker='x')
     plt.title(f"Depinning, seed={seed}")
     plt.xlabel("$\\tau_{ext}$")
@@ -223,6 +224,3 @@ def plotRandTau():
     axes[1].set_ylabel("$z$")
 
     plt.show()
-
-def plotDislocation(y1, y2):
-    pass

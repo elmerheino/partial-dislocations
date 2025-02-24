@@ -169,7 +169,7 @@ def calculateCoarseness(path_to_dislocation, l):
 
     return res
 
-def makeCoarsenessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
+def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     # Loads a dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
@@ -182,9 +182,9 @@ def makeCoarsenessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     coarsnesses = np.empty(int(bigN))
     
     for l in l_range:
-        res = [ (y[i] - avgY)*(y[ (i+l) % y.size ] - avgY) for i in np.arange(y.size) ] # TODO: check fomula here
+        res = [ ( (y[i] - avgY)*(y[ (i+l) % y.size ] - avgY) )**2 for i in np.arange(y.size) ] # TODO: check fomula here
         res = sum(res)/len(res)
-        c = np.sqrt(np.abs(res))
+        c = np.sqrt(res)
         coarsnesses[l] = c
     
     plt.clf()
@@ -199,14 +199,16 @@ def makeCoarsenessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     pass
 
 if __name__ == "__main__":
-    stresses, vCm = loadDepinningDumps('results/18-feb/single-dislocation/depinning-dumps', partial=False)
-    stresses1, vCm_partial = loadDepinningDumps('results/18-feb/partial-dislocation/depinning-dumps', partial=True)
+    results_root = Path("results/21-feb")
+
+    stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
+    stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
 
     makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
-                         folder_name="results/18-feb", colors=["red", "blue"])
+                         folder_name=results_root, colors=["red", "blue"])
     
-    makeCoarsenessPlot("results/18-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9888-at-t-10000.0.npz", 
-                            "results/18-feb",
+    makeRoughnessPlot("results/21-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9126-at-t-10000.0.npz", 
+                            results_root,
                             (None,None))
     
     
@@ -217,8 +219,8 @@ if __name__ == "__main__":
 
     # Plots dislocations at some single time step
     plotDislocation("single", 
-                    "results/18-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9888-at-t-10000.0.npz",
-                    "results/18-feb")
+                    "results/21-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9126-at-t-10000.0.npz",
+                    results_root)
     plotDislocation("partial", 
-                    "results/18-feb/partial-dislocation/simulation-dumps/seed-100/sim-partial-tauExt-2.9888-at-t-10000.0.npz",
-                    "results/18-feb")
+                    "results/21-feb/partial-dislocation/simulation-dumps/seed-100/sim-partial-tauExt-2.9101-at-t-10000.0.npz",
+                    results_root)
