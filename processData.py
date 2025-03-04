@@ -191,7 +191,7 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     plt.clf()
     plt.figure(figsize=(8,8))
     plt.plot(l_range, coarsnesses, color="blue",label="Coarseness")
-    plt.title(f"Coarseness single dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt}")
+    plt.title(f"Roughness single dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt}")
     plt.xlabel("L")
     plt.ylabel("W(L)")
 
@@ -216,26 +216,37 @@ def getCriticalForce(file_path):
     stresses = depinning["stresses"]
     vcm = depinning["v_rel"]
 
-    fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[3.05, 1, 3], maxfev=800)
+    fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[2.5, 1.5, 1], maxfev=800)
 
     critical_force, beta, a = fit_params
-
-    print(f"Best fit is t_crit={critical_force}, beta={beta}, A={a}")
 
     xnew = np.linspace(min(stresses), max(stresses), 200)
     ynew = v_fit(xnew, *fit_params)
 
-    plt.scatter(stresses, vcm, marker='x', color="red", label="Depinning")
-    plt.plot(xnew, ynew, color="blue", label="fit")
+    # plt.clf()
+    # plt.cla()
+    # plt.close('all')
+    # plt.figure(figsize=(8,8))
 
-    plt.legend()
+    # plt.scatter(stresses, vcm, marker='x', color="red", label="Depinning")
+    # plt.plot(xnew, ynew, color="blue", label="fit")
 
-    plt.show()
+    # plt.legend()
+
+    # plt.show()
 
     return critical_force
 
+def getCriticalForces(dir_path):
+    # Get all the critical forces from the depinning dir path.
+    crit_forces = list()
+    for file_path in Path(dir_path).iterdir():
+        c = getCriticalForce(file_path)
+        crit_forces.append(c)
+    return crit_forces
+
 if __name__ == "__main__":
-    results_root = Path("results/21-feb")
+    results_root = Path("results/25-feb-small-interval")
 
     stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
     stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
@@ -243,7 +254,7 @@ if __name__ == "__main__":
     makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
                          folder_name=results_root, colors=["red", "blue"])
     
-    makeRoughnessPlot("results/21-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9126-at-t-10000.0.npz", 
+    makeRoughnessPlot(results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"), 
                             results_root,
                             (None,None))
     
@@ -253,13 +264,18 @@ if __name__ == "__main__":
     # makeVelocityPlot(sim, "results/15-feb-1/")
     # makeGif(sim, "results/15-feb-1/")
 
-    # Plots dislocations at some single time step
-    plotDislocation("single", 
-                    "results/21-feb/single-dislocation/simulation-dumps/seed-100/sim-single-tauExt-2.9126-at-t-10000.0.npz",
+    # Plots dislocations at the end of simulatino w/ tau_ext=0.0000
+    plotDislocation("single",
+                    results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"),
                     results_root)
     plotDislocation("partial", 
-                    "results/21-feb/partial-dislocation/simulation-dumps/seed-100/sim-partial-tauExt-2.9101-at-t-10000.0.npz",
+                    results_root.joinpath("partial-dislocation/simulation-dumps/seed-0/sim-partial-tauExt-2.6000-at-t-10000.0.npz"),
                     results_root)
     
-    c = getCriticalForce(results_root.joinpath("partial-dislocation/depinning-dumps/depinning-2.9-3.15-100-10000.0-1.json"))
-    print(c)
+    c = getCriticalForce(results_root.joinpath("single-dislocation/depinning-dumps/depinning-2.6-3.0-100-10000.0-5.json"))
+    
+    tau_c_single = getCriticalForces(results_root.joinpath("single-dislocation/depinning-dumps/"))
+    tau_c_partial = getCriticalForces(results_root.joinpath("partial-dislocation/depinning-dumps/"))
+
+    print(f"Single dislocation: tau_c={sum(tau_c_single)/len(tau_c_single)}")
+    print(f"Partial dislocation: tau_c={sum(tau_c_partial)/len(tau_c_partial)}")

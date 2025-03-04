@@ -180,6 +180,7 @@ def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, fold
 
     Path(folder_name).mkdir(exist_ok=True, parents=True)
     plt.clf()
+    plt.figure(figsize=(8,8))
     for stress, vCm, name, color in zip(stresses, vCms, names, colors):
         averages = np.mean(vCm, axis=0)
 
@@ -201,7 +202,7 @@ def plotRandTau():
     y = np.linspace(1024-10,1024+10,100)
     for y_i in y:
         y_all = y_i*np.ones(sim.bigN)
-        z_i = sim.tau(y_all)[x]
+        z_i = sim.tau_no_interpolation(y_all)[x]
         z.append(z_i)
 
     x = 100
