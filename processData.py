@@ -208,7 +208,7 @@ def v_fit(tau_ext, tau_crit, beta, a):
             v_res[n] = 0
     return v_res
 
-def getCriticalForce(file_path):
+def getCriticalForceFromFile(file_path):
 
     with open(file_path, 'r') as fp:
         depinning = json.load(fp)
@@ -216,12 +216,17 @@ def getCriticalForce(file_path):
     stresses = depinning["stresses"]
     vcm = depinning["v_rel"]
 
+    critical_force = getCriticalForce(stresses, vcm)
+
+    return critical_force
+
+def getCriticalForce(stresses, vcm):
     fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[2.5, 1.5, 1], maxfev=800)
 
     critical_force, beta, a = fit_params
 
-    xnew = np.linspace(min(stresses), max(stresses), 200)
-    ynew = v_fit(xnew, *fit_params)
+    # xnew = np.linspace(min(stresses), max(stresses), 200)
+    # ynew = v_fit(xnew, *fit_params)
 
     # plt.clf()
     # plt.cla()
@@ -235,13 +240,63 @@ def getCriticalForce(file_path):
 
     # plt.show()
 
-    return critical_force
+    return critical_force, beta, a
+
+
+def normalizedDepinnings(folder_path):
+    # Make such plots for a single dislocation first
+    for fpath in Path(folder_path).joinpath("single-dislocation/depinning-dumps").iterdir():
+        with open(fpath, "r") as fp:
+            depinning = json.load(fp)
+        
+        tauExt = depinning["stresses"]
+        vCm = depinning["v_rel"]
+        seed = depinning["seed"]
+
+        tauCrit, beta, a = getCriticalForce(tauExt, vCm)
+        x = (tauExt - tauCrit)/tauCrit
+        y = vCm
+
+        plt.clf()
+        plt.figure(figsize=(8,8))
+        plt.scatter(x,y, marker='x', color="red", label="Depinning")
+        plt.title(f"$\\tau_{{ext}} = $ {tauCrit:.3f}; seed = {seed}")
+        plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+        plt.ylabel("$v_{{cm}}$")
+        p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots")
+        p.mkdir(exist_ok=True, parents=True)
+        plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+    
+    # Make such plots for a partial dislocation
+    for fpath in Path(folder_path).joinpath("partial-dislocation/depinning-dumps").iterdir():
+        with open(fpath, "r") as fp:
+            depinning = json.load(fp)
+        
+        tauExt = depinning["stresses"]
+        vCm = depinning["v_rel"]
+        seed = depinning["seed"]
+
+        tauCrit, beta, a = getCriticalForce(tauExt, vCm)
+        x = (tauExt - tauCrit)/tauCrit
+        y = vCm
+
+        plt.clf()
+        plt.figure(figsize=(8,8))
+        plt.scatter(x,y, marker='x', color="red", label="Depinning")
+        plt.title(f"$\\tau_{{ext}} = $ {tauCrit:.3f}; seed = {seed}")
+        plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+        plt.ylabel("$v_{{cm}}$")
+        p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots")
+        p.mkdir(exist_ok=True, parents=True)
+        plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+
+    pass
 
 def getCriticalForces(dir_path):
     # Get all the critical forces from the depinning dir path.
     crit_forces = list()
     for file_path in Path(dir_path).iterdir():
-        c = getCriticalForce(file_path)
+        c = getCriticalForceFromFile(file_path)
         crit_forces.append(c)
     return crit_forces
 
@@ -272,10 +327,4 @@ if __name__ == "__main__":
                     results_root.joinpath("partial-dislocation/simulation-dumps/seed-0/sim-partial-tauExt-2.6000-at-t-10000.0.npz"),
                     results_root)
     
-    c = getCriticalForce(results_root.joinpath("single-dislocation/depinning-dumps/depinning-2.6-3.0-100-10000.0-5.json"))
-    
-    tau_c_single = getCriticalForces(results_root.joinpath("single-dislocation/depinning-dumps/"))
-    tau_c_partial = getCriticalForces(results_root.joinpath("partial-dislocation/depinning-dumps/"))
-
-    print(f"Single dislocation: tau_c={sum(tau_c_single)/len(tau_c_single)}")
-    print(f"Partial dislocation: tau_c={sum(tau_c_partial)/len(tau_c_partial)}")
+    normalizedDepinnings(results_root)
