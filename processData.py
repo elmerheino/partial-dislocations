@@ -300,6 +300,35 @@ def getCriticalForces(dir_path):
         crit_forces.append(c)
     return crit_forces
 
+def globalFit(dir_path):
+    global_data = list() # Global data for partial dislocation
+    for sd, pd in zip(Path(dir_path).joinpath("single-dislocation/depinning-dumps").iterdir(), Path(dir_path).joinpath("partial-dislocation/depinning-dumps").iterdir()):
+        # sd # path to single dislocation depinning
+        # pd # path to partial dislocation depinning
+        with open(pd, 'r') as fp2:
+            partial_depinning = json.load(fp2)
+
+            partial_stresses = partial_depinning["stresses"]
+            partial_vcm = partial_depinning["v_rel"]
+
+            global_data += zip(partial_stresses, partial_vcm)
+    
+    x,y = zip(*global_data) # Here x is external stress and y is velocity
+
+    fit_params, pcov = optimize.curve_fit(v_fit, x, y, p0=[2.5, 1.5, 1], maxfev=800)
+    tauC, beta, a = fit_params
+    xnew = np.linspace(min(x), max(x), 100)
+    ynew = v_fit(xnew, *fit_params)
+
+    plt.clf()
+    plt.figure(figsize=(8,8))
+    plt.scatter(x,y, marker='x', linewidths=0.1, label="data")
+    plt.plot(xnew, ynew, label=f"Fit $\\tau_{{c}} = $ {tauC:.2f}", color="red")
+    plt.title("Depinning with 100 runs and fot done globally.")
+    plt.legend()
+    plt.savefig(Path(dir_path).joinpath("global-depinning.png"), dpi=300)
+    print(f"Fit done with parameters tau_c = {tauC:.4f} beta = {beta:.4f} and A = {a}")
+
 if __name__ == "__main__":
     results_root = Path("results/25-feb-small-interval")
 
@@ -328,3 +357,5 @@ if __name__ == "__main__":
                     results_root)
     
     normalizedDepinnings(results_root)
+    
+    globalFit(results_root)
