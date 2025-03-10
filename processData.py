@@ -232,6 +232,7 @@ def normalizedDepinnings(folder_path):
     # Make such plots for a single dislocation first
     sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
     pd_path = Path(folder_path).joinpath("partial-dislocation/depinning-dumps")
+
     for fpath, fpath2 in zip(sd_path.iterdir(), pd_path.iterdir()):
         with open(fpath, "r") as fp:
             depinning = json.load(fp)
@@ -257,7 +258,7 @@ def normalizedDepinnings(folder_path):
         plt.figure(figsize=(8,8))
         plt.scatter(x,y, marker='x', color="red", label="Depinning")
         plt.plot(xnew, ynew, color="blue", label="fit")
-        plt.title(f"$\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+        plt.title(f"Dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
         plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
         plt.ylabel("$v_{{cm}}$")
         plt.legend()
@@ -265,26 +266,40 @@ def normalizedDepinnings(folder_path):
         p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots")
         p.mkdir(exist_ok=True, parents=True)
         plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
-    
-    # Make such plots for a partial dislocation
-    for fpath in Path(folder_path).joinpath("partial-dislocation/depinning-dumps").iterdir():
-        with open(fpath, "r") as fp:
-            depinning = json.load(fp)
-        
-        tauExt = depinning["stresses"]
-        vCm = depinning["v_rel"]
-        seed = depinning["seed"]
 
-        tauCrit, beta, a = getCriticalForce(tauExt, vCm)
+        # Next, do the same for a the partial dislocation
+
+        with open(fpath2, "r") as fp:
+            depinning_partial = json.load(fp)
+
+
+        tauExt = depinning_partial["stresses"]
+        vCm = depinning_partial["v_rel"]
+        seed = depinning_partial["seed"]
+
+        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+        tauCrit, beta, a = fit_params
+
+        xnew = np.linspace(min(tauExt), max(tauExt), 100)
+        ynew = v_fit(xnew, *fit_params)
+
+        # Scale the original data
         x = (tauExt - tauCrit)/tauCrit
         y = vCm
+
+        # Scale the fit x-axis as well
+        xnew = (xnew - tauCrit)/tauCrit
 
         plt.clf()
         plt.figure(figsize=(8,8))
         plt.scatter(x,y, marker='x', color="red", label="Depinning")
-        plt.title(f"$\\tau_{{ext}} = $ {tauCrit:.3f}; seed = {seed}")
+        plt.plot(xnew, ynew, color="blue", label="fit")
+
+        plt.title(f"Partial dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
         plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
         plt.ylabel("$v_{{cm}}$")
+        plt.legend()
+
         p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots")
         p.mkdir(exist_ok=True, parents=True)
         plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
