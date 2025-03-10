@@ -233,6 +233,11 @@ def normalizedDepinnings(folder_path):
     sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
     pd_path = Path(folder_path).joinpath("partial-dislocation/depinning-dumps")
 
+    # Collect all values of tau_c
+
+    tau_c_single = list()
+    tau_c_partial = list()
+
     for fpath, fpath2 in zip(sd_path.iterdir(), pd_path.iterdir()):
         with open(fpath, "r") as fp:
             depinning = json.load(fp)
@@ -243,6 +248,8 @@ def normalizedDepinnings(folder_path):
 
         fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
         tauCrit, beta, a = fit_params
+
+        tau_c_single.append(tauCrit)
 
         xnew = np.linspace(min(tauExt), max(tauExt), 100)
         ynew = v_fit(xnew, *fit_params)
@@ -280,6 +287,8 @@ def normalizedDepinnings(folder_path):
         fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
         tauCrit, beta, a = fit_params
 
+        tau_c_partial.append(tauCrit)
+
         xnew = np.linspace(min(tauExt), max(tauExt), 100)
         ynew = v_fit(xnew, *fit_params)
 
@@ -303,6 +312,21 @@ def normalizedDepinnings(folder_path):
         p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots")
         p.mkdir(exist_ok=True, parents=True)
         plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+    
+    # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
+    d = {
+        "non-partial dislocation": {
+            "avg(tau_c)" : sum(tau_c_single)/len(tau_c_single),
+            "sd(tau_c)" : np.std(tau_c_single)
+        },
+        "partial dislocation": {
+            "avg(tau_c)" : sum(tau_c_partial)/len(tau_c_partial),
+            "sd(tau_c)" : np.std(tau_c_partial)
+        }
+    }
+
+    with open(Path(folder_path).joinpath("tau_c.json"), "w") as fp:
+        json.dump(d,fp, indent=2)
 
     pass
 
