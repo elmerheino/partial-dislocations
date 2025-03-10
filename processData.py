@@ -225,27 +225,14 @@ def getCriticalForce(stresses, vcm):
 
     critical_force, beta, a = fit_params
 
-    # xnew = np.linspace(min(stresses), max(stresses), 200)
-    # ynew = v_fit(xnew, *fit_params)
-
-    # plt.clf()
-    # plt.cla()
-    # plt.close('all')
-    # plt.figure(figsize=(8,8))
-
-    # plt.scatter(stresses, vcm, marker='x', color="red", label="Depinning")
-    # plt.plot(xnew, ynew, color="blue", label="fit")
-
-    # plt.legend()
-
-    # plt.show()
-
     return critical_force, beta, a
 
 
 def normalizedDepinnings(folder_path):
     # Make such plots for a single dislocation first
-    for fpath in Path(folder_path).joinpath("single-dislocation/depinning-dumps").iterdir():
+    sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
+    pd_path = Path(folder_path).joinpath("partial-dislocation/depinning-dumps")
+    for fpath, fpath2 in zip(sd_path.iterdir(), pd_path.iterdir()):
         with open(fpath, "r") as fp:
             depinning = json.load(fp)
         
@@ -253,16 +240,28 @@ def normalizedDepinnings(folder_path):
         vCm = depinning["v_rel"]
         seed = depinning["seed"]
 
-        tauCrit, beta, a = getCriticalForce(tauExt, vCm)
+        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+        tauCrit, beta, a = fit_params
+
+        xnew = np.linspace(min(tauExt), max(tauExt), 100)
+        ynew = v_fit(xnew, *fit_params)
+
+        # Scale the original data
         x = (tauExt - tauCrit)/tauCrit
         y = vCm
+
+        # Scale the fit x-axis as well
+        xnew = (xnew - tauCrit)/tauCrit
 
         plt.clf()
         plt.figure(figsize=(8,8))
         plt.scatter(x,y, marker='x', color="red", label="Depinning")
-        plt.title(f"$\\tau_{{ext}} = $ {tauCrit:.3f}; seed = {seed}")
+        plt.plot(xnew, ynew, color="blue", label="fit")
+        plt.title(f"$\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
         plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
         plt.ylabel("$v_{{cm}}$")
+        plt.legend()
+
         p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots")
         p.mkdir(exist_ok=True, parents=True)
         plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
@@ -302,6 +301,7 @@ def getCriticalForces(dir_path):
 
 def globalFit(dir_path):
     global_data = list() # Global data for partial dislocation
+    # TODO: Also gather global data for single dislocation
     for sd, pd in zip(Path(dir_path).joinpath("single-dislocation/depinning-dumps").iterdir(), Path(dir_path).joinpath("partial-dislocation/depinning-dumps").iterdir()):
         # sd # path to single dislocation depinning
         # pd # path to partial dislocation depinning
@@ -324,7 +324,7 @@ def globalFit(dir_path):
     plt.figure(figsize=(8,8))
     plt.scatter(x,y, marker='x', linewidths=0.1, label="data")
     plt.plot(xnew, ynew, label=f"Fit $\\tau_{{c}} = $ {tauC:.2f}", color="red")
-    plt.title("Depinning with 100 runs and fot done globally.")
+    plt.title("Depinning of a partial dislocation with 100 runs and fot done globally.")
     plt.legend()
     plt.savefig(Path(dir_path).joinpath("global-depinning.png"), dpi=300)
     print(f"Fit done with parameters tau_c = {tauC:.4f} beta = {beta:.4f} and A = {a}")
@@ -357,5 +357,5 @@ if __name__ == "__main__":
                     results_root)
     
     normalizedDepinnings(results_root)
-    
+
     globalFit(results_root)
