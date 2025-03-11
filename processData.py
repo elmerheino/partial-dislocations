@@ -181,22 +181,22 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     avgY = np.average(y)
 
     l_range = range(0,int(bigN))    # TODO: Use range parameter instead
-    coarsnesses = np.empty(int(bigN))
+    roughness = np.empty(int(bigN))
     
     for l in l_range:
         res = [ ( (y[i] - avgY)*(y[ (i+l) % y.size ] - avgY) )**2 for i in np.arange(y.size) ] # TODO: check fomula here
         res = sum(res)/len(res)
         c = np.sqrt(res)
-        coarsnesses[l] = c
+        roughness[l] = c
     
     plt.clf()
     plt.figure(figsize=(8,8))
-    plt.plot(l_range, coarsnesses, color="blue",label="Coarseness")
-    plt.title(f"Roughness single dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt}")
-    plt.xlabel("L")
-    plt.ylabel("W(L)")
+    plt.plot(np.log(l_range), np.log(roughness), color="blue",label="Coarseness")
+    plt.title(f"Roughness of a single dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.xlabel("log(L)")
+    plt.ylabel("log(W(L))")
 
-    p = Path(save_path).joinpath(f"coarseness-s-{seed}-{tauExt}.png")
+    p = Path(save_path).joinpath(f"rougness-s-{seed}-{tauExt:.3f}.png")
     plt.savefig(p, dpi=300)
     pass
 
@@ -373,18 +373,23 @@ if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation data processing")
     parser.add_argument('-f', '--folder', help='Specify the output folder of the simulation.', required=True)
     parser.add_argument('--all', help='Make all the plots.', action="store_true")
+    parser.add_argument('--np', help='Make normalized depinning plots.', action="store_true")
+    parser.add_argument('--avg', help='Make an averaged plot from all depinning simulations.', action="store_true")
+    parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
+    parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
+
     parsed = parser.parse_args()
 
     results_root = Path(parsed.folder)
 
-    if parsed.all:
+    if parsed.all or parsed.avg:
         stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
         stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
 
         makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
                             folder_name=results_root, colors=["red", "blue"])
         
-    if parsed.all:
+    if parsed.all or parsed.roughness:
         makeRoughnessPlot(results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"), 
                                     results_root,
                                     (None,None))
@@ -402,8 +407,11 @@ if __name__ == "__main__":
         plotDislocation("partial", 
                         results_root.joinpath("partial-dislocation/simulation-dumps/seed-0/sim-partial-tauExt-2.6000-at-t-10000.0.npz"),
                         results_root)
-    if parsed.all:
+    # Make normalized depinning plots
+    if parsed.all or parsed.np:
+        print("Making normalized depinning plots.")
         normalizedDepinnings(results_root)
 
     if parsed.all:
+        print("Making a global fit with a global plot.")
         globalFit(results_root)
