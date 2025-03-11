@@ -4,6 +4,7 @@ from plots import *
 import numpy as np
 from partialDislocation import PartialDislocationsSimulation
 from scipy import optimize
+from argparse import ArgumentParser
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
@@ -369,32 +370,40 @@ def globalFit(dir_path):
     print(f"Fit done with parameters tau_c = {tauC:.4f} beta = {beta:.4f} and A = {a}")
 
 if __name__ == "__main__":
-    results_root = Path("results/25-feb-small-interval")
+    parser = ArgumentParser(prog="Dislocation data processing")
+    parser.add_argument('-f', '--folder', help='Specify the output folder of the simulation.', required=True)
+    parser.add_argument('--all', help='Make all the plots.', action="store_true")
+    parsed = parser.parse_args()
 
-    stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
-    stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
+    results_root = Path(parsed.folder)
 
-    makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
-                         folder_name=results_root, colors=["red", "blue"])
-    
-    makeRoughnessPlot(results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"), 
-                            results_root,
-                            (None,None))
-    
-    
+    if parsed.all:
+        stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
+        stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
+
+        makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
+                            folder_name=results_root, colors=["red", "blue"])
+        
+    if parsed.all:
+        makeRoughnessPlot(results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"), 
+                                    results_root,
+                                    (None,None))
+
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
     # makeVelocityPlot(sim, "results/15-feb-1/")
     # makeGif(sim, "results/15-feb-1/")
 
     # Plots dislocations at the end of simulatino w/ tau_ext=0.0000
-    plotDislocation("single",
-                    results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"),
-                    results_root)
-    plotDislocation("partial", 
-                    results_root.joinpath("partial-dislocation/simulation-dumps/seed-0/sim-partial-tauExt-2.6000-at-t-10000.0.npz"),
-                    results_root)
-    
-    normalizedDepinnings(results_root)
+    if parsed.all:
+        plotDislocation("single",
+                        results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"),
+                        results_root)
+        plotDislocation("partial", 
+                        results_root.joinpath("partial-dislocation/simulation-dumps/seed-0/sim-partial-tauExt-2.6000-at-t-10000.0.npz"),
+                        results_root)
+    if parsed.all:
+        normalizedDepinnings(results_root)
 
-    globalFit(results_root)
+    if parsed.all:
+        globalFit(results_root)
