@@ -184,7 +184,7 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     roughness = np.empty(int(bigN))
     
     for l in l_range:
-        res = [ ( (y[i] - avgY)*(y[ (i+l) % y.size ] - avgY) )**2 for i in np.arange(y.size) ] # TODO: check fomula here
+        res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
         res = sum(res)/len(res)
         c = np.sqrt(res)
         roughness[l] = c
@@ -375,7 +375,6 @@ if __name__ == "__main__":
     parser.add_argument('--all', help='Make all the plots.', action="store_true")
     parser.add_argument('--np', help='Make normalized depinning plots.', action="store_true")
     parser.add_argument('--avg', help='Make an averaged plot from all depinning simulations.', action="store_true")
-    parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
     parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
 
     parsed = parser.parse_args()
