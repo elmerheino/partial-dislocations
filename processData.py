@@ -176,11 +176,14 @@ def calculateCoarseness(path_to_dislocation, l): # TODO: update this code to inc
     return res
 
 def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
-    # Loads a dislocation and computes the coarseness in a given range.
+    # Loads a (non-partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
     bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
-    y = np.array(loaded["y1"])
+    y = np.array(loaded["y1"]) # Now loaded[y1] is a matrix containing multiple dislocation shapes
+    # y = y[5]
+    print(f"y.shape={y.shape}")
+    y = np.mean(y, axis=1)
 
     avgY = np.average(y)
 
@@ -200,9 +203,42 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     plt.xlabel("log(L)")
     plt.ylabel("log(W(L))")
 
-    p = Path(save_path).joinpath(f"rougness-s-{seed}-{tauExt:.3f}.png")
+    p = Path(save_path).joinpath(f"rougness-non-partial-s-{seed}-{tauExt:.3f}.png")
     plt.savefig(p, dpi=300)
     pass
+
+def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str, l_range:tuple):
+    # Loads a (partial) dislocation and computes the coarseness in a given range.
+    loaded = np.load(path_to_dislocation)
+
+    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT1, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
+    y = np.array(loaded["y1"]) # Now loaded[y1] is a matrix containing multiple dislocation shapes
+    # y = y[5]
+    print(f"y.shape={y.shape}")
+    y = np.mean(y, axis=1)
+
+    avgY = np.average(y)
+
+    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
+    roughness = np.empty(int(bigN))
+    
+    for l in l_range:
+        res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
+        res = sum(res)/len(res)
+        c = np.sqrt(res)
+        roughness[l] = c
+    
+    plt.clf()
+    plt.figure(figsize=(8,8))
+    plt.plot(np.log(l_range), np.log(roughness), color="blue",label="Coarseness")
+    plt.title(f"Roughness of a single dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.xlabel("log(L)")
+    plt.ylabel("log(W(L))")
+
+    p = Path(save_path).joinpath(f"rougness-partial-s-{seed}-{tauExt:.3f}.png")
+    plt.savefig(p, dpi=300)
+    pass
+
 
 def v_fit(tau_ext, tau_crit, beta, a):
     v_res = np.empty(len(tau_ext))
@@ -393,10 +429,12 @@ if __name__ == "__main__":
                             folder_name=results_root, colors=["red", "blue"])
         
     if parsed.all or parsed.roughness:
-        makeRoughnessPlot(results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"), 
+        makeRoughnessPlot(results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz"), 
                                     results_root,
                                     (None,None))
-
+        makeRoughnessPlot_partial(results_root.joinpath("partial/simulation-dumps/seed-102/sim-partial-tauExt-2.8889-from-t-90.0.npz"), 
+                                    results_root,
+                                    (None,None))
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
     # makeVelocityPlot(sim, "results/15-feb-1/")
