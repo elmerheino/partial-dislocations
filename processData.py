@@ -29,7 +29,7 @@ def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
 
     pass
 
-def saveLastState_partial(sim: PartialDislocationsSimulation, folder_name):
+def saveStatesFromTime(sim: PartialDislocationsSimulation, folder_name, time_to_consider):
     parameters = np.array([
         sim.bigN, sim.length, sim.time, sim.dt,
         sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
@@ -41,10 +41,12 @@ def saveLastState_partial(sim: PartialDislocationsSimulation, folder_name):
     dump_path = dump_path.joinpath(f"seed-{sim.seed}")
     dump_path.mkdir(exist_ok=True, parents=True)
 
-    dump_path = dump_path.joinpath(f"sim-partial-tauExt-{sim.tauExt:.4f}-at-t-{sim.time}.npz")
-    np.savez(str(dump_path), params=parameters, y1=sim.y1[sim.timesteps-1], y2=sim.y2[sim.timesteps-1])
+    dump_path = dump_path.joinpath(f"sim-partial-tauExt-{sim.tauExt:.4f}-from-t-{sim.time - time_to_consider}.npz")
+    steps_to_consider = round(time_to_consider / sim.dt)
+    start = sim.timesteps - steps_to_consider
+    np.savez(str(dump_path), params=parameters, y1=sim.y1[start:], y2=sim.y2[start:])
 
-def saveLastState_single(sim: DislocationSimulation, folder_name):
+def saveStatesFromTime_single(sim: DislocationSimulation, folder_name, time_to_consider):
     parameters = np.array([
         sim.bigN, sim.length, sim.time, sim.dt,
         sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
@@ -56,8 +58,10 @@ def saveLastState_single(sim: DislocationSimulation, folder_name):
     dump_path = dump_path.joinpath(f"seed-{sim.seed}")
     dump_path.mkdir(exist_ok=True, parents=True)
 
-    dump_path = dump_path.joinpath(f"sim-single-tauExt-{sim.tauExt:.4f}-at-t-{sim.time}.npz")
-    np.savez(str(dump_path), params=parameters, y1=sim.y1[sim.timesteps-1])
+    dump_path = dump_path.joinpath(f"sim-single-tauExt-{sim.tauExt:.4f}-from-t-{sim.time - time_to_consider}.npz")
+    steps_to_consider = round(time_to_consider / sim.dt)
+    start = sim.timesteps - steps_to_consider
+    np.savez(str(dump_path), params=parameters, y1=sim.y1[start:])
 
 def plotDislocation(type:str,path_to_file,save_path):
     # Loads and plots a dislocation a a certain point in time
@@ -156,7 +160,7 @@ def loadDepinningDumps(folder, partial:bool):
 
     return (stresses, vCm) # Retuns a single list of stresses and a list of lists of velocities vCm
 
-def calculateCoarseness(path_to_dislocation, l):
+def calculateCoarseness(path_to_dislocation, l): # TODO: update this code to incorporate multiple dumped dislocation through averaging
     # Given a path to a single dislocation at some time t calculate the coarseness.
     loaded = np.load(path_to_dislocation)
     bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
