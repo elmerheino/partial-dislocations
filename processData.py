@@ -191,7 +191,7 @@ def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dis
 
     return l_range, roughness
 
-def makeRoughnessPlot(path_to_dislocation:str, save_path:str):
+def makeRoughnessPlot(path_to_dislocation:str, save_path:str, averaging=True):
     # Loads a (non-partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
@@ -201,10 +201,12 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str):
     print(f"y.shape={y.shape}")
     # y = np.mean(y, axis=1)
 
-    l_range, roughness = roughnessW(y[0], bigN)
-
-    # roughnesses = np.array([roughnessW(y_i, bigN)[1] for y_i in y])
-    # roughness = np.average(roughnesses, axis=0)
+    if averaging:
+        roughnesses = np.array([roughnessW(y_i, bigN)[1] for y_i in y])
+        roughness = np.average(roughnesses, axis=0)
+    else:
+        end_point = len(y) - 1
+        l_range, roughness = roughnessW(y[end_point], bigN)
     
     plt.clf()
     plt.figure(figsize=(8,8))
@@ -234,7 +236,7 @@ def roughnessW12(y1, y2, bigN): # Calculated the cross correlation W_12(L) betwe
 
     return l_range, roughness
 
-def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str):
+def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str, averaging=True):
     # Loads a (partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
@@ -245,10 +247,13 @@ def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str):
     print(f"y1.shape={y1.shape}")
     print(f"y2.shape={y2.shape}")
     
-    l_range, roughness = roughnessW12(y1[0], y2[0], bigN)
+    if averaging:
+        roughnesses = np.array([roughnessW12(y1_i,y2_i, bigN)[1] for y1_i,y2_i in zip(y1, y2)])
+        roughness = np.average(roughnesses, axis=0)
+    else:
+        end_point = len(y1) - 1
+        l_range, roughness = roughnessW12(y1[end_point], y2[end_point], bigN)
 
-    # roughnesses = np.array([roughnessW12(y1_i,y2_i, bigN)[1] for y1_i,y2_i in zip(y1, y2)])
-    # roughness = np.average(roughnesses, axis=0)
 
     plt.clf()
     plt.figure(figsize=(8,8))
@@ -452,23 +457,23 @@ if __name__ == "__main__":
                             folder_name=results_root, colors=["red", "blue"])
         
     if parsed.all or parsed.roughness:
-        print("Making roughness plots.")
+        print("Making roughness plots. (w/o averaging by default)")
         for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
             for roughness in seed.iterdir():
                 # Joku results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz")
-                makeRoughnessPlot(roughness, results_root)
+                makeRoughnessPlot(roughness, results_root, averaging=False)
         
         for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
             for roughness in seed.iterdir():
                 # Joku results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz")
-                makeRoughnessPlot_partial(roughness, results_root)
+                makeRoughnessPlot_partial(roughness, results_root, averaging=False)
 
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
     # makeVelocityPlot(sim, "results/15-feb-1/")
     # makeGif(sim, "results/15-feb-1/")
 
-    # Plots dislocations at the end of simulatino w/ tau_ext=0.0000
+    # Plots dislocations at the end of simulation
     if parsed.all:
         print("Making plots of some singe dislocations at time t.")
         plotDislocation("single",
