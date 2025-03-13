@@ -4,6 +4,7 @@ from plots import *
 import numpy as np
 from partialDislocation import PartialDislocationsSimulation
 from scipy import optimize
+from scipy import stats
 from argparse import ArgumentParser
 import multiprocessing as mp
 from functools import partial
@@ -326,6 +327,11 @@ def normalizedDepinnings(folder_path):
     tau_c_single = list()
     tau_c_partial = list()
 
+    # Collect all datapoints for binning
+
+    data_non_partial = list()
+    data_partial = list()
+
     for fpath, fpath2 in zip(sd_path.iterdir(), pd_path.iterdir()):
         with open(fpath, "r") as fp:
             depinning = json.load(fp)
@@ -349,6 +355,8 @@ def normalizedDepinnings(folder_path):
         # Scale the fit x-axis as well
         xnew = (xnew - tauCrit)/tauCrit
 
+        data_non_partial += zip(x,y)
+
         plt.clf()
         plt.figure(figsize=(8,8))
         plt.scatter(x,y, marker='x', color="red", label="Depinning")
@@ -367,7 +375,6 @@ def normalizedDepinnings(folder_path):
         with open(fpath2, "r") as fp:
             depinning_partial = json.load(fp)
 
-
         tauExt = depinning_partial["stresses"]
         vCm = depinning_partial["v_rel"]
         seed = depinning_partial["seed"]
@@ -383,6 +390,8 @@ def normalizedDepinnings(folder_path):
         # Scale the original data
         x = (tauExt - tauCrit)/tauCrit
         y = vCm
+
+        data_partial += zip(x,y)
 
         # Scale the fit x-axis as well
         xnew = (xnew - tauCrit)/tauCrit
@@ -418,6 +427,59 @@ def normalizedDepinnings(folder_path):
     with open(Path(folder_path).joinpath("tau_c.json"), "w") as fp:
         json.dump(d,fp, indent=2)
 
+    return data_non_partial, data_partial
+
+def confidence_interval_lower(l, c_level):
+    # Does not handle empy lists at all, assumes normal distribution
+    n = len(l)
+    m,s = np.mean(l), np.std(l)/np.sqrt(n)
+    c = stats.norm.interval(c_level, loc=m, scale=s)
+    return c[0]
+
+def confidence_interval_upper(l, c_level):
+    # Does not handle empy lists at all, assumes normal distribution
+    n = len(l)
+    m,s = np.mean(l), np.std(l)/np.sqrt(n)
+    c = stats.norm.interval(c_level, loc=m, scale=s)
+    return c[1]
+
+
+def binning(data_np, data_p, res_dir, conf_level): # non-partial and partial dislocation global data, respectively
+    x,y = zip(*data_np)
+
+    bin_means, bin_edges, binnumber = stats.binned_statistic(x,y,statistic="mean", bins=100)
+
+    lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=100)
+    upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=100)
+
+    bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=100)
+
+    print(f"Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} respectively.")
+
+    plt.clf()
+    plt.close('all')
+    plt.figure(figsize=(8,8))
+
+    plt.title("Non-partial dislocation binned depinning")
+    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+    plt.ylabel("$v_{{cm}}$")
+
+    bin_width = (bin_edges[1] - bin_edges[0])
+    bin_centers = bin_edges[1:] - bin_width/2
+
+    plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
+    plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
+    plt.plot(bin_centers, upper_confidence, color="blue")
+
+    plt.scatter(bin_centers, bin_means, color="red", marker="x",
+           label='Binned depinning data')
+    plt.legend()
+    
+    p = Path(res_dir)
+    p = p.joinpath("binned-depinnings-non-partial")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"binned-depinning-conf-{conf_level}.png")
+    plt.savefig(p, dpi=300)
     pass
 
 def getCriticalForces(dir_path):
@@ -466,6 +528,8 @@ if __name__ == "__main__":
     parser.add_argument('--avg', help='Make an averaged plot from all depinning simulations.', action="store_true")
     parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
     parser.add_argument('--dislocations', help='Plot dislocations at the end of simulation.', action="store_true")
+    parser.add_argument('--binning', help='Make a binned plot. --np must have been called before', action="store_true")
+    parser.add_argument('--confidence', help='Confidence level for depinning, must be called with --binning.', type=float, default=0.95)
 
     parsed = parser.parse_args()
 
@@ -508,7 +572,21 @@ if __name__ == "__main__":
     # Make normalized depinning plots
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
-        normalizedDepinnings(results_root)
+        non_partial_data, partial_data = normalizedDepinnings(results_root)
+
+        with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
+            json.dump({"np_data":non_partial_data, "p_data":partial_data}, fp, indent=2)
+    
+    if parsed.all or parsed.binning:
+        p = Path(results_root).joinpath("global_data_dump.json")
+
+        if not p.exists():
+            raise Exception("--np must be called before this one.")
+        
+        with open(Path(results_root).joinpath("global_data_dump.json"), "r") as fp:
+            data = json.load(fp)
+        
+        binning(data["np_data"], data["p_data"], results_root, conf_level=parsed.confidence)
 
     if parsed.all:
         print("Making a global fit with a global plot.")
