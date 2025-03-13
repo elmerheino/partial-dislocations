@@ -65,40 +65,54 @@ def saveStatesFromTime_single(sim: DislocationSimulation, folder_name, time_to_c
     start = sim.timesteps - steps_to_consider
     np.savez(str(dump_path), params=parameters, y1=sim.y1[start:])
 
-def plotDislocation(type:str, path_to_file, save_path, point=None):
-    # Loads and plots a dislocation a a certain point in time,  by default at the end
+def plotDislocation_partial(path_to_file, save_path, point=None):
     loaded = np.load(path_to_file)
+
+    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
+
+    y1 = loaded["y1"]
+    y2 = loaded["y2"]
+
     if point == None:
-        point = loaded[loaded.size]
+        point = len(y1) - 1
 
-    plt.clf()
-    if type == "partial":
-        bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
-        y1, y2 = loaded["y1"][point], loaded["y2"][point]
-        x_axis = np.arange(bigN)*(length/bigN)
+    y1, y2 = y1[point], y2[point]
+    x_axis = np.arange(bigN)*(length/bigN)
 
-        plt.figure(figsize=(8,8))
-        plt.plot(x_axis, y1, label="$y_1 (x)$", color="orange")
-        plt.plot(x_axis, y2, label="$y_2 (x)$", color="blue")
-        plt.title(f"Partial dislocation at time t={time} w/ $\\tau_{{ext}}$ = {tauExt:.3f}")
-        plt.legend()
+    plt.figure(figsize=(8,8))
+    plt.plot(x_axis, y1, label="$y_1 (x)$", color="orange")
+    plt.plot(x_axis, y2, label="$y_2 (x)$", color="blue")
+    plt.title(f"Partial dislocation at time t={time} w/ $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.legend()
 
-        p = Path(save_path).joinpath(f"partial-dislocation-s-{seed:.2f}-t-{tauExt:.3f}.png")
-        plt.savefig(p, dpi=300)
-        
+    p = Path(save_path).joinpath("partial-imgs")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"partial-dislocation-s-{seed:.2f}-t-{tauExt:.3f}.png")
+    plt.savefig(p, dpi=300)
+    pass
 
-    elif type == "single":
-        bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
-        y1 = loaded["y1"][point]
-        x_axis = np.arange(bigN)*(length/bigN)
+def plotDislocation_nonp(path_to_file, save_path, point=None):
+    loaded = np.load(path_to_file)
+    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
+    y1 = loaded["y1"]
 
-        plt.figure(figsize=(8,8))
-        plt.plot(x_axis, y1, label="$y_1 (x)$", color="blue")
-        plt.title(f"Single dislocation at time t={time} w/ $\\tau_{{ext}}$ = {tauExt:.3f}")
-        plt.legend()
+    if point == None:
+        point = len(y1) - 1
+    
+    y1 = y1[point]
 
-        p = Path(save_path).joinpath(f"single-dislocation-s-{seed}-t-{tauExt}.png")
-        plt.savefig(p, dpi=300)
+    x_axis = np.arange(bigN)*(length/bigN)
+
+    plt.figure(figsize=(8,8))
+    plt.plot(x_axis, y1, label="$y_1 (x)$", color="blue")
+    plt.title(f"Single dislocation at time t={time} w/ $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.legend()
+
+    p = Path(save_path).joinpath("non-partial-imgs")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"single-dislocation-s-{seed}-t-{tauExt}.png")
+    plt.savefig(p, dpi=300)
+    pass
     
 def loadResults(file_path):
     # Load the results from a file at file_path to a new simulation object for further processing
@@ -390,10 +404,12 @@ def normalizedDepinnings(folder_path):
     # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
     d = {
         "non-partial dislocation": {
+            "tau_c":tau_c_single,
             "avg(tau_c)" : sum(tau_c_single)/len(tau_c_single),
             "sd(tau_c)" : np.std(tau_c_single)
         },
         "partial dislocation": {
+            "tau_c":tau_c_partial,
             "avg(tau_c)" : sum(tau_c_partial)/len(tau_c_partial),
             "sd(tau_c)" : np.std(tau_c_partial)
         }
@@ -449,12 +465,14 @@ if __name__ == "__main__":
     parser.add_argument('--np', help='Make normalized depinning plots.', action="store_true")
     parser.add_argument('--avg', help='Make an averaged plot from all depinning simulations.', action="store_true")
     parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
+    parser.add_argument('--dislocations', help='Plot dislocations at the end of simulation.', action="store_true")
 
     parsed = parser.parse_args()
 
     results_root = Path(parsed.folder)
 
     if parsed.all or parsed.avg:
+        print("Making depinning plots.")
         stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
         stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
 
@@ -477,14 +495,16 @@ if __name__ == "__main__":
     # makeGif(sim, "results/15-feb-1/")
 
     # Plots dislocations at the end of simulation
-    if parsed.all:
+    if parsed.all or parsed.dislocations:
         print("Making plots of some singe dislocations at time t.")
-        plotDislocation("single",
-                        results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"),
-                        results_root)
-        plotDislocation("partial", 
-                        results_root.joinpath("partial-dislocation/simulation-dumps/seed-0/sim-partial-tauExt-2.6000-at-t-10000.0.npz"),
-                        results_root)
+        for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
+            with mp.Pool(7) as pool:
+                pool.map(partial(plotDislocation_nonp, save_path=results_root), seed.iterdir())
+
+        for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
+            with mp.Pool(7) as pool:
+                pool.map(partial(plotDislocation_partial, save_path=results_root), seed.iterdir())
+        
     # Make normalized depinning plots
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
