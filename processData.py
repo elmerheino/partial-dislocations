@@ -63,14 +63,16 @@ def saveStatesFromTime_single(sim: DislocationSimulation, folder_name, time_to_c
     start = sim.timesteps - steps_to_consider
     np.savez(str(dump_path), params=parameters, y1=sim.y1[start:])
 
-def plotDislocation(type:str,path_to_file,save_path):
-    # Loads and plots a dislocation a a certain point in time
+def plotDislocation(type:str, path_to_file, save_path, point=None):
+    # Loads and plots a dislocation a a certain point in time,  by default at the end
     loaded = np.load(path_to_file)
+    if point == None:
+        point = loaded[loaded.size]
 
     plt.clf()
     if type == "partial":
         bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
-        y1, y2 = loaded["y1"], loaded["y2"]
+        y1, y2 = loaded["y1"][point], loaded["y2"][point]
         x_axis = np.arange(bigN)*(length/bigN)
 
         plt.figure(figsize=(8,8))
@@ -85,7 +87,7 @@ def plotDislocation(type:str,path_to_file,save_path):
 
     elif type == "single":
         bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, mu, tauExt, d0, seed, tau_cutoff = loaded["params"]
-        y1 = loaded["y1"]
+        y1 = loaded["y1"][point]
         x_axis = np.arange(bigN)*(length/bigN)
 
         plt.figure(figsize=(8,8))
@@ -175,7 +177,21 @@ def calculateCoarseness(path_to_dislocation, l): # TODO: update this code to inc
 
     return res
 
-def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
+def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
+    avgY = np.average(y)
+
+    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
+    roughness = np.empty(int(bigN))
+    
+    for l in l_range:
+        res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
+        res = sum(res)/len(res)
+        c = np.sqrt(res)
+        roughness[l] = c
+
+    return l_range, roughness
+
+def makeRoughnessPlot(path_to_dislocation:str, save_path:str):
     # Loads a (non-partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
@@ -183,18 +199,12 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     y = np.array(loaded["y1"]) # Now loaded[y1] is a matrix containing multiple dislocation shapes
     # y = y[5]
     print(f"y.shape={y.shape}")
-    y = np.mean(y, axis=1)
+    # y = np.mean(y, axis=1)
 
-    avgY = np.average(y)
+    l_range, roughness = roughnessW(y[0], bigN)
 
-    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
-    roughness = np.empty(int(bigN))
-    
-    for l in l_range:
-        res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
-        res = sum(res)/len(res)
-        c = np.sqrt(res)
-        roughness[l] = c
+    # roughnesses = np.array([roughnessW(y_i, bigN)[1] for y_i in y])
+    # roughness = np.average(roughnesses, axis=0)
     
     plt.clf()
     plt.figure(figsize=(8,8))
@@ -203,39 +213,53 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, l_range:tuple):
     plt.xlabel("log(L)")
     plt.ylabel("log(W(L))")
 
-    p = Path(save_path).joinpath(f"rougness-non-partial-s-{seed}-{tauExt:.3f}.png")
+    p = Path(save_path).joinpath("roughnesses-non-partial")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"roughness-non-partial-s-{seed}-{tauExt:.3f}.png")
     plt.savefig(p, dpi=300)
     pass
 
-def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str, l_range:tuple):
+def roughnessW12(y1, y2, bigN): # Calculated the cross correlation W_12(L) between the dislocations
+    avgY1 = np.average(y1)
+    avgY2 = np.average(y2)
+
+    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
+    roughness = np.empty(int(bigN))
+    
+    for l in l_range:
+        res = [ ( y1[i] - avgY1 - (y2[ (i+l) % y2.size ] - avgY2) )**2 for i in np.arange(y1.size) ] # TODO: check fomula here
+        res = sum(res)/len(res)
+        c = np.sqrt(res)
+        roughness[l] = c
+
+    return l_range, roughness
+
+def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str):
     # Loads a (partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
     bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT1, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
-    y = np.array(loaded["y1"]) # Now loaded[y1] is a matrix containing multiple dislocation shapes
-    # y = y[5]
-    print(f"y.shape={y.shape}")
-    y = np.mean(y, axis=1)
+    y1 = np.array(loaded["y1"]) # Now loaded[y1] is a matrix containing multiple dislocation shapes
+    y2 = np.array(loaded["y2"])
 
-    avgY = np.average(y)
+    print(f"y1.shape={y1.shape}")
+    print(f"y2.shape={y2.shape}")
+    
+    l_range, roughness = roughnessW12(y1[0], y2[0], bigN)
 
-    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
-    roughness = np.empty(int(bigN))
-    
-    for l in l_range:
-        res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
-        res = sum(res)/len(res)
-        c = np.sqrt(res)
-        roughness[l] = c
-    
+    # roughnesses = np.array([roughnessW12(y1_i,y2_i, bigN)[1] for y1_i,y2_i in zip(y1, y2)])
+    # roughness = np.average(roughnesses, axis=0)
+
     plt.clf()
     plt.figure(figsize=(8,8))
     plt.plot(np.log(l_range), np.log(roughness), color="blue",label="Coarseness")
     plt.title(f"Roughness of a single dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
-    plt.ylabel("log(W(L))")
+    plt.ylabel("$\\log(W_{{12}}(L))$")
 
-    p = Path(save_path).joinpath(f"rougness-partial-s-{seed}-{tauExt:.3f}.png")
+    p = Path(save_path).joinpath("roughnesses-partial")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"roughness-partial-s-{seed}-{tauExt:.3f}.png")
     plt.savefig(p, dpi=300)
     pass
 
@@ -267,7 +291,6 @@ def getCriticalForce(stresses, vcm):
     critical_force, beta, a = fit_params
 
     return critical_force, beta, a
-
 
 def normalizedDepinnings(folder_path):
     # Make such plots for a single dislocation first
@@ -429,12 +452,17 @@ if __name__ == "__main__":
                             folder_name=results_root, colors=["red", "blue"])
         
     if parsed.all or parsed.roughness:
-        makeRoughnessPlot(results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz"), 
-                                    results_root,
-                                    (None,None))
-        makeRoughnessPlot_partial(results_root.joinpath("partial/simulation-dumps/seed-102/sim-partial-tauExt-2.8889-from-t-90.0.npz"), 
-                                    results_root,
-                                    (None,None))
+        print("Making roughness plots.")
+        for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
+            for roughness in seed.iterdir():
+                # Joku results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz")
+                makeRoughnessPlot(roughness, results_root)
+        
+        for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
+            for roughness in seed.iterdir():
+                # Joku results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz")
+                makeRoughnessPlot_partial(roughness, results_root)
+
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
     # makeVelocityPlot(sim, "results/15-feb-1/")
@@ -442,6 +470,7 @@ if __name__ == "__main__":
 
     # Plots dislocations at the end of simulatino w/ tau_ext=0.0000
     if parsed.all:
+        print("Making plots of some singe dislocations at time t.")
         plotDislocation("single",
                         results_root.joinpath("single-dislocation/simulation-dumps/seed-1/sim-single-tauExt-2.6081-at-t-10000.0.npz"),
                         results_root)
