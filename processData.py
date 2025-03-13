@@ -5,6 +5,8 @@ import numpy as np
 from partialDislocation import PartialDislocationsSimulation
 from scipy import optimize
 from argparse import ArgumentParser
+import multiprocessing as mp
+from functools import partial
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
@@ -201,6 +203,8 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, averaging=True):
     print(f"y.shape={y.shape}")
     # y = np.mean(y, axis=1)
 
+    l_range = range(0,int(bigN))
+
     if averaging:
         roughnesses = np.array([roughnessW(y_i, bigN)[1] for y_i in y])
         roughness = np.average(roughnesses, axis=0)
@@ -247,6 +251,7 @@ def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str, averaging=
     print(f"y1.shape={y1.shape}")
     print(f"y2.shape={y2.shape}")
     
+    l_range = range(0,int(bigN))
     if averaging:
         roughnesses = np.array([roughnessW12(y1_i,y2_i, bigN)[1] for y1_i,y2_i in zip(y1, y2)])
         roughness = np.average(roughnesses, axis=0)
@@ -459,14 +464,12 @@ if __name__ == "__main__":
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
         for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
-            for roughness in seed.iterdir():
-                # Joku results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz")
-                makeRoughnessPlot(roughness, results_root, averaging=False)
+            with mp.Pool(7) as pool:
+                pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
         
         for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
-            for roughness in seed.iterdir():
-                # Joku results_root.joinpath("single/simulation-dumps/seed-102/sim-partial-tauExt-3.0056-from-t-90.0.npz")
-                makeRoughnessPlot_partial(roughness, results_root, averaging=False)
+            with mp.Pool(7) as pool:
+                pool.map(partial(makeRoughnessPlot_partial, save_path=results_root, averaging=True), seed.iterdir())
 
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
