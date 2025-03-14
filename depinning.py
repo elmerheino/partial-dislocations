@@ -5,6 +5,7 @@ from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import DislocationSimulation
 from processData import saveStatesFromTime
 from processData import saveStatesFromTime_single
+from pathlib import Path
 
 class Depinning(object):
 
@@ -59,7 +60,7 @@ class DepinningPartial(Depinning):
         # dumpResults(simulation, folder_name)
         t_to_consider = self.time/10 # TODO: make time to consider a global parameter
         rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=t_to_consider) # The velocities after relaxation
-        saveStatesFromTime(simulation, self.folder_name,self.time)
+        saveStatesFromTime(simulation, self.folder_name,self.time/100) # Only save on percent of simulation time
 
         return (rV1, rV2, totV2)
     
@@ -98,7 +99,15 @@ class DepinningSingle(Depinning):
         t_to_consider = self.time/10
         v_rel = sim.getRelaxedVelocity(time_to_consider=t_to_consider) # Consider last 10% of time to get relaxed velocity.
 
-        saveStatesFromTime_single(sim, self.folder_name, self.time/100) # Consider only the last 1% for roughness
+        saveStatesFromTime_single(sim, self.folder_name, self.time/100) # Consider only the last 1% for curiosity
+
+        l_range, avg_w = sim.getAveragedRoughness(self.time/10) # Get averaged roughness from
+
+        p = Path(self.folder_name).joinpath(f"averaged-roughnesses").joinpath(f"seed-{self.seed}")
+        p.mkdir(exist_ok=True, parents=True)
+        p = p.joinpath(f"roughness-tau-{tauExt:.3f}.npz")
+        
+        np.savez(p, l_range=l_range, avg_w=avg_w)
 
         return v_rel
 

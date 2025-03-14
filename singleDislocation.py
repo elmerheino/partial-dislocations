@@ -11,7 +11,7 @@ class DislocationSimulation(Simulation):
         self.d0 = d0
         
         # Pre-allocate memory here
-        self.y1 = np.empty((self.timesteps, self.bigN))
+        self.y1 = np.empty((self.timesteps, self.bigN)) # Each timestep is one row, bigN is number of columns
         pass
         
     def timestep(self, dt, y1):
@@ -85,3 +85,23 @@ class DislocationSimulation(Simulation):
             "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
         ])
         return plot_title
+    
+    def getAveragedRoughness(self, time_to_consider):
+        parameters = np.array([
+            self.bigN, self.length, self.time, self.dt,
+            self.deltaR, self.bigB, self.smallB, self.b_p,
+            self.cLT1, self.mu, self.tauExt,
+            self.d0, self.seed, self.tau_cutoff
+        ])
+        steps_to_consider = round(time_to_consider / self.dt)
+        start = self.timesteps - steps_to_consider
+
+        l_range, roughness = self.roughnessW(self.y1[0], self.bigN)
+
+        roughnesses = np.empty((steps_to_consider, self.bigN))
+        for i in range(start,self.timesteps):
+            _, rough = self.roughnessW(self.y1[i], self.bigN)
+            roughnesses[i-start] = rough
+        
+        avg = np.average(roughnesses, axis=0)
+        return l_range, avg

@@ -21,6 +21,7 @@ def triton():
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.')
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
     parser.add_argument('--single', help='Simulate a single dislocation.', action="store_true")
+    parser.add_argument('--seq', help='Sequential.', action="store_true", default=False)
 
     parsed = parser.parse_args()
 
@@ -36,7 +37,7 @@ def triton():
 
         depinning = DepinningPartial(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=cores)
+                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
         v1, v2, vcm = depinning.run()
         dumpDepinning(depinning.stresses, vcm, depinning.time, depinning.seed, depinning.dt, folder_name=parsed.folder, extra=[v1, v2])
 
@@ -44,7 +45,7 @@ def triton():
 
         depinning = DepinningSingle(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=cores)
+                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
         vcm = depinning.run()
         dumpDepinning(depinning.stresses, vcm, depinning.time, depinning.seed, depinning.dt, folder_name=parsed.folder)
 
