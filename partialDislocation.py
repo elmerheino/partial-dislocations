@@ -134,6 +134,28 @@ class PartialDislocationsSimulation(Simulation):
 
         return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
     
+    def getAveragedRoughness(self, time_to_consider):
+        steps_to_consider = round(time_to_consider / self.dt)
+        start = self.timesteps - steps_to_consider
+
+        l_range, _ = self.roughnessW12(self.y1[0], self.y2[0], self.bigN)
+
+        roughnesses = np.empty((steps_to_consider, self.bigN))
+        for i in range(start,self.timesteps):
+            _, rough = self.roughnessW12(self.y1[i], self.y2[i], self.bigN)
+            roughnesses[i-start] = rough
+        
+        avg = np.average(roughnesses, axis=0)
+        return l_range, avg
+
+    def getParameters(self):
+        parameters = np.array([
+            self.bigN, self.length, self.time, self.dt,
+            self.deltaR, self.bigB, self.smallB, self.b_p,
+            self.cLT1, self.cLT2, self.mu, self.tauExt, self.c_gamma,
+            self.d0, self.seed, self.tau_cutoff
+        ])
+        return parameters    
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
         # according to Vaid et al. (12)

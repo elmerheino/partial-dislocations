@@ -86,17 +86,20 @@ class DislocationSimulation(Simulation):
         ])
         return plot_title
     
-    def getAveragedRoughness(self, time_to_consider):
+    def getParameteters(self):
         parameters = np.array([
             self.bigN, self.length, self.time, self.dt,
             self.deltaR, self.bigB, self.smallB, self.b_p,
             self.cLT1, self.mu, self.tauExt,
             self.d0, self.seed, self.tau_cutoff
         ])
+        return parameters
+
+    def getAveragedRoughness(self, time_to_consider):
         steps_to_consider = round(time_to_consider / self.dt)
         start = self.timesteps - steps_to_consider
 
-        l_range, roughness = self.roughnessW(self.y1[0], self.bigN)
+        l_range, _ = self.roughnessW(self.y1[0], self.bigN)
 
         roughnesses = np.empty((steps_to_consider, self.bigN))
         for i in range(start,self.timesteps):
