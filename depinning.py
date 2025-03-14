@@ -2,7 +2,9 @@ import numpy as np
 import multiprocessing as mp
 from functools import partial
 from partialDislocation import PartialDislocationsSimulation
-from processData import *
+from singleDislocation import DislocationSimulation
+from processData import saveStatesFromTime
+from processData import saveStatesFromTime_single
 
 class Depinning(object):
 
@@ -57,7 +59,7 @@ class DepinningPartial(Depinning):
         # dumpResults(simulation, folder_name)
         t_to_consider = self.time/10 # TODO: make time to consider a global parameter
         rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=t_to_consider) # The velocities after relaxation
-        saveStatesFromTime(simulation, self.folder_name,self.time/100)
+        saveStatesFromTime(simulation, self.folder_name,self.time)
 
         return (rV1, rV2, totV2)
     

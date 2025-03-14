@@ -1,7 +1,7 @@
 import multiprocessing as mp
 from argparse import ArgumentParser
 from plots import *
-from processData import *
+from processData import dumpDepinning
 from depinning import *
 
 # import time

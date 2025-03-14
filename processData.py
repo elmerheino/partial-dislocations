@@ -8,6 +8,7 @@ from scipy import stats
 from argparse import ArgumentParser
 import multiprocessing as mp
 from functools import partial
+from numba import jit
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
@@ -194,15 +195,22 @@ def calculateCoarseness(path_to_dislocation, l): # TODO: update this code to inc
 
     return res
 
+@staticmethod
+@jit(nopython=True)
 def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
-    avgY = np.average(y)
-
-    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
+    l_range = np.arange(0,int(bigN))    # TODO: Use range parameter instead
     roughness = np.empty(int(bigN))
+
+    y_size = len(y)
     
     for l in l_range:
-        res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
-        res = sum(res)/len(res)
+        res = 0
+        for i in range(0,y_size):
+            res += ( y[i] - y[ (i+l) % y_size ] )**2
+        
+        # res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
+
+        res = res/y_size
         c = np.sqrt(res)
         roughness[l] = c
 
@@ -240,16 +248,26 @@ def makeRoughnessPlot(path_to_dislocation:str, save_path:str, averaging=True):
     plt.savefig(p, dpi=300)
     pass
 
+@staticmethod
+@jit(nopython=True)
 def roughnessW12(y1, y2, bigN): # Calculated the cross correlation W_12(L) between the dislocations
-    avgY1 = np.average(y1)
-    avgY2 = np.average(y2)
+    avgY1 = sum(y1)/len(y1)
+    avgY2 = sum(y2)/len(y2)
 
-    l_range = range(0,int(bigN))    # TODO: Use range parameter instead
+    l_range = np.arange(0,int(bigN))    # TODO: Use range parameter instead
     roughness = np.empty(int(bigN))
+
+    y2_size = len(y2)
+    y1_size = len(y1)
     
     for l in l_range:
-        res = [ ( y1[i] - avgY1 - (y2[ (i+l) % y2.size ] - avgY2) )**2 for i in np.arange(y1.size) ] # TODO: check fomula here
-        res = sum(res)/len(res)
+        res = 0
+        for i in range(0,y1_size):
+            res += ( y1[i] - avgY1 - (y2[ (i+l) % y2_size ] - avgY2) )**2
+
+        # res = [ ( y1[i] - avgY1 - (y2[ (i+l) % y2_size ] - avgY2) )**2 for i in range(0,y1_size) ] # TODO: check fomula here
+
+        res = res/y1_size # len(range(0,y1_size)) = y1_size = len(res)
         c = np.sqrt(res)
         roughness[l] = c
 
@@ -576,13 +594,13 @@ if __name__ == "__main__":
         
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
-        for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
-            with mp.Pool(7) as pool:
-                pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
-        
         for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
             with mp.Pool(7) as pool:
                 pool.map(partial(makeRoughnessPlot_partial, save_path=results_root, averaging=True), seed.iterdir())
+
+        for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
+            with mp.Pool(7) as pool:
+                pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
 
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
