@@ -472,7 +472,7 @@ def binning(data_np, res_dir, conf_level, save_folder, title): # non-partial and
 
     bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=100)
 
-    print(f"Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} respectively.")
+    print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} respectively.')
 
     plt.clf()
     plt.close('all')
@@ -638,10 +638,10 @@ if __name__ == "__main__":
         tau_c_np, tau_c_p = analyze_tau(results_root)
         binning(data["np_data"], results_root, conf_level=parsed.confidence,
                 save_folder="binned-depinnings-non-partial",
-                title=f"Non-partial dislocation binned depinning $\\tau_c = $ {tau_c_np:.3f}")
+                title=f"Non-partial dislocation binned depinning $\\langle \\tau_c \\rangle = $ {tau_c_np:.3f}")
         binning(data["p_data"], results_root, conf_level=parsed.confidence,
                 save_folder="binned-depinnings-partial",
-                title=f"Partial dislocation binned depinning $\\tau_c = $ {tau_c_p:.3f}") # TODO: implement this
+                title=f"Partial dislocation binned depinning  $\\langle \\tau_c \\rangle = $ {tau_c_p:.3f}") # TODO: implement this
 
     if parsed.all:
         print("Making a global fit with a global plot.")
