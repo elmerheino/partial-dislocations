@@ -57,7 +57,7 @@ class DepinningPartial(Depinning):
         # dumpResults(simulation, folder_name)
         t_to_consider = self.time/10 # TODO: make time to consider a global parameter
         rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=t_to_consider) # The velocities after relaxation
-        saveStatesFromTime(simulation, self.folder_name,t_to_consider)
+        saveStatesFromTime(simulation, self.folder_name,self.time/100)
 
         return (rV1, rV2, totV2)
     
@@ -96,7 +96,7 @@ class DepinningSingle(Depinning):
         t_to_consider = self.time/10
         v_rel = sim.getRelaxedVelocity(time_to_consider=t_to_consider) # Consider last 10% of time to get relaxed velocity.
 
-        saveStatesFromTime_single(sim, self.folder_name, t_to_consider)
+        saveStatesFromTime_single(sim, self.folder_name, self.time/100) # Consider only the last 1% for roughness
 
         return v_rel
 
