@@ -335,6 +335,51 @@ def getCriticalForce(stresses, vcm):
 
     return critical_force, beta, a
 
+def makeAvgRoughnessPlots(root_dir):
+    p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
+    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+        for f1 in seed_folder.iterdir():
+            loaded = np.load(f1)
+            avg_w12 = loaded["avg_w"]
+            l_range = loaded["l_range"]
+            params = loaded["parameters"]
+            bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+
+            plt.clf()
+            plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
+            plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+            plt.xlabel("log(L)")
+            plt.ylabel("$\\log(W_{{12}}(L))$")
+
+            p = Path(root_dir)
+            p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
+            p.mkdir(parents=True, exist_ok=True)
+            p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+            plt.savefig(p, dpi=300)
+    
+    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
+    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+        for f1 in seed_folder.iterdir():
+            loaded = np.load(f1)
+            avg_w12 = loaded["avg_w"]
+            l_range = loaded["l_range"]
+            params = loaded["paramerters"]
+            bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT,   mu,   tauExt, d0,   seed,   tau_cutoff = params
+
+            plt.clf()
+            plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
+            plt.title(f"Roughness of a non-partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+            plt.xlabel("log(L)")
+            plt.ylabel("$\\log(W_(L))$")
+
+            p = Path(root_dir)
+            p = p.joinpath("roughness-non-partial").joinpath(f"seed-{seed}")
+            p.mkdir(parents=True, exist_ok=True)
+            p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+            plt.savefig(p, dpi=300)
+
+    pass
+
 def normalizedDepinnings(folder_path):
     # Make such plots for a single dislocation first
     sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
@@ -460,7 +505,6 @@ def confidence_interval_upper(l, c_level):
     m,s = np.mean(l), np.std(l)/np.sqrt(n)
     c = stats.norm.interval(c_level, loc=m, scale=s)
     return c[1]
-
 
 def binning(data_np, res_dir, conf_level, save_folder, title): # non-partial and partial dislocation global data, respectively
     x,y = zip(*data_np)
@@ -594,13 +638,14 @@ if __name__ == "__main__":
         
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
-        for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
-            with mp.Pool(7) as pool:
-                pool.map(partial(makeRoughnessPlot_partial, save_path=results_root, averaging=True), seed.iterdir())
+        # for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
+        #     with mp.Pool(7) as pool:
+        #         pool.map(partial(makeRoughnessPlot_partial, save_path=results_root, averaging=True), seed.iterdir())
 
-        for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
-            with mp.Pool(7) as pool:
-                pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
+        # for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
+        #     with mp.Pool(7) as pool:
+        #         pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
+        makeAvgRoughnessPlots(parsed.folder)
 
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
