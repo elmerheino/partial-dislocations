@@ -335,48 +335,157 @@ def getCriticalForce(stresses, vcm):
 
     return critical_force, beta, a
 
+def exp_beheavior(l, c, zeta):
+    return c*(l**zeta)
+
+def roughness_fit(l, c, zeta, cutoff):
+    # if l < cutoff:
+    #     return exp_heavor(l, c, zeta)
+    # else:
+    #     return k
+    # For continuity we need exp_beheavior(cutoff) = k making the parameter irrelevant
+    return np.array(list(map(lambda i : exp_beheavior(i, c, zeta) if i < cutoff else c*(cutoff**zeta), l)))
+
+def makeSingleRoughnessPlot_partial(path_to_file, root_dir):
+    loaded = np.load(path_to_file)
+
+    params = loaded["parameters"]
+    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+
+    avg_w12 = loaded["avg_w"]
+    l_range = loaded["l_range"]
+
+    # Tee fitti tässä
+    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
+                                                                                1.1, # zeta
+                                                                                4.1 ]) # cutoff
+    c, zeta, cutoff = fit_params
+    k = c*(cutoff**zeta)
+    ynew = roughness_fit(l_range, *fit_params)
+
+    plt.clf()
+    plt.figure(figsize=(8,8))
+    plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
+    plt.plot(np.log(l_range), np.log(ynew), label=f"fit, c={c}, $\\zeta = $ {zeta}")
+
+    plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.xlabel("log(L)")
+    plt.ylabel("$\\log(W_{{12}}(L))$")
+    plt.legend()
+
+    p = Path(root_dir)
+    p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+    plt.savefig(p, dpi=300)
+
+    return (tauExt, seed, c, zeta, cutoff, k)
+
+def makeSingleRoughnessPlot_np(f1, root_dir):
+    loaded = np.load(f1)
+    avg_w12 = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["paramerters"]
+    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT,   mu,   tauExt, d0,   seed,   tau_cutoff = params
+
+    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
+                                                                                1.1, # zeta
+                                                                                4.1 ]) # cutoff
+    c, zeta, cutoff = fit_params
+    k = c*(cutoff**zeta)
+
+    ynew = roughness_fit(l_range, *fit_params)
+
+    plt.clf()
+    plt.figure(figsize=(8,8))
+
+    plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
+    plt.plot(np.log(l_range), np.log(ynew), label="fit")
+
+    plt.title(f"Roughness of a non-partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.xlabel("log(L)")
+    plt.ylabel("$\\log(W_(L))$")
+    plt.legend()
+
+    p = Path(root_dir)
+    p = p.joinpath("roughness-non-partial").joinpath(f"seed-{seed}")
+    p.mkdir(parents=True, exist_ok=True)
+    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+    plt.savefig(p, dpi=300)
+
+    return (tauExt, seed, c, zeta, cutoff, k)
+
 def makeAvgRoughnessPlots(root_dir):
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
-    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
-        for f1 in seed_folder.iterdir():
-            loaded = np.load(f1)
-            avg_w12 = loaded["avg_w"]
-            l_range = loaded["l_range"]
-            params = loaded["parameters"]
-            bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    roughnesses_partial = {
+        "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+        "cutoff" : list(), "k":list()
+    }
+    if not Path(root_dir).joinpath("roughness_partial.json").exists():
+        for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+            print(f"Making plots for seed {seed_folder}")
+            with mp.Pool(7) as pool:
+                results = pool.map(partial(makeSingleRoughnessPlot_partial, root_dir=root_dir), seed_folder.iterdir())
+                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
+                roughnesses_partial["tauExt"] += tauExt
+                roughnesses_partial["seed"] += seed_r
+                roughnesses_partial["c"] += c
+                roughnesses_partial["zeta"] += zeta
+                roughnesses_partial["cutoff"] += cutoff
+                roughnesses_partial["k"] += k
 
-            plt.clf()
-            plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
-            plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
-            plt.xlabel("log(L)")
-            plt.ylabel("$\\log(W_{{12}}(L))$")
+        roughnesses_np = {
+            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+            "cutoff" : list(), "k":list()
+        }
+        
+        with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
+            json.dump(roughnesses_partial, fp)
+    else:
+        analyzeRoughnessFitParamteters(root_dir)
 
-            p = Path(root_dir)
-            p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
-            p.mkdir(parents=True, exist_ok=True)
-            p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
-            plt.savefig(p, dpi=300)
+    if not Path(root_dir).joinpath("roughness_np.json").exists():
+        p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
+        for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+            print(f"Making plots for seed {seed_folder}")
+            with mp.Pool(7) as pool:
+                results = pool.map(partial(makeSingleRoughnessPlot_np, root_dir=root_dir), seed_folder.iterdir())
+                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
+                roughnesses_np["tauExt"] += tauExt
+                roughnesses_np["seed"] += seed_r
+                roughnesses_np["c"] += c
+                roughnesses_np["zeta"] += zeta
+                roughnesses_np["cutoff"] += cutoff
+                roughnesses_np["k"] += k
+            
+        with open(Path(root_dir).joinpath("roughness_np.json"), "w") as fp:
+            json.dump(roughnesses_np, fp)
+    else:
+        analyzeRoughnessFitParamteters(root_dir)        
+    pass
+
+def analyzeRoughnessFitParamteters(root_dir):
+    with open(Path(root_dir).joinpath("roughness_np.json"), "r") as fp:
+            roughnesses_np = json.load(fp)
+    with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
+        roughnesses_partial = json.load(fp)
     
-    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
-    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
-        for f1 in seed_folder.iterdir():
-            loaded = np.load(f1)
-            avg_w12 = loaded["avg_w"]
-            l_range = loaded["l_range"]
-            params = loaded["paramerters"]
-            bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT,   mu,   tauExt, d0,   seed,   tau_cutoff = params
-
-            plt.clf()
-            plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
-            plt.title(f"Roughness of a non-partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
-            plt.xlabel("log(L)")
-            plt.ylabel("$\\log(W_(L))$")
-
-            p = Path(root_dir)
-            p = p.joinpath("roughness-non-partial").joinpath(f"seed-{seed}")
-            p.mkdir(parents=True, exist_ok=True)
-            p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
-            plt.savefig(p, dpi=300)
+    plt.clf()
+    plt.figure(figsize=(8,8))
+    data = np.column_stack([
+        roughnesses_partial["tauExt"],
+        roughnesses_partial["zeta"],
+        roughnesses_partial["seed"]
+    ])
+    # x = data[data[:,2] == 0][:,0] # Only take seed 0
+    # y = data[data[:,2] == 0][:,1]
+    x = data[:,0] # Take all fit data
+    y = data[:,1]
+    plt.scatter(x, y, label="paramteri", marker="x")
+    plt.title("Roudgness fit exponentials as parameter of tau for seed 0")
+    plt.xlabel("$\\tau_{{ext}}$")
+    plt.ylabel("$\\zeta$")
+    plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all.png"), dpi=300)
 
     pass
 
@@ -655,13 +764,21 @@ if __name__ == "__main__":
     # Plots dislocations at the end of simulation
     if parsed.all or parsed.dislocations:
         print("Making plots of some singe dislocations at time t.")
-        for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
-            with mp.Pool(7) as pool:
-                pool.map(partial(plotDislocation_nonp, save_path=results_root), seed.iterdir())
-
-        for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
-            with mp.Pool(7) as pool:
-                pool.map(partial(plotDislocation_partial, save_path=results_root), seed.iterdir())
+        np_dir = results_root.joinpath("single-dislocation/simulation-dumps")
+        if np_dir.exists():
+            for seed in np_dir.iterdir():
+                with mp.Pool(7) as pool:
+                    pool.map(partial(plotDislocation_nonp, save_path=results_root), seed.iterdir())
+        else:
+            print("Raw dislocation data not saved.")
+        
+        p_dir = results_root.joinpath("partial-dislocation/simulation-dumps")
+        if p_dir.exists():
+            for seed in p_dir.iterdir():
+                with mp.Pool(7) as pool:
+                    pool.map(partial(plotDislocation_partial, save_path=results_root), seed.iterdir())
+        else:
+            print("Raw dislocation data not saved.")
         
     # Make normalized depinning plots
     if parsed.all or parsed.np:
