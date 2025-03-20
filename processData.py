@@ -223,6 +223,7 @@ def roughness_fit(l, c, zeta, cutoff):
 # Roughness plots, averaging, rearranging
 
 def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
+    # TODO: incorporate similar
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
@@ -265,30 +266,70 @@ def loadRoughnessData_partial(path_to_file, root_dir):
     return (tauExt, seed, c, zeta, cutoff, k)
 
 
-def makeRoughnessPlot_np(l_range, avg_w, params, save_path):
+def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partial -> perfect dislocation
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
+    # Regular piecewise fit 
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
                                                                             1.1, # zeta
                                                                             4.1 ]) # cutoff
-    c, zeta, cutoff = fit_params
-    k = c*(cutoff**zeta)
+    c, zeta_piecewise, cutoff = fit_params
+    k = c*(cutoff**zeta_piecewise)
 
     ynew = roughness_fit(l_range, *fit_params)
 
-    last = np.argmax(l_range > np.exp(2))
-    exp_l = l_range[:last]
-    exp_w = avg_w[:last]
+    # Make an exponential plot to only part of data.
+    l_0_range = np.linspace(np.exp(1),np.exp(4), 50) # not logarithmic here! from log(1) to log(4)
+    zetas = np.empty(50)
+    c_values = np.empty(50)
 
-    exp_fit_p, pcov = optimize.curve_fit(exp_beheavior, exp_l, exp_w, p0 = [1.1, 1.1])
-    ynew_exp = exp_beheavior(exp_l, *exp_fit_p)
+    for n, l_i in enumerate(l_0_range):
+        last = np.argmax(l_range > l_i)
+        # print(f"n : {n} l_i : {l_i} last : {last}")
 
+        exp_l_i = l_range[:last]
+        exp_w_i = avg_w[:last]
+
+        exp_fit_p, pcov = optimize.curve_fit(exp_beheavior, exp_l_i, exp_w_i, p0 = [1.1, 1.1], maxfev=1600)
+        c, zeta = exp_fit_p
+        ynew_exp = exp_beheavior(exp_l_i, *exp_fit_p)
+
+        zetas[n] = zeta
+        c_values[n] = c
+
+    plt.clf()
+    plt.figure(figsize=(8,8))
+
+    plt.plot(np.log(l_0_range), zetas, label="zeta")
+    plt.axhline(y=zetas[0]*(1-0.05), label="$5 \\% $", linestyle='--', color="blue")
+    plt.axhline(y=zetas[0]*(1-0.10), label="$10 \\% $", linestyle='--', color="red")
+
+    plt.title(f"Fit parameter for perfect dislocation roughness $\\tau_{{ext}} = {tauExt:.3f}$")
+    plt.xlabel("$ \\log(l_0) $")
+    plt.ylabel("$ \\zeta $")
+    plt.legend()
+    zeta_save_path = save_path.parent.parent.joinpath("zeta-plots")
+    zeta_save_path.mkdir(parents=True, exist_ok=True)
+    zeta_save_path = zeta_save_path.joinpath(f"l0-zeta-{tauExt:.4f}.png")
+    plt.savefig(zeta_save_path)
+
+    # Now make the actual plot with suitable fit
     plt.clf()
     plt.figure(figsize=(8,8))
 
     plt.plot(np.log(l_range), np.log(avg_w), label="$W_{{12}}$")
     plt.plot(np.log(l_range), np.log(ynew), label="fit")
-    plt.plot(np.log(exp_l), np.log(ynew_exp), label="$ \\log (L) \\leq 2 $  fit")
+
+    target_zeta = zetas[0]*(1-0.5)
+    n_selected = np.argmax(zetas < target_zeta)
+
+    last = np.argmax(l_range > l_0_range[n_selected])
+    exp_l = l_range[:last]
+
+    c, zeta = c_values[n_selected], zetas[n_selected]
+    ynew_exp = exp_beheavior(exp_l, c, zeta)
+
+    plt.plot(np.log(exp_l), np.log(ynew_exp), label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
 
     plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
@@ -317,6 +358,7 @@ def loadRoughnessData_np(f1, root_dir):
     return (tauExt, seed, c, zeta, cutoff, k)
 
 def makeAvgRoughnessPlots(root_dir):
+    # Makes roughness plots that have been averaged only at simulation (that is velocity) level
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
     roughnesses_partial = {
         "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
@@ -371,32 +413,32 @@ def makeAvgRoughnessPlots(root_dir):
     with open(Path(root_dir).joinpath("roughness_np.json"), "w") as fp:
         json.dump(roughnesses_np, fp)
     
-    # analyzeRoughnessFitParamteters(root_dir)
+    analyzeRoughnessFitParamteters(root_dir)
     
     pass
 
 def analyzeRoughnessFitParamteters(root_dir):
     with open(Path(root_dir).joinpath("roughness_np.json"), "r") as fp:
-            roughnesses_np = json.load(fp)
+        roughnesses_np = json.load(fp)
     with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
         roughnesses_partial = json.load(fp)
     
     plt.clf()
     plt.figure(figsize=(8,8))
     data = np.column_stack([
-        roughnesses_partial["tauExt"],
-        roughnesses_partial["zeta"],
-        roughnesses_partial["seed"]
+        roughnesses_np["tauExt"],
+        roughnesses_np["zeta"],
+        roughnesses_np["seed"]
     ])
     # x = data[data[:,2] == 0][:,0] # Only take seed 0
     # y = data[data[:,2] == 0][:,1]
     x = data[:,0] # Take all fit data
     y = data[:,1]
     plt.scatter(x, y, label="paramteri", marker="x")
-    plt.title("Roudgness fit exponentials as parameter of tau for seed 0")
+    plt.title("Roughness fit exponentials as parameter of tau for seed 0")
     plt.xlabel("$\\tau_{{ext}}$")
     plt.ylabel("$\\zeta$")
-    plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all.png"), dpi=300)
+    plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all-perfect.png"), dpi=300)
 
     pass
 
@@ -425,6 +467,8 @@ def rearrangeRoughnessDataByTau(root_dir):
     pass
 
 def averageRoughnessBySeed(root_dir):
+    rearrangeRoughnessDataByTau(parsed.folder)
+
     dest = Path(root_dir).joinpath("roughness-avg-tau")
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
         p = Path(root_dir).joinpath(dislocation_dir)
@@ -449,18 +493,6 @@ def averageRoughnessBySeed(root_dir):
 
             roughnesses = np.array(roughnesses)
             w_avg = np.mean(roughnesses, axis=0)
-
-            dest_f = None
-            dest_f = dest.joinpath(dislocation_dir)
-            dest_f.mkdir(parents=True, exist_ok=True)
-            dest_f = dest_f.joinpath(f"roughness-tau-{tauExtValue}.json")
-
-            with open(dest_f, "w") as fp:
-                json.dump({
-                    "avg_w" : w_avg.tolist(),
-                    "l_range" : l_range.tolist(),
-                    "parameters" : params.tolist()
-                }, fp)
             
             dest_plot = None
             
@@ -746,7 +778,6 @@ if __name__ == "__main__":
         #     with mp.Pool(7) as pool:
         #         pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
         makeAvgRoughnessPlots(parsed.folder)
-        rearrangeRoughnessDataByTau(parsed.folder)
         averageRoughnessBySeed(parsed.folder)
 
     # Makes a gif from a complete saved simualation
