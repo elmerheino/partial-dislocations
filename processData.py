@@ -9,6 +9,7 @@ from argparse import ArgumentParser
 import multiprocessing as mp
 from functools import partial
 from numba import jit
+import shutil
 
 def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
     # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
@@ -216,7 +217,7 @@ def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dis
 
     return l_range, roughness
 
-def makeRoughnessPlot(path_to_dislocation:str, save_path:str, averaging=True):
+def makeRoughnessPlot_old(path_to_dislocation:str, save_path:str, averaging=True):
     # Loads a (non-partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
@@ -273,7 +274,7 @@ def roughnessW12(y1, y2, bigN): # Calculated the cross correlation W_12(L) betwe
 
     return l_range, roughness
 
-def makeRoughnessPlot_partial(path_to_dislocation:str, save_path:str, averaging=True):
+def makeRoughnessPlot_partial_old(path_to_dislocation:str, save_path:str, averaging=True):
     # Loads a (partial) dislocation and computes the coarseness in a given range.
     loaded = np.load(path_to_dislocation)
 
@@ -346,16 +347,11 @@ def roughness_fit(l, c, zeta, cutoff):
     # For continuity we need exp_beheavior(cutoff) = k making the parameter irrelevant
     return np.array(list(map(lambda i : exp_beheavior(i, c, zeta) if i < cutoff else c*(cutoff**zeta), l)))
 
-def makeSingleRoughnessPlot_partial(path_to_file, root_dir):
-    loaded = np.load(path_to_file)
+# Roughness plots, averaging, rearranging
 
-    params = loaded["parameters"]
+def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
-    avg_w12 = loaded["avg_w"]
-    l_range = loaded["l_range"]
-
-    # Tee fitti tässä
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
                                                                                 1.1, # zeta
                                                                                 4.1 ]) # cutoff
@@ -373,24 +369,35 @@ def makeSingleRoughnessPlot_partial(path_to_file, root_dir):
     plt.ylabel("$\\log(W_{{12}}(L))$")
     plt.legend()
 
+    plt.savefig(save_path, dpi=300)
+
+    return (tauExt, seed, c, zeta, cutoff, k)
+
+
+def loadRoughnessData_partial(path_to_file, root_dir):
+    # Helper function to enable multiprocessing
+    loaded = np.load(path_to_file)
+    params = loaded["parameters"]
+    avg_w12 = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+
     p = Path(root_dir)
     p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
     p.mkdir(parents=True, exist_ok=True)
     p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
-    plt.savefig(p, dpi=300)
+
+    tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlot_partial(l_range, avg_w12, params, p)
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
-def makeSingleRoughnessPlot_np(f1, root_dir):
-    loaded = np.load(f1)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["paramerters"]
-    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT,   mu,   tauExt, d0,   seed,   tau_cutoff = params
+
+def makeRoughnessPlot_np(l_range, avg_w, params, save_path):
+    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
-                                                                                1.1, # zeta
-                                                                                4.1 ]) # cutoff
+                                                                            1.1, # zeta
+                                                                            4.1 ]) # cutoff
     c, zeta, cutoff = fit_params
     k = c*(cutoff**zeta)
 
@@ -415,11 +422,24 @@ def makeSingleRoughnessPlot_np(f1, root_dir):
     plt.ylabel("$\\log(W_(L))$")
     plt.legend()
 
+    plt.savefig(save_path, dpi=300)
+
+    return (tauExt, seed, c, zeta, cutoff, k)
+
+def loadRoughnessData_np(f1, root_dir):
+    # Helper function to enable use of multiprocessing when making plots
+    loaded = np.load(f1)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["paramerters"]
+    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+
     p = Path(root_dir)
     p = p.joinpath("roughness-non-partial").joinpath(f"seed-{seed}")
     p.mkdir(parents=True, exist_ok=True)
     p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
-    plt.savefig(p, dpi=300)
+
+    tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlot_np(l_range, avg_w, params, p)
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
@@ -438,7 +458,7 @@ def makeAvgRoughnessPlots(root_dir):
         print(f"Making plots for seed {seed_folder}")
 
         with mp.Pool(7) as pool:
-            results = pool.map(partial(makeSingleRoughnessPlot_partial, root_dir=root_dir), seed_folder.iterdir())
+            results = pool.map(partial(loadRoughnessData_partial, root_dir=root_dir), seed_folder.iterdir())
             tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
             roughnesses_partial["tauExt"] += tauExt
             roughnesses_partial["seed"] += seed_r
@@ -466,7 +486,7 @@ def makeAvgRoughnessPlots(root_dir):
 
         print(f"Making plots for seed {seed_folder}")
         with mp.Pool(7) as pool:
-            results = pool.map(partial(makeSingleRoughnessPlot_np, root_dir=root_dir), seed_folder.iterdir())
+            results = pool.map(partial(loadRoughnessData_np, root_dir=root_dir), seed_folder.iterdir())
             tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
             roughnesses_np["tauExt"] += tauExt
             roughnesses_np["seed"] += seed_r
@@ -506,6 +526,86 @@ def analyzeRoughnessFitParamteters(root_dir):
     plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all.png"), dpi=300)
 
     pass
+
+def rearrangeRoughnessDataByTau(root_dir):
+    for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
+        p = Path(root_dir).joinpath(dislocation_dir)
+        dest = p.joinpath("avg-rough-arranged")
+
+        if dest.exists(): # Don't rearrange data twice
+            print(f"{dislocation_dir} already rearranged.")
+            continue
+
+        for seed_folder in [i for i in p.joinpath("averaged-roughnesses").iterdir() if i.is_dir()]:
+            for file_path in seed_folder.iterdir():
+                fname = file_path.stem
+                tauExt = fname.split("-")[2]
+                seed = seed_folder.stem.split("-")[1]
+
+                new_dir = dest.joinpath(f"tau-{tauExt}")
+                new_dir.mkdir(parents=True, exist_ok=True)
+
+                new_path = new_dir.joinpath(f"roughness-tau-{tauExt}-seed-{seed}.npz")
+
+                shutil.copy(file_path, new_path)
+                pass
+    pass
+
+def averageRoughnessBySeed(root_dir):
+    dest = Path(root_dir).joinpath("roughness-avg-tau")
+    for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
+        p = Path(root_dir).joinpath(dislocation_dir)
+        for tauExt in p.joinpath("avg-rough-arranged").iterdir():
+            l_range = list()
+            roughnesses = list()
+            params = list()
+            tauExtValue = tauExt.name.split("-")[1]
+            for seed_file in tauExt.iterdir():
+                loaded = np.load(seed_file)
+                if dislocation_dir == "single-dislocation":
+                    params = loaded["paramerters"]
+                else:
+                    params = loaded["parameters"]
+                params = params
+                w = loaded["avg_w"]
+                l_range = loaded["l_range"]
+
+                roughnesses.append(w)
+                l_range = l_range
+                pass
+
+            roughnesses = np.array(roughnesses)
+            w_avg = np.mean(roughnesses, axis=0)
+
+            dest_f = None
+            dest_f = dest.joinpath(dislocation_dir)
+            dest_f.mkdir(parents=True, exist_ok=True)
+            dest_f = dest_f.joinpath(f"roughness-tau-{tauExtValue}.json")
+
+            with open(dest_f, "w") as fp:
+                json.dump({
+                    "avg_w" : w_avg.tolist(),
+                    "l_range" : l_range.tolist(),
+                    "parameters" : params.tolist()
+                }, fp)
+            
+            dest_plot = None
+            
+            if dislocation_dir == "single-dislocation":
+                dest_plot = dest.joinpath(dislocation_dir).joinpath("plots")
+                dest_plot.mkdir(parents=True, exist_ok=True)
+                dest_plot = dest_plot.joinpath(f"roughness-tau-{tauExtValue}.png")
+
+                makeRoughnessPlot_np(l_range, w_avg, params, dest_plot)
+            elif dislocation_dir == "partial-dislocation":
+                dest_plot = dest.joinpath(dislocation_dir).joinpath("plots")
+                dest_plot.mkdir(parents=True, exist_ok=True)
+                dest_plot = dest_plot.joinpath(f"roughness-tau-{tauExtValue}.png")
+
+                makeRoughnessPlot_partial(l_range, w_avg, params, dest_plot)
+    pass
+
+# Depinning, critical force, etc.
 
 def normalizedDepinnings(folder_path):
     # Make such plots for a single dislocation first
@@ -773,6 +873,8 @@ if __name__ == "__main__":
         #     with mp.Pool(7) as pool:
         #         pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
         makeAvgRoughnessPlots(parsed.folder)
+        rearrangeRoughnessDataByTau(parsed.folder)
+        averageRoughnessBySeed(parsed.folder)
 
     # Makes a gif from a complete saved simualation
     # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
