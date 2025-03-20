@@ -383,12 +383,12 @@ def makeSingleRoughnessPlot_partial(path_to_file, root_dir):
 
 def makeSingleRoughnessPlot_np(f1, root_dir):
     loaded = np.load(f1)
-    avg_w12 = loaded["avg_w"]
+    avg_w = loaded["avg_w"]
     l_range = loaded["l_range"]
     params = loaded["paramerters"]
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT,   mu,   tauExt, d0,   seed,   tau_cutoff = params
 
-    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
+    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
                                                                                 1.1, # zeta
                                                                                 4.1 ]) # cutoff
     c, zeta, cutoff = fit_params
@@ -396,13 +396,21 @@ def makeSingleRoughnessPlot_np(f1, root_dir):
 
     ynew = roughness_fit(l_range, *fit_params)
 
+    last = np.argmax(l_range > np.exp(2))
+    exp_l = l_range[:last]
+    exp_w = avg_w[:last]
+
+    exp_fit_p, pcov = optimize.curve_fit(exp_beheavior, exp_l, exp_w, p0 = [1.1, 1.1])
+    ynew_exp = exp_beheavior(exp_l, *exp_fit_p)
+
     plt.clf()
     plt.figure(figsize=(8,8))
 
-    plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
+    plt.plot(np.log(l_range), np.log(avg_w), label="$W_{{12}}$")
     plt.plot(np.log(l_range), np.log(ynew), label="fit")
+    plt.plot(np.log(exp_l), np.log(ynew_exp), label="$ \\log (L) \\leq 2 $  fit")
 
-    plt.title(f"Roughness of a non-partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
     plt.ylabel("$\\log(W_(L))$")
     plt.legend()
@@ -421,47 +429,57 @@ def makeAvgRoughnessPlots(root_dir):
         "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
         "cutoff" : list(), "k":list()
     }
-    if not Path(root_dir).joinpath("roughness_partial.json").exists():
-        for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
-            print(f"Making plots for seed {seed_folder}")
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(makeSingleRoughnessPlot_partial, root_dir=root_dir), seed_folder.iterdir())
-                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-                roughnesses_partial["tauExt"] += tauExt
-                roughnesses_partial["seed"] += seed_r
-                roughnesses_partial["c"] += c
-                roughnesses_partial["zeta"] += zeta
-                roughnesses_partial["cutoff"] += cutoff
-                roughnesses_partial["k"] += k
+    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
 
-        roughnesses_np = {
-            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-            "cutoff" : list(), "k":list()
-        }
+        # For now only make plots for seed-0 to save time
+        if (str(seed_folder) != "results/14-mar-roughness/partial-dislocation/averaged-roughnesses/seed-0"):
+            continue
+
+        print(f"Making plots for seed {seed_folder}")
+
+        with mp.Pool(7) as pool:
+            results = pool.map(partial(makeSingleRoughnessPlot_partial, root_dir=root_dir), seed_folder.iterdir())
+            tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
+            roughnesses_partial["tauExt"] += tauExt
+            roughnesses_partial["seed"] += seed_r
+            roughnesses_partial["c"] += c
+            roughnesses_partial["zeta"] += zeta
+            roughnesses_partial["cutoff"] += cutoff
+            roughnesses_partial["k"] += k
+
+    roughnesses_np = {
+        "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+        "cutoff" : list(), "k":list()
+    }
+    
+    with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
+        json.dump(roughnesses_partial, fp)
+    
+    # analyzeRoughnessFitParamteters(root_dir)
+
+    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
+    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+
+        # For now only make plots for seed-0 to save time
+        if (str(seed_folder) != "results/14-mar-roughness/single-dislocation/averaged-roughnesses/seed-0"):
+            continue
+
+        print(f"Making plots for seed {seed_folder}")
+        with mp.Pool(7) as pool:
+            results = pool.map(partial(makeSingleRoughnessPlot_np, root_dir=root_dir), seed_folder.iterdir())
+            tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
+            roughnesses_np["tauExt"] += tauExt
+            roughnesses_np["seed"] += seed_r
+            roughnesses_np["c"] += c
+            roughnesses_np["zeta"] += zeta
+            roughnesses_np["cutoff"] += cutoff
+            roughnesses_np["k"] += k
         
-        with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
-            json.dump(roughnesses_partial, fp)
-    else:
-        analyzeRoughnessFitParamteters(root_dir)
-
-    if not Path(root_dir).joinpath("roughness_np.json").exists():
-        p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
-        for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
-            print(f"Making plots for seed {seed_folder}")
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(makeSingleRoughnessPlot_np, root_dir=root_dir), seed_folder.iterdir())
-                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-                roughnesses_np["tauExt"] += tauExt
-                roughnesses_np["seed"] += seed_r
-                roughnesses_np["c"] += c
-                roughnesses_np["zeta"] += zeta
-                roughnesses_np["cutoff"] += cutoff
-                roughnesses_np["k"] += k
-            
-        with open(Path(root_dir).joinpath("roughness_np.json"), "w") as fp:
-            json.dump(roughnesses_np, fp)
-    else:
-        analyzeRoughnessFitParamteters(root_dir)        
+    with open(Path(root_dir).joinpath("roughness_np.json"), "w") as fp:
+        json.dump(roughnesses_np, fp)
+    
+    # analyzeRoughnessFitParamteters(root_dir)
+    
     pass
 
 def analyzeRoughnessFitParamteters(root_dir):
