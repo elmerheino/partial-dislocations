@@ -23,7 +23,7 @@ class Depinning(object):
         self.sequential = sequential
         self.cores = cores
 
-        self.deltR = deltaR
+        self.deltaR = deltaR
         self.bigB = bigB
         self.smallB = smallB
         self.mu = mu
@@ -51,7 +51,7 @@ class DepinningPartial(Depinning):
         self.results = list()
     
     def studyConstantStress(self, tauExt):
-        simulation = PartialDislocationsSimulation(deltaR=self.deltR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p, 
+        simulation = PartialDislocationsSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p, 
                                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                                    dt=self.dt, time=self.time, d0=self.d0, c_gamma=self.c_gamma,
                                                    cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
@@ -101,7 +101,7 @@ class DepinningSingle(Depinning):
         self.cLT1 = cLT1
 
     def studyConstantStress(self, tauExt):
-        sim = DislocationSimulation(deltaR=self.deltR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p,
+        sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p,
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed)
 
@@ -113,13 +113,13 @@ class DepinningSingle(Depinning):
 
         l_range, avg_w = sim.getAveragedRoughness(self.time/10) # Get averaged roughness from the last 10% of time
 
-        p = Path(self.folder_name).joinpath(f"averaged-roughnesses").joinpath(f"seed-{self.seed}")
-        p.mkdir(exist_ok=True, parents=True)
-        p = p.joinpath(f"roughness-tau-{tauExt:.3f}.npz")
+        # p = Path(self.folder_name).joinpath(f"averaged-roughnesses").joinpath(f"seed-{self.seed}")
+        # p.mkdir(exist_ok=True, parents=True)
+        # p = p.joinpath(f"roughness-tau-{tauExt:.3f}.npz")
         
-        np.savez(p, l_range=l_range, avg_w=avg_w, paramerters=sim.getParameteters())
+        # np.savez(p, l_range=l_range, avg_w=avg_w, paramerters=sim.getParameteters())
 
-        return v_rel
+        return v_rel, l_range, avg_w, sim.getParameteters()
 
     def run(self):
         velocities = list()
@@ -130,6 +130,16 @@ class DepinningSingle(Depinning):
                 velocities.append(v_i)
         else:
             with mp.Pool(self.cores) as pool:
-                velocities = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
+                results = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
+                velocities, l_ranges, w_avgs, params = zip(*results)
         
-        return velocities
+        return velocities, l_ranges[0], w_avgs, params
+    
+    def getParameteters(self):
+        parameters = np.array([
+            self.bigN, self.length, self.time, self.dt,
+            self.deltaR, self.bigB, self.smallB, self.b_p,
+            self.cLT1, self.mu,
+            self.d0, self.seed
+        ])
+        return parameters

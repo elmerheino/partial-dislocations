@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from plots import *
 from processData import dumpDepinning
 from depinning import *
+import json
 
 # import time
 
@@ -46,8 +47,33 @@ def triton():
         depinning = DepinningSingle(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
                         folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
-        vcm = depinning.run()
-        dumpDepinning(depinning.stresses, vcm, depinning.time, depinning.seed, depinning.dt, folder_name=parsed.folder)
+        
+        vcm, l_range, roughnesses, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
+
+        # Save the results to a .json file
+
+        depining_path = Path(parsed.folder)
+        depining_path = depining_path.joinpath("depinning-dumps")
+        depining_path.mkdir(exist_ok=True, parents=True)
+        depining_path = depining_path.joinpath(f"depinning-{min(depinning.stresses.tolist())}-{max(depinning.stresses.tolist())}-{len(depinning.stresses.tolist())}-{depinning.time}-{depinning.seed}.json")
+        with open(str(depining_path), 'w') as fp:
+            json.dump({
+                "stresses":depinning.stresses.tolist(),
+                "v_rel":vcm,
+                "seed":depinning.seed,
+                "time":depinning.time,
+                "dt":depinning.dt
+            },fp)
+        
+        # Save all the roughnesses
+        for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
+            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p = p.joinpath(f"roughness-tau-{tau:.3f}.npz")
+            
+            np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
+
+            pass
 
     else:
         raise Exception("Not specified which type of dislocation must be simulated.")
