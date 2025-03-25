@@ -66,13 +66,7 @@ class DepinningPartial(Depinning):
 
         l_range, avg_w = simulation.getAveragedRoughness(self.time/10) # Get averaged roughness from
 
-        p = Path(self.folder_name).joinpath(f"averaged-roughnesses").joinpath(f"seed-{self.seed}")
-        p.mkdir(exist_ok=True, parents=True)
-        p = p.joinpath(f"roughness-tau-{tauExt:.3f}.npz")
-        
-        np.savez(p, l_range=l_range, avg_w=avg_w, parameters=simulation.getParameters())
-
-        return (rV1, rV2, totV2)
+        return (rV1, rV2, totV2, l_range, avg_w, simulation.getParameters())
     
     def run(self):
         # Multiprocessing compatible version of a single depinning study, here the studies
@@ -87,12 +81,10 @@ class DepinningPartial(Depinning):
             with mp.Pool(self.cores) as pool:
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
         
-        
-        v1_rel = [i[0] for i in self.results]
-        v2_rel = [i[1] for i in self.results]
-        v_cm = [i[2] for i in self.results]
 
-        return v1_rel, v2_rel, v_cm
+        v1_rel, v2_rel, v_cm, l_ranges, avg_w12s, params = zip(*self.results)
+
+        return v1_rel, v2_rel, v_cm, l_ranges[0], avg_w12s, params
 
 class DepinningSingle(Depinning):
 
@@ -112,12 +104,6 @@ class DepinningSingle(Depinning):
         # saveStatesFromTime_single(sim, self.folder_name, self.time/100) # Consider only the last 1% for curiosity
 
         l_range, avg_w = sim.getAveragedRoughness(self.time/10) # Get averaged roughness from the last 10% of time
-
-        # p = Path(self.folder_name).joinpath(f"averaged-roughnesses").joinpath(f"seed-{self.seed}")
-        # p.mkdir(exist_ok=True, parents=True)
-        # p = p.joinpath(f"roughness-tau-{tauExt:.3f}.npz")
-        
-        # np.savez(p, l_range=l_range, avg_w=avg_w, paramerters=sim.getParameteters())
 
         return v_rel, l_range, avg_w, sim.getParameteters()
 

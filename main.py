@@ -39,8 +39,34 @@ def triton():
         depinning = DepinningPartial(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
                         folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
-        v1, v2, vcm = depinning.run()
-        dumpDepinning(depinning.stresses, vcm, depinning.time, depinning.seed, depinning.dt, folder_name=parsed.folder, extra=[v1, v2])
+        
+        v1, v2, vcm, l_range, avg_w12s, parameters = depinning.run()
+
+        # Save the depinning to a .json file
+        depining_path = Path(parsed.folder)
+        depining_path = depining_path.joinpath("depinning-dumps")
+        depining_path.mkdir(exist_ok=True, parents=True)
+        depining_path = depining_path.joinpath(f"depinning-{parsed.tau_min}-{parsed.tau_max}-{int(parsed.points)}-{parsed.time}-{parsed.seed}.json")
+
+        with open(str(depining_path), 'w') as fp:
+            json.dump({
+                "stresses": depinning.stresses.tolist(),
+                "v_rel": vcm,
+                "seed":depinning.seed,
+                "time":depinning.time,
+                "dt":depinning.dt,
+                "v_1" : v1,
+                "v_2" : v2
+            },fp)
+        
+        # Save the roughnessed in an organized way
+        for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
+            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p = p.joinpath(f"roughness-tau-{tau:.3f}.npz")
+            
+            np.savez(p, l_range=l_range, avg_w=avg_w12, parameters=params)
+
 
     elif parsed.single:        
 
