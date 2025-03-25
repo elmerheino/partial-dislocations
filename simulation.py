@@ -4,7 +4,7 @@ import math
 from numba import jit
 
 class Simulation(object):
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, seed=None):
+    def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, b_p, mu, tauExt, seed=None):
 
         self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
         self.x_points = np.arange(self.bigN)

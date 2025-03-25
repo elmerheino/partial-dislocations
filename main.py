@@ -13,12 +13,15 @@ def triton():
     # k = time.time()
     parser = ArgumentParser(prog="Dislocation simulation")
     parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True)
+
     parser.add_argument('-f', '--folder', help='Specify the output folder for all the dumps and results.', required=True)
     parser.add_argument('-tmin', '--tau-min', help='Start value for stress.', required=True)
     parser.add_argument('-tmax', '--tau-max', help='End value for stress.', required=True)
     parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
+    parser.add_argument("-R", "--delta-r", help='Magnitude of random noise.', default=1.0)
+
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.')
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
     parser.add_argument('--single', help='Simulate a single dislocation.', action="store_true")
@@ -38,7 +41,7 @@ def triton():
 
         depinning = DepinningPartial(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
+                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=float(parsed.delta_r))
         
         v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
 
@@ -46,7 +49,7 @@ def triton():
         depining_path = Path(parsed.folder)
         depining_path = depining_path.joinpath("depinning-dumps")
         depining_path.mkdir(exist_ok=True, parents=True)
-        depining_path = depining_path.joinpath(f"depinning-{parsed.tau_min}-{parsed.tau_max}-{int(parsed.points)}-{parsed.time}-{parsed.seed}.json")
+        depining_path = depining_path.joinpath(f"depinning-tau-{parsed.tau_min}-{parsed.tau_max}-p-{int(parsed.points)}-t-{parsed.time}-s-{parsed.seed}-R-{parsed.delta_r}.json")
 
         with open(str(depining_path), 'w') as fp:
             json.dump({
@@ -64,7 +67,7 @@ def triton():
             tauExt = params[11]
             p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
-            p = p.joinpath(f"roughness-tau-{tau:.3f}.npz")
+            p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{parsed.delta_r}.npz")
             
             np.savez(p, l_range=l_range, avg_w=avg_w12, parameters=params)
         
@@ -73,18 +76,18 @@ def triton():
             tauExt = params[11]
             p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
-            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.npz")
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{parsed.delta_r}.npz")
             np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
 
             # with open(p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.json"), "w") as fp:
             #     json.dump({"y1" : y1_i.tolist(), "y2" : y2_i.tolist(), "parameters" : params.tolist()}, fp)
             pass
 
-    elif parsed.single:        
+    elif parsed.single:
 
         depinning = DepinningSingle(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
+                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=float(parsed.delta_r))
         
         vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
 
@@ -93,7 +96,11 @@ def triton():
         depining_path = Path(parsed.folder)
         depining_path = depining_path.joinpath("depinning-dumps")
         depining_path.mkdir(exist_ok=True, parents=True)
-        depining_path = depining_path.joinpath(f"depinning-{min(depinning.stresses.tolist())}-{max(depinning.stresses.tolist())}-{len(depinning.stresses.tolist())}-{depinning.time}-{depinning.seed}.json")
+
+        tau_min_ = min(depinning.stresses.tolist())
+        tau_max_ = max(depinning.stresses.tolist())
+        points = len(depinning.stresses.tolist())
+        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{parsed.delta_r}.json")
         with open(str(depining_path), 'w') as fp:
             json.dump({
                 "stresses":depinning.stresses.tolist(),
@@ -107,17 +114,17 @@ def triton():
         for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
             p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
-            p = p.joinpath(f"roughness-tau-{tau:.3f}.npz")
+            p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{parsed.delta_r}.npz")
             
             np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
 
             pass
 
         for y_i, params in zip(y_last, parameters):
-            tauExt = params[11]
+            tauExt = params[10]
             p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
-            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.npz")
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{parsed.delta_r}.npz")
             np.savez(p0, y=y_i, parameters=params)
 
     else:
