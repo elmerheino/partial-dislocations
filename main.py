@@ -40,7 +40,7 @@ def triton():
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
                         folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
         
-        v1, v2, vcm, l_range, avg_w12s, parameters = depinning.run()
+        v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
 
         # Save the depinning to a .json file
         depining_path = Path(parsed.folder)
@@ -59,14 +59,26 @@ def triton():
                 "v_2" : v2
             },fp)
         
-        # Save the roughnessed in an organized way
+        # Save the roughnesses in an organized way
         for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
+            tauExt = params[11]
             p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
             p = p.joinpath(f"roughness-tau-{tau:.3f}.npz")
             
             np.savez(p, l_range=l_range, avg_w=avg_w12, parameters=params)
+        
+        # Save the dislocation at the end of simulation in an organized way
+        for y1_i, y2_i, params in zip(y1_last, y2_last, parameters):
+            tauExt = params[11]
+            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.npz")
+            np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
 
+            # with open(p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.json"), "w") as fp:
+            #     json.dump({"y1" : y1_i.tolist(), "y2" : y2_i.tolist(), "parameters" : params.tolist()}, fp)
+            pass
 
     elif parsed.single:        
 
@@ -74,7 +86,7 @@ def triton():
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
                         folder_name=parsed.folder, cores=cores, sequential=parsed.seq)
         
-        vcm, l_range, roughnesses, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
+        vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
 
         # Save the results to a .json file
 
@@ -100,6 +112,13 @@ def triton():
             np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
 
             pass
+
+        for y_i, params in zip(y_last, parameters):
+            tauExt = params[11]
+            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.npz")
+            np.savez(p0, y=y_i, parameters=params)
 
     else:
         raise Exception("Not specified which type of dislocation must be simulated.")

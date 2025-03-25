@@ -57,16 +57,13 @@ class DepinningPartial(Depinning):
                                                    cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
     
         simulation.run_simulation()
-        # dumpResults(simulation, folder_name)
+
         t_to_consider = self.time/10 # TODO: make time to consider a global parameter
         rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=t_to_consider) # The velocities after relaxation
-        # saveStatesFromTime(simulation, self.folder_name,self.time/100) # Only save on percent of simulation time
+        y1_last, y2_last = simulation.getLineProfiles(time_to_consider=simulation.time)
+        l_range, avg_w = simulation.getAveragedRoughness(t_to_consider) # Get averaged roughness from the same time as rel velocity
 
-        # TODO: Save roughness W12(L)
-
-        l_range, avg_w = simulation.getAveragedRoughness(self.time/10) # Get averaged roughness from
-
-        return (rV1, rV2, totV2, l_range, avg_w, simulation.getParameters())
+        return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, simulation.getParameters())
     
     def run(self):
         # Multiprocessing compatible version of a single depinning study, here the studies
@@ -82,9 +79,9 @@ class DepinningPartial(Depinning):
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
         
 
-        v1_rel, v2_rel, v_cm, l_ranges, avg_w12s, params = zip(*self.results)
+        v1_rel, v2_rel, v_cm, l_ranges, avg_w12s, y1_last, y2_last, params = zip(*self.results)
 
-        return v1_rel, v2_rel, v_cm, l_ranges[0], avg_w12s, params
+        return v1_rel, v2_rel, v_cm, l_ranges[0], avg_w12s, y1_last, y2_last, params
 
 class DepinningSingle(Depinning):
 
@@ -100,12 +97,10 @@ class DepinningSingle(Depinning):
         sim.run_simulation()
         t_to_consider = self.time/10
         v_rel = sim.getRelaxedVelocity(time_to_consider=t_to_consider) # Consider last 10% of time to get relaxed velocity.
-
-        # saveStatesFromTime_single(sim, self.folder_name, self.time/100) # Consider only the last 1% for curiosity
-
+        y_last = sim.getLineProfiles(sim.time)
         l_range, avg_w = sim.getAveragedRoughness(self.time/10) # Get averaged roughness from the last 10% of time
 
-        return v_rel, l_range, avg_w, sim.getParameteters()
+        return v_rel, l_range, avg_w, y_last, sim.getParameteters()
 
     def run(self):
         velocities = list()
@@ -117,9 +112,9 @@ class DepinningSingle(Depinning):
         else:
             with mp.Pool(self.cores) as pool:
                 results = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
-                velocities, l_ranges, w_avgs, params = zip(*results)
+                velocities, l_ranges, w_avgs, y_last, params = zip(*results)
         
-        return velocities, l_ranges[0], w_avgs, params
+        return velocities, l_ranges[0], w_avgs, y_last, params
     
     def getParameteters(self):
         parameters = np.array([

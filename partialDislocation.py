@@ -93,9 +93,17 @@ class PartialDislocationsSimulation(Simulation):
 
         return 0
         
-    def getLineProfiles(self):
+    def getLineProfiles(self, time_to_consider=None):
+        start = 0
+
+        if time_to_consider != None:
+            steps_to_consider = round(time_to_consider / self.dt)
+            start = self.timesteps - steps_to_consider
+        if time_to_consider == self.time: # In this case only return the last state
+            start = self.timesteps - 1
+
         if self.has_simulation_been_run:
-            return (self.y1, self.y2)
+            return (self.y1[start:], self.y2[start:])
         
         print("Simulation has not been run yet.")
         return (self.y1, self.y2) # Retuns empty lists
