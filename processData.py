@@ -235,7 +235,7 @@ def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
 
     plt.clf()
     plt.figure(figsize=(8,8))
-    plt.plot(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$")
+    plt.scatter(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$", marker="x")
     plt.plot(np.log(l_range), np.log(ynew), label=f"fit, c={c}, $\\zeta = $ {zeta}")
 
     plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
@@ -317,10 +317,10 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     plt.clf()
     plt.figure(figsize=(8,8))
 
-    plt.plot(np.log(l_range), np.log(avg_w), label="$W_{{12}}$")
+    plt.scatter(np.log(l_range), np.log(avg_w), label="$W$", marker="x")
     plt.plot(np.log(l_range), np.log(ynew), label="fit")
 
-    target_zeta = zetas[0]*(1-0.5)
+    target_zeta = zetas[0]*(1-0.10)  # TODO: check this more closely, there might be something wrong.
     n_selected = np.argmax(zetas < target_zeta)
 
     last = np.argmax(l_range > l_0_range[n_selected])
@@ -752,6 +752,7 @@ if __name__ == "__main__":
     parser.add_argument('--np', help='Make normalized depinning plots.', action="store_true")
     parser.add_argument('--avg', help='Make an averaged plot from all depinning simulations.', action="store_true")
     parser.add_argument('--roughness', help='Make a log-log rougness plot.', action="store_true")
+    parser.add_argument('-ar','--avg-roughness', help='Make a log-log rougness plot that has been averaged by seed for each tau_ext.', action="store_true")
     parser.add_argument('--dislocations', help='Plot dislocations at the end of simulation.', action="store_true")
     parser.add_argument('--binning', help='Make a binned plot. --np must have been called before', action="store_true")
     parser.add_argument('--confidence', help='Confidence level for depinning, must be called with --binning.', type=float, default=0.95)
@@ -770,14 +771,9 @@ if __name__ == "__main__":
         
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
-        # for seed in results_root.joinpath("partial-dislocation/simulation-dumps").iterdir():
-        #     with mp.Pool(7) as pool:
-        #         pool.map(partial(makeRoughnessPlot_partial, save_path=results_root, averaging=True), seed.iterdir())
-
-        # for seed in results_root.joinpath("single-dislocation/simulation-dumps").iterdir():
-        #     with mp.Pool(7) as pool:
-        #         pool.map(partial(makeRoughnessPlot, save_path=results_root, averaging=True), seed.iterdir())
         makeAvgRoughnessPlots(parsed.folder)
+
+    if parsed.all or parsed.avg_roughness:
         averageRoughnessBySeed(parsed.folder)
 
     # Makes a gif from a complete saved simualation
