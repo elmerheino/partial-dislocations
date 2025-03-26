@@ -495,110 +495,116 @@ def normalizedDepinnings(folder_path):
 
     # Collect all values of tau_c
 
-    tau_c_single = list()
-    tau_c_partial = list()
+    tau_c_perfect = dict()
+    tau_c_partial = dict()
 
     # Collect all datapoints for binning
 
-    data_non_partial = list()
-    data_partial = list()
+    data_perfect = dict()
+    data_partial = dict()
 
-    for fpath, fpath2 in zip(sd_path.iterdir(), pd_path.iterdir()):
-        with open(fpath, "r") as fp:
-            depinning = json.load(fp)
-        
-        tauExt = depinning["stresses"]
-        vCm = depinning["v_rel"]
-        seed = depinning["seed"]
+    for noise_path_perfect, noise_path_partial in zip(sd_path.iterdir(), pd_path.iterdir()):
+        noise_partial = noise_path_partial.name.split("-")[1]
+        noise_perfect = noise_path_perfect.name.split("-")[1] # Maybe these two are the same?
 
-        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
-        tauCrit, beta, a = fit_params
+        tau_c_perfect[noise_perfect] = list()
+        tau_c_partial[noise_partial] = list()
 
-        tau_c_single.append(tauCrit)
+        data_perfect[noise_perfect] = list()
+        data_partial[noise_partial] = list()
 
-        xnew = np.linspace(min(tauExt), max(tauExt), 100)
-        ynew = v_fit(xnew, *fit_params)
+        for fpath in noise_path_perfect.iterdir():
+            with open(fpath, "r") as fp:
+                depinning = json.load(fp)
+            
+            tauExt = depinning["stresses"]
+            vCm = depinning["v_rel"]
+            seed = depinning["seed"]
 
-        # Scale the original data
-        x = (tauExt - tauCrit)/tauCrit
-        y = vCm
+            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+            tauCrit, beta, a = fit_params
 
-        # Scale the fit x-axis as well
-        xnew = (xnew - tauCrit)/tauCrit
+            tau_c_perfect[noise_perfect].append(tauCrit)
 
-        data_non_partial += zip(x,y)
+            xnew = np.linspace(min(tauExt), max(tauExt), 100)
+            ynew = v_fit(xnew, *fit_params)
 
-        plt.clf()
-        plt.figure(figsize=(8,8))
-        plt.scatter(x,y, marker='x', color="red", label="Depinning")
-        plt.plot(xnew, ynew, color="blue", label="fit")
-        plt.title(f"Dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
-        plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-        plt.ylabel("$v_{{cm}}$")
-        plt.legend()
+            # Scale the original data
+            x = (tauExt - tauCrit)/tauCrit
+            y = vCm
 
-        p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots")
-        p.mkdir(exist_ok=True, parents=True)
-        plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            # Scale the fit x-axis as well
+            xnew = (xnew - tauCrit)/tauCrit
+
+            data_perfect[noise_perfect] += zip(x,y)
+
+            plt.clf()
+            plt.figure(figsize=(8,8))
+            plt.scatter(x,y, marker='x', color="red", label="Depinning")
+            plt.plot(xnew, ynew, color="blue", label="fit")
+            plt.title(f"Dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+            plt.ylabel("$v_{{cm}}$")
+            plt.legend()
+
+            p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_perfect}")
+            p.mkdir(exist_ok=True, parents=True)
+            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
 
         # Next, do the same for a the partial dislocation
+        for fpath2 in noise_path_partial.iterdir():
+            with open(fpath2, "r") as fp:
+                depinning_partial = json.load(fp)
 
-        with open(fpath2, "r") as fp:
-            depinning_partial = json.load(fp)
+            tauExt = depinning_partial["stresses"]
+            vCm = depinning_partial["v_rel"]
+            seed = depinning_partial["seed"]
 
-        tauExt = depinning_partial["stresses"]
-        vCm = depinning_partial["v_rel"]
-        seed = depinning_partial["seed"]
+            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+            tauCrit, beta, a = fit_params
 
-        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
-        tauCrit, beta, a = fit_params
+            tau_c_partial[noise_partial].append(tauCrit)
 
-        tau_c_partial.append(tauCrit)
+            xnew = np.linspace(min(tauExt), max(tauExt), 100)
+            ynew = v_fit(xnew, *fit_params)
 
-        xnew = np.linspace(min(tauExt), max(tauExt), 100)
-        ynew = v_fit(xnew, *fit_params)
+            # Scale the original data
+            x = (tauExt - tauCrit)/tauCrit
+            y = vCm
 
-        # Scale the original data
-        x = (tauExt - tauCrit)/tauCrit
-        y = vCm
+            data_partial[noise_partial] += zip(x,y)
 
-        data_partial += zip(x,y)
+            # Scale the fit x-axis as well
+            xnew = (xnew - tauCrit)/tauCrit
 
-        # Scale the fit x-axis as well
-        xnew = (xnew - tauCrit)/tauCrit
+            plt.clf()
+            plt.figure(figsize=(8,8))
+            plt.scatter(x,y, marker='x', color="red", label="Depinning")
+            plt.plot(xnew, ynew, color="blue", label="fit")
 
-        plt.clf()
-        plt.figure(figsize=(8,8))
-        plt.scatter(x,y, marker='x', color="red", label="Depinning")
-        plt.plot(xnew, ynew, color="blue", label="fit")
+            plt.title(f"Partial dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+            plt.ylabel("$v_{{cm}}$")
+            plt.legend()
 
-        plt.title(f"Partial dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
-        plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-        plt.ylabel("$v_{{cm}}$")
-        plt.legend()
-
-        p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots")
-        p.mkdir(exist_ok=True, parents=True)
-        plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_partial}")
+            p.mkdir(exist_ok=True, parents=True)
+            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
     
     # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
     d = {
         "non-partial dislocation": {
-            "tau_c":tau_c_single,
-            "avg(tau_c)" : sum(tau_c_single)/len(tau_c_single),
-            "sd(tau_c)" : np.std(tau_c_single)
+            "tau_c":tau_c_perfect,
         },
         "partial dislocation": {
             "tau_c":tau_c_partial,
-            "avg(tau_c)" : sum(tau_c_partial)/len(tau_c_partial),
-            "sd(tau_c)" : np.std(tau_c_partial)
         }
     }
 
     with open(Path(folder_path).joinpath("tau_c.json"), "w") as fp:
         json.dump(d,fp, indent=2)
 
-    return data_non_partial, data_partial
+    return data_perfect, data_partial
 
 def confidence_interval_lower(l, c_level):
     # Does not handle empy lists at all, assumes normal distribution
@@ -721,6 +727,66 @@ def globalFit(dir_path):
     plt.savefig(Path(dir_path).joinpath("global-depinning.png"), dpi=300)
     print(f"Fit done with parameters tau_c = {tauC:.4f} beta = {beta:.4f} and A = {a}")
 
+def makeAveragedDepnningPlots(dir_path):
+    for noise_dir in Path(dir_path).joinpath("partial-dislocation/depinning-dumps").iterdir():
+        noise = noise_dir.name.split("-")[1]
+        velocities = list()
+        stresses = None
+        seed = None
+        for depining_file in noise_dir.iterdir():
+            with open(depining_file, "r") as fp:
+                loaded = json.load(fp)
+                stresses = loaded["stresses"]
+                velocities.append(loaded["v_rel"])
+            pass
+
+        x = np.array(stresses)
+        y = np.average(np.array(velocities), axis=0)
+
+        plt.clf()
+        plt.figure(figsize=(8,8))
+
+        plt.scatter(x,y, marker="x")
+
+        plt.title(f"Depinning noise = {noise}")
+        plt.xlabel("$\\tau_{ext}$")
+        plt.ylabel("$v_{CM}$")
+
+        dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/noise-{noise}")
+        dest.mkdir(parents=True, exist_ok=True)
+        plt.savefig(dest.joinpath(f"depinning-noise.png"))
+        pass
+
+    for noise_dir in Path(dir_path).joinpath("single-dislocation/depinning-dumps").iterdir():
+        noise = noise_dir.name.split("-")[1]
+        velocities = list()
+        stresses = None
+        seed = None
+        for depining_file in noise_dir.iterdir():
+            with open(depining_file, "r") as fp:
+                loaded = json.load(fp)
+                stresses = loaded["stresses"]
+                velocities.append(loaded["v_rel"])
+            pass
+
+        x = np.array(stresses)
+        y = np.average(np.array(velocities), axis=0)
+
+        plt.clf()
+        plt.figure(figsize=(8,8))
+
+        plt.scatter(x,y, marker="x")
+
+        plt.title(f"Depinning noise = {noise}")
+        plt.xlabel("$\\tau_{ext}$")
+        plt.ylabel("$v_{CM}$")
+
+        dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
+        dest.mkdir(parents=True, exist_ok=True)
+        plt.savefig(dest.joinpath(f"depinning.png"))
+        pass
+
+
 if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation data processing")
     parser.add_argument('-f', '--folder', help='Specify the output folder of the simulation.', required=True)
@@ -738,12 +804,14 @@ if __name__ == "__main__":
     results_root = Path(parsed.folder)
 
     if parsed.all or parsed.avg:
-        print("Making depinning plots.")
-        stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
-        stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
+        # print("Making depinning plots.")
+        # stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
+        # stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
 
-        makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
-                            folder_name=results_root, colors=["red", "blue"])
+        # makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
+        #                     folder_name=results_root, colors=["red", "blue"])
+        makeAveragedDepnningPlots(parsed.folder)
+        pass
         
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
@@ -782,7 +850,7 @@ if __name__ == "__main__":
         non_partial_data, partial_data = normalizedDepinnings(results_root)
 
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
-            json.dump({"np_data":non_partial_data, "p_data":partial_data}, fp, indent=2)
+            json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
     
     if parsed.all or parsed.binning:
         p = Path(results_root).joinpath("global_data_dump.json")

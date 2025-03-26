@@ -164,17 +164,6 @@ def studyAvgDistance():
     plt.tight_layout()
     plt.show()
 
-def makeDepinningPlot(stresses, relVelocities, time, seed, folder_name="results"):
-    Path(folder_name).mkdir(exist_ok=True, parents=True)
-    plt.clf()
-    plt.figure(figsize=(8,8))
-    plt.scatter(stresses, relVelocities, marker='x')
-    plt.title(f"Depinning, seed={seed}")
-    plt.xlabel("$\\tau_{ext}$")
-    plt.ylabel("$v_{CM}$")
-    plt.savefig(f"{folder_name}/depinning-{min(stresses)}-{max(stresses)}-{len(stresses)}-{time}-{seed}.png", dpi=300)
-    # plt.show()
-
 def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, folder_name="results", colors=["red"]):
     # This function is designed for data obtained by averaging.
 
