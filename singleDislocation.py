@@ -96,10 +96,10 @@ class DislocationSimulation(Simulation):
     
     def getParameteters(self):
         parameters = np.array([
-            self.bigN, self.length, self.time, self.dt,
-            self.deltaR, self.bigB, self.smallB, self.b_p,
-            self.cLT1, self.mu, self.tauExt,
-            self.d0, self.seed, self.tau_cutoff
+            self.bigN, self.length, self.time, self.dt,     # Index 0-3
+            self.deltaR, self.bigB, self.smallB, self.b_p,  # 4 - 7
+            self.cLT1, self.mu, self.tauExt,                # 8 - 10
+            self.d0, self.seed, self.tau_cutoff             # 11 - 13
         ])
         return parameters
 

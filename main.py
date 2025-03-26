@@ -20,7 +20,11 @@ def triton():
     parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
-    parser.add_argument("-R", "--delta-r", help='Magnitude of random noise.', default=1.0)
+
+    parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0)
+    parser.add_argument("-rmin", help="Minimun value of noise", default=0.0)
+    parser.add_argument("-rmax", help="Maximum value of noise", default=2.0)
+    parser.add_argument("-rpoints", help="Number of points of noise in triton.", default=10)
 
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.')
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
@@ -33,7 +37,7 @@ def triton():
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
     deltaR = int(parsed.delta_r)
-    interval = np.linspace(0,2,5)
+    interval = np.linspace(float(parsed.rmin),float(parsed.rmax),int(parsed.rpoints))
     deltaR = float(interval[deltaR]) # Map the passed slurm index to a value
 
     if parsed.cores == None:
@@ -68,8 +72,9 @@ def triton():
         
         # Save the roughnesses in an organized way
         for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
-            tauExt = params[11]
-            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
+            tauExt_i = params[11]
+            deltaR_i = params[4]
+            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}").joinpath(f"noise-{deltaR:.4f}")
             p.mkdir(exist_ok=True, parents=True)
             p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR:.4f}.npz")
             
@@ -77,10 +82,11 @@ def triton():
         
         # Save the dislocation at the end of simulation in an organized way
         for y1_i, y2_i, params in zip(y1_last, y2_last, parameters):
-            tauExt = params[11]
-            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
+            tauExt_i = params[11]
+            deltaR_i = params[4]
+            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}").joinpath(f"noise-{deltaR:.4f}")
             p.mkdir(exist_ok=True, parents=True)
-            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i:.3f}-R-{deltaR_i:.4f}.npz")
             np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
 
             # with open(p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.json"), "w") as fp:
@@ -116,9 +122,10 @@ def triton():
         
         # Save all the roughnesses
         for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
-            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
+            deltaR_i = params[4]
+            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}").joinpath(f"noise-{deltaR:.4f}")
             p.mkdir(exist_ok=True, parents=True)
-            p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR:.4f}.npz")
+            p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR_i:.4f}.npz")
             
             np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
 
@@ -126,7 +133,8 @@ def triton():
 
         for y_i, params in zip(y_last, parameters):
             tauExt = params[10]
-            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
+            deltaR_i = params[4]
+            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}").joinpath(f"noise-{deltaR:.4f}")
             p.mkdir(exist_ok=True, parents=True)
             p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
             np.savez(p0, y=y_i, parameters=params)

@@ -158,10 +158,10 @@ class PartialDislocationsSimulation(Simulation):
 
     def getParameters(self):
         parameters = np.array([
-            self.bigN, self.length, self.time, self.dt,
-            self.deltaR, self.bigB, self.smallB, self.b_p,
-            self.cLT1, self.cLT2, self.mu, self.tauExt, self.c_gamma,
-            self.d0, self.seed, self.tau_cutoff
+            self.bigN, self.length, self.time, self.dt,                 # Index 0 - 3
+            self.deltaR, self.bigB, self.smallB, self.b_p,              # Index 4 - 7
+            self.cLT1, self.cLT2, self.mu, self.tauExt, self.c_gamma,   # Index 8 - 15
+            self.d0, self.seed, self.tau_cutoff                         # Index 16 - 18
         ])
         return parameters    
     def calculateC_gamma(self, v=1, theta=np.pi/2):
