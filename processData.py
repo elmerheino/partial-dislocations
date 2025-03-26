@@ -138,7 +138,7 @@ def loadResults(file_path):
 
     return res
 
-def dumpDepinning(tauExts:np.ndarray, v_rels:list, time, seed, dt, folder_name:str, extra:list = None):
+def dumpDepinning(tauExts:np.ndarray, v_rels:list, time, seed, dt, folder_name:str, extra:list = None): # TODO: get rid of this function
     results_json = {
         "stresses":tauExts.tolist(),
         "v_rel":v_rels,
@@ -209,6 +209,8 @@ def getCriticalForce(stresses, vcm):
 
     return critical_force, beta, a
 
+# Roughness plots, averaging, rearranging
+
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
 
@@ -220,7 +222,8 @@ def roughness_fit(l, c, zeta, cutoff):
     # For continuity we need exp_beheavior(cutoff) = k making the parameter irrelevant
     return np.array(list(map(lambda i : exp_beheavior(i, c, zeta) if i < cutoff else c*(cutoff**zeta), l)))
 
-# Roughness plots, averaging, rearranging
+def roughness_partial(l, c, zeta, k, cutoff):
+    return np.array(list(map(lambda i : c*(i**zeta) + k if i < cutoff else c*(cutoff**zeta) + k, l)))
 
 def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
     # TODO: incorporate similar
@@ -269,12 +272,12 @@ def loadRoughnessData_partial(path_to_file, root_dir):
 def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partial -> perfect dislocation
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-    # Regular piecewise fit 
+    # Regular piecewise fit on all data
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
                                                                             1.1, # zeta
                                                                             4.1 ]) # cutoff
-    c, zeta_piecewise, cutoff = fit_params
-    k = c*(cutoff**zeta_piecewise)
+    c, zeta_piecewise, cutoff_piecewise = fit_params
+    k = c*(cutoff_piecewise**zeta_piecewise)
 
     ynew = roughness_fit(l_range, *fit_params)
 
@@ -297,6 +300,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
         zetas[n] = zeta
         c_values[n] = c
 
+    # Make a plot of zeta as function of L_0
     plt.clf()
     plt.figure(figsize=(8,8))
 
@@ -318,8 +322,9 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     plt.figure(figsize=(8,8))
 
     plt.scatter(np.log(l_range), np.log(avg_w), label="$W$", marker="x")
-    plt.plot(np.log(l_range), np.log(ynew), label="fit")
+    plt.plot(np.log(l_range), np.log(ynew), label="piecewise fit", color="blue")
 
+    # Select zeta that is 10% at most smaller than initial zeta
     target_zeta = zetas[0]*(1-0.10)  # TODO: check this more closely, there might be something wrong.
     n_selected = np.argmax(zetas < target_zeta)
 
@@ -331,6 +336,33 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
 
     plt.plot(np.log(exp_l), np.log(ynew_exp), label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
 
+    # Now find out the constant behavior
+
+    start = int(round(len(l_range)/4))
+    end = int(round(3*len(l_range)/4 ))
+
+    const_l = l_range[start:end]
+    const_w = avg_w[start:end]
+
+    fit_c, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+    
+    new_c = np.ones(len(const_l))*fit_c
+
+    plt.plot(np.log(const_l), np.log(new_c), label=f"N/4 < L < 3N/4", color="orange")
+
+    # Take the constant from the piecewise cutoff
+    start = int(round(cutoff_piecewise))
+
+    const_l = l_range[start:]
+    const_w = avg_w[start:]
+
+    fit_c, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+    
+    new_c = np.ones(len(const_l))*fit_c
+
+    plt.plot(np.log(const_l), np.log(new_c), label=f"log(L) > {np.log(start):.3f}", color="red")
+
+
     plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
     plt.ylabel("$\\log(W_(L))$")
@@ -338,7 +370,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
 
     plt.savefig(save_path, dpi=300)
 
-    return (tauExt, seed, c, zeta, cutoff, k)
+    return (tauExt, seed, c, zeta, cutoff_piecewise, k)
 
 def loadRoughnessData_np(f1, root_dir):
     # Helper function to enable use of multiprocessing when making plots
@@ -479,10 +511,11 @@ def averageRoughnessBySeed(root_dir):
             tauExtValue = tauExt.name.split("-")[1]
             for seed_file in tauExt.iterdir():
                 loaded = np.load(seed_file)
-                if dislocation_dir == "single-dislocation":
-                    params = loaded["paramerters"]
-                else:
-                    params = loaded["parameters"]
+                # if dislocation_dir == "single-dislocation": # This code is here bc before 25-3 there was a typo in the simulation code
+                #     params = loaded["parameters"]
+                # else:
+                #     params = loaded["parameters"]
+                params = loaded["parameters"]
                 params = params
                 w = loaded["avg_w"]
                 l_range = loaded["l_range"]
