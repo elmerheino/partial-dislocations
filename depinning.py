@@ -3,8 +3,6 @@ import multiprocessing as mp
 from functools import partial
 from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import DislocationSimulation
-from processData import saveStatesFromTime
-from processData import saveStatesFromTime_single
 from pathlib import Path
 
 class Depinning(object):
