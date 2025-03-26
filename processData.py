@@ -11,63 +11,6 @@ from functools import partial
 from numba import jit
 import shutil
 
-def dumpResults(sim: PartialDislocationsSimulation, folder_name: str):
-    # TODO: Säilö mielummin useampi tollanen musitiin ja kirjoita harvemmin
-    # Dumps the results of a simulation to a npz file
-    if not sim.has_simulation_been_run:
-        raise Exception("Simulation has not been run.")
-    
-    parameters = np.array([
-        sim.bigN, sim.length, sim.time, sim.dt,
-        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
-        sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
-        sim.d0, sim.seed, sim.tau_cutoff
-        ]) # From these parameters you should be able to replicate the simulation
-    
-
-    dump_path = Path(folder_name).joinpath("simulation-dumps")
-    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
-    dump_path.mkdir(exist_ok=True, parents=True)
-
-    dump_path = dump_path.joinpath(f"sim-{sim.tauExt:.4f}.npz")
-    np.savez(str(dump_path), params=parameters, y1=sim.y1, y2=sim.y2)
-
-    pass
-
-def saveStatesFromTime(sim: PartialDislocationsSimulation, folder_name, time_to_consider):
-    parameters = np.array([
-        sim.bigN, sim.length, sim.time, sim.dt,
-        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
-        sim.cLT1, sim.cLT2, sim.mu, sim.tauExt, sim.c_gamma,
-        sim.d0, sim.seed, sim.tau_cutoff
-        ]) # From these parameters you should be able to replicate the simulation
-
-    dump_path = Path(folder_name).joinpath("simulation-dumps")
-    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
-    dump_path.mkdir(exist_ok=True, parents=True)
-
-    dump_path = dump_path.joinpath(f"sim-partial-tauExt-{sim.tauExt:.4f}-from-t-{sim.time - time_to_consider}.npz")
-    steps_to_consider = round(time_to_consider / sim.dt)
-    start = sim.timesteps - steps_to_consider
-    np.savez(str(dump_path), params=parameters, y1=sim.y1[start:], y2=sim.y2[start:])
-
-def saveStatesFromTime_single(sim: DislocationSimulation, folder_name, time_to_consider):
-    parameters = np.array([
-        sim.bigN, sim.length, sim.time, sim.dt,
-        sim.deltaR, sim.bigB, sim.smallB, sim.b_p,
-        sim.cLT1, sim.mu, sim.tauExt,
-        sim.d0, sim.seed, sim.tau_cutoff
-        ]) # From these parameters you should be able to replicate the simulation
-
-    dump_path = Path(folder_name).joinpath("simulation-dumps")
-    dump_path = dump_path.joinpath(f"seed-{sim.seed}")
-    dump_path.mkdir(exist_ok=True, parents=True)
-
-    dump_path = dump_path.joinpath(f"sim-single-tauExt-{sim.tauExt:.4f}-from-t-{sim.time - time_to_consider}.npz")
-    steps_to_consider = round(time_to_consider / sim.dt)
-    start = sim.timesteps - steps_to_consider
-    np.savez(str(dump_path), params=parameters, y1=sim.y1[start:])
-
 def plotDislocation_partial(path_to_file, save_path, point=None):
     loaded = np.load(path_to_file)
 
