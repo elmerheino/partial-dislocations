@@ -72,10 +72,10 @@ def triton():
         tau_min = deltaR*(1 - 0.05)
         tau_max = deltaR*(1 + 2)
     elif 10 <= deltaR <= rmax:
-        tau_min = deltaR*(1 + 0.2)
+        tau_min = deltaR*(1 + 0.5)
         tau_max = deltaR*(1 + 1)
     else:
-        tau_min = deltaR*(1 + 0.2)
+        tau_min = deltaR*(1 + 0.5)
         tau_max = deltaR*(1 + 1)
     
     print(f"tau_min : {tau_min}  tau_max : {tau_max} deltaR : {deltaR}")
