@@ -63,7 +63,7 @@ def triton():
     interval = np.logspace(rmin,rmax, no_of_rows) # Number of points is determined from seed count and array len
     deltaR = interval[row - 1] # Map the passed slurm index to a value
 
-    # Determine here limits for tau
+    # Determine here initial guesses tau search limits
 
     if rmin <= deltaR <= 0.1:
         tau_min = 0
@@ -86,6 +86,53 @@ def triton():
         cores = int(parsed.cores)
 
     if parsed.partial:
+
+        # TODO: Here run mulptiple small depinning simulations to get an idea which tau interval contains the critical force based on the initial guess.
+
+        delta = tau_min*0.1
+
+        for i in range(0,10):
+            test = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=5,
+                            time=float(parsed.time), dt=float(parsed.timestep), seed=seed,
+                            folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
+            
+            v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = test.run()
+            v_range = max(vcm) - min(vcm)
+
+            tau_crit_i = np.argmax(np.array(vcm) > 1e-2)
+
+            middle = len(vcm) / 2
+
+            # Handle spcial cases first
+
+            if tau_crit_i == 0 and v_range > 0.1: # All are too big probably so tau_c resides on the left -> Decrease limits
+                print(f"Limits were: {tau_min} < tau < {tau_max}")
+                tau_min -= delta
+                tau_max -= delta
+                print(f"Limits are lowered to: {tau_min} < tau < {tau_max}")
+                continue
+            elif tau_crit_i == 0 and v_range < 0.1: # All are too small so tau_c resides on the right -> Increase them
+                print(f"Limits were: {tau_min} < tau < {tau_max}")
+                tau_min += delta
+                tau_max += delta
+                print(f"Limits are increased to: {tau_min} < tau < {tau_max}")
+                continue
+
+
+            if tau_crit_i < middle:
+                print(f"Limits were: {tau_min} < tau < {tau_max}")
+                tau_min += delta
+                tau_max += delta
+                print(f"Limits are increased to: {tau_min} < tau < {tau_max}")
+                pass # increase limits
+            elif tau_crit_i > middle:
+                print(f"Limits were: {tau_min} < tau < {tau_max}")
+                tau_min -= delta
+                tau_max -= delta
+                print(f"Limits are lowered to: {tau_min} < tau < {tau_max}")
+                pass # decrease limits
+        
+        print(f"Proceeding with limits {tau_min:.3f} < tau < {tau_max:.3f} (noise: {deltaR})")
 
         depinning = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=seed,

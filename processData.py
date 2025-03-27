@@ -523,10 +523,15 @@ def normalizedDepinnings(folder_path):
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
 
-            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
-                                                                          1.9,          # beta
-                                                                          0.9           # a
-                                                                          ], maxfev=1600)
+            try:
+                fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
+                                                                            1.9,          # beta
+                                                                            0.9           # a
+                                                                            ], maxfev=1600)
+            except:
+                print(f"Could not find fit w/ perfect dislocation noise : {noise_perfect} seed : {seed}")
+                continue
+
             tauCrit, beta, a = fit_params
 
             tau_c_perfect[noise_perfect].append(tauCrit)
@@ -567,11 +572,15 @@ def normalizedDepinnings(folder_path):
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
 
-            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[
-                t_c_arvaus,
-                1.9,
-                0.9
-            ], maxfev=1600)
+            try:
+                fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[
+                    t_c_arvaus,
+                    1.9,
+                    0.9
+                ], maxfev=1600)
+            except:
+                print(f"Could find a fit with partial dislocation noise : {noise_partial} seed : {seed}")
+                continue
 
             tauCrit, beta, a = fit_params
 
