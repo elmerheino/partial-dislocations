@@ -35,9 +35,9 @@ def triton():
     estimate = (int(parsed.time)/float(parsed.timestep))*1024*2*4*1e-6
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
-    deltaR = int(parsed.delta_r)
+    index = int(parsed.delta_r)
     interval = np.logspace(float(parsed.rmin),float(parsed.rmax),int(parsed.rpoints))
-    deltaR = float(interval[deltaR]) # Map the passed slurm index to a value
+    deltaR = float(interval[index]) # Map the passed slurm index to a value
 
     if parsed.cores == None:
         cores = mp.cpu_count()

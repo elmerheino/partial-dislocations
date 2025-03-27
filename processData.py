@@ -303,7 +303,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     
     new_c = np.ones(len(const_l))*fit_c
 
-    plt.plot(np.log(const_l), np.log(new_c), label=f"log(L) > {np.log(start):.3f}", color="red")
+    plt.plot(np.log(const_l), np.log(new_c), label=f"log(L) > {np.log(start):.3f}", color="magenta")
 
 
     plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
@@ -409,13 +409,11 @@ def analyzeRoughnessFitParamteters(root_dir):
     # y = data[data[:,2] == 0][:,1]
     x = data[:,0] # Take all fit data
     y = data[:,1]
-    plt.scatter(x, y, label="paramteri", marker="x")
-    plt.title("Roughness fit exponentials as parameter of tau for seed 0")
+    plt.scatter(x, y, label="paramteri", marker="x", color="blue")
+    plt.title("Roughness fit exponent for seed 0")
     plt.xlabel("$\\tau_{{ext}}$")
     plt.ylabel("$\\zeta$")
     plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all-perfect.png"), dpi=300)
-
-    pass
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
@@ -454,11 +452,11 @@ def averageRoughnessBySeed(root_dir):
             tauExtValue = tauExt.name.split("-")[1]
             for seed_file in tauExt.iterdir():
                 loaded = np.load(seed_file)
-                # if dislocation_dir == "single-dislocation": # This code is here bc before 25-3 there was a typo in the simulation code
-                #     params = loaded["parameters"]
-                # else:
-                #     params = loaded["parameters"]
-                params = loaded["parameters"]
+                if dislocation_dir == "single-dislocation": # This code is here bc before 25-3 there was a typo in the simulation code
+                    params = loaded["paramerters"]
+                else:
+                    params = loaded["parameters"]
+                # params = loaded["parameters"]
                 params = params
                 w = loaded["avg_w"]
                 l_range = loaded["l_range"]
