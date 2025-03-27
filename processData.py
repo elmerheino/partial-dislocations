@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from pathlib import Path
 import json
 from plots import *
@@ -124,15 +126,6 @@ def loadDepinningDumps(folder, partial:bool):
 
     return (stresses, vCm) # Retuns a single list of stresses and a list of lists of velocities vCm
 
-def v_fit(tau_ext, tau_crit, beta, a):
-    v_res = np.empty(len(tau_ext))
-    for n,tau in enumerate(tau_ext):
-        if tau > tau_crit:
-            v_res[n] = a*(tau - tau_crit)**beta
-        else:
-            v_res[n] = 0
-    return v_res
-
 def getCriticalForceFromFile(file_path):
 
     with open(file_path, 'r') as fp:
@@ -146,7 +139,7 @@ def getCriticalForceFromFile(file_path):
     return critical_force
 
 def getCriticalForce(stresses, vcm):
-    fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[2.5, 1.5, 1], maxfev=800)
+    fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[2.5, 1.5, 1], maxfev=1600)
 
     critical_force, beta, a = fit_params
 
@@ -486,6 +479,15 @@ def averageRoughnessBySeed(root_dir):
 
 # Depinning, critical force, etc.
 
+def v_fit(tau_ext, tau_crit, beta, a):
+    v_res = np.empty(len(tau_ext))
+    for n,tau in enumerate(tau_ext):
+        if tau > tau_crit:
+            v_res[n] = a*(tau - tau_crit)**beta
+        else:
+            v_res[n] = 0
+    return v_res
+
 def normalizedDepinnings(folder_path):
     # Make such plots for a single dislocation first
     sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
@@ -519,7 +521,12 @@ def normalizedDepinnings(folder_path):
             vCm = depinning["v_rel"]
             seed = depinning["seed"]
 
-            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+            t_c_arvaus = (max(tauExt) - min(tauExt))/2
+
+            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
+                                                                          1.9,          # beta
+                                                                          0.9           # a
+                                                                          ], maxfev=1600)
             tauCrit, beta, a = fit_params
 
             tau_c_perfect[noise_perfect].append(tauCrit)
@@ -558,7 +565,14 @@ def normalizedDepinnings(folder_path):
             vCm = depinning_partial["v_rel"]
             seed = depinning_partial["seed"]
 
-            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+            t_c_arvaus = (max(tauExt) - min(tauExt))/2
+
+            fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[
+                t_c_arvaus,
+                1.9,
+                0.9
+            ], maxfev=1600)
+
             tauCrit, beta, a = fit_params
 
             tau_c_partial[noise_partial].append(tauCrit)
@@ -618,42 +632,57 @@ def confidence_interval_upper(l, c_level):
     c = stats.norm.interval(c_level, loc=m, scale=s)
     return c[1]
 
-def binning(data_np, res_dir, conf_level, save_folder, title): # non-partial and partial dislocation global data, respectively
-    x,y = zip(*data_np)
+def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
+    tau_c_perfect, tau_c_partial = analyze_tau(results_root)
+    for perfect_partial in data.keys():
+        for noise in data[perfect_partial].keys():
+            d = data[perfect_partial]
+            x,y = zip(*d[noise])
 
-    bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=100)
+            bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=100)
 
-    lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=100)
-    upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=100)
+            lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
+            upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=bins)
 
-    bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=100)
+            bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=100)
 
-    print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} respectively.')
+            print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} respectively.')
 
-    plt.clf()
-    plt.close('all')
-    plt.figure(figsize=(8,8))
+            plt.clf()
+            plt.close('all')
+            plt.figure(figsize=(8,8))
 
-    plt.title(title)
-    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-    plt.ylabel("$v_{{cm}}$")
+            if perfect_partial == "perfect_data":
+                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_perfect[noise]:.4f} $ ")
+            elif perfect_partial == "partial_data":
+                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_partial[noise]:.4f} $ ")
+            
+            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+            plt.ylabel("$v_{{cm}}$")
 
-    bin_width = (bin_edges[1] - bin_edges[0])
-    bin_centers = bin_edges[1:] - bin_width/2
+            bin_width = (bin_edges[1] - bin_edges[0])
+            bin_centers = bin_edges[1:] - bin_width/2
 
-    plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
-    plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
-    plt.plot(bin_centers, upper_confidence, color="blue")
+            plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
+            plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
+            plt.plot(bin_centers, upper_confidence, color="blue")
 
-    plt.scatter(bin_centers, bin_means, color="red", marker="x",
-           label='Binned depinning data')
-    plt.legend()
-    
-    p = Path(res_dir)
-    p = p.joinpath(save_folder)
-    p.mkdir(parents=True, exist_ok=True)
-    p = p.joinpath(f"binned-depinning-conf-{conf_level}.png")
-    plt.savefig(p, dpi=600)
+            plt.scatter(bin_centers, bin_means, color="red", marker="x",
+                label='Binned depinning data')
+            plt.legend()
+            
+            # Save to a different directory depending on whether its a partial or perfect dislocation
+            p = Path(res_dir)
+            if perfect_partial == "perfect_data":
+                p = p.joinpath("binned-depinnings-perfect")
+            elif perfect_partial == "partial_data":
+                p = p.joinpath("binned-depinnings-partial")
+            else:
+                raise Exception("Data is saved wrong.")
+            
+            p.mkdir(parents=True, exist_ok=True)
+            p = p.joinpath(f"binned-depinning-noise-{noise}-conf-{conf_level}.png")
+            plt.savefig(p, dpi=600)
     pass
 
 def analyze_tau(dir):
@@ -666,26 +695,33 @@ def analyze_tau(dir):
     tau_np = data["non-partial dislocation"]["tau_c"]
     tau_p = data["partial dislocation"]["tau_c"]
 
-    mean_tau_np = sum(tau_np)/len(tau_np)
-    mean_tau_p = sum(tau_p)/len(tau_p)
+    perfect_tau_means = dict()
+    partial_tau_means = dict()
 
-    plt.clf()
-    plt.figure(figsize=(8,8))
-    plt.title(f"Non partial dislocation $\\langle \\tau_c \\rangle = $ {mean_tau_np:.3f}")
-    plt.hist(tau_np, 15, edgecolor="black")
-    plt.xlabel("$ \\tau_c $")
-    plt.ylabel("Frequency")
-    plt.savefig(p_root.joinpath("tau_np_histogram.png"), dpi=300)
+    for noise in tau_np.keys():
+        mean_tau_perfect = sum(tau_np[noise])/len(tau_np[noise])
+        mean_tau_partial = sum(tau_p[noise])/len(tau_p[noise])
 
-    plt.clf()
-    plt.figure(figsize=(8,8))
-    plt.title(f"Partial dislocation $\\langle \\tau_c \\rangle = $ {mean_tau_p:.3f}")
-    plt.hist(tau_p, 15, edgecolor="black")
-    plt.xlabel("$ \\tau_c $")
-    plt.ylabel("Frequency")
-    plt.savefig(p_root.joinpath("tau_p_histogram.png"), dpi=300)
+        perfect_tau_means[noise] = mean_tau_perfect
+        partial_tau_means[noise] = mean_tau_partial
 
-    return mean_tau_np, mean_tau_p
+        plt.clf()
+        plt.figure(figsize=(8,8))
+        plt.title(f"Non partial dislocation R={noise} $\\langle \\tau_c \\rangle = $ {mean_tau_perfect:.3f}")
+        plt.hist(tau_np[noise], 15, edgecolor="black")
+        plt.xlabel("$ \\tau_c $")
+        plt.ylabel("Frequency")
+        plt.savefig(p_root.joinpath(f"perfect_tau_c_histogram-R-{noise}.png"), dpi=300)
+
+        plt.clf()
+        plt.figure(figsize=(8,8))
+        plt.title(f"Partial dislocation R={noise} $\\langle \\tau_c \\rangle = $ {mean_tau_partial:.3f}")
+        plt.hist(tau_p[noise], 15, edgecolor="black")
+        plt.xlabel("$ \\tau_c $")
+        plt.ylabel("Frequency")
+        plt.savefig(p_root.joinpath(f"partial_tau_c_histogram-R-{noise}.png"), dpi=300)
+    
+    return perfect_tau_means, partial_tau_means
 
 def getCriticalForces(dir_path):
     # Get all the critical forces from the depinning dir path.
@@ -711,7 +747,7 @@ def globalFit(dir_path):
     
     x,y = zip(*global_data) # Here x is external stress and y is velocity
 
-    fit_params, pcov = optimize.curve_fit(v_fit, x, y, p0=[2.5, 1.5, 1], maxfev=800)
+    fit_params, pcov = optimize.curve_fit(v_fit, x, y, p0=[2.5, 1.5, 1], maxfev=1600)
     tauC, beta, a = fit_params
     xnew = np.linspace(min(x), max(x), 100)
     ynew = v_fit(xnew, *fit_params)
@@ -859,13 +895,7 @@ if __name__ == "__main__":
         with open(Path(results_root).joinpath("global_data_dump.json"), "r") as fp:
             data = json.load(fp)
 
-        tau_c_np, tau_c_p = analyze_tau(results_root)
-        binning(data["np_data"], results_root, conf_level=parsed.confidence,
-                save_folder="binned-depinnings-non-partial",
-                title=f"Non-partial dislocation binned depinning $\\langle \\tau_c \\rangle = $ {tau_c_np:.3f}")
-        binning(data["p_data"], results_root, conf_level=parsed.confidence,
-                save_folder="binned-depinnings-partial",
-                title=f"Partial dislocation binned depinning  $\\langle \\tau_c \\rangle = $ {tau_c_p:.3f}") # TODO: implement this
+        binning(data, results_root, conf_level=parsed.confidence)
 
     if parsed.all:
         print("Making a global fit with a global plot.")
