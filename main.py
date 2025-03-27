@@ -11,19 +11,26 @@ save_plots = False      # Don't save any images of figures. Still saves all data
 def triton():
     # k = time.time()
     parser = ArgumentParser(prog="Dislocation simulation")
-    parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True)
+    # parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True)
 
     parser.add_argument('-f', '--folder', help='Specify the output folder for all the dumps and results.', required=True)
-    parser.add_argument('-tmin', '--tau-min', help='Start value for stress.', required=True)
-    parser.add_argument('-tmax', '--tau-max', help='End value for stress.', required=True)
-    parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
 
-    parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0)
-    parser.add_argument("-rmin", help="Minimun value of noise", default=0.0)
-    parser.add_argument("-rmax", help="Maximum value of noise", default=2.0)
-    parser.add_argument("-rpoints", help="Number of points of noise in triton.", default=10)
+    parser.add_argument('-id', '--array-task-id', help="The array task id.", required=True)
+    parser.add_argument('-sl', '--seeds', help="Number of seeds in the grid (or columns)", required=True)
+    parser.add_argument('-arr', '--array-length', help="Length of the array job. (determines the n. of rows)", required=True)
+
+    # Calculate noise magnitude and seed based on this parameter
+
+    # parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0)
+    parser.add_argument("--rmin", help="Minimun value of noise", default=0.0)
+    parser.add_argument("--rmax", help="Maximum value of noise", default=2.0)
+    # parser.add_argument("--rpoints", help="Number of points of noise in triton.", default=10)
+
+    # parser.add_argument('-tmin', '--tau-min', help='Start value for stress.', required=True)
+    # parser.add_argument('-tmax', '--tau-max', help='End value for stress.', required=True)
+    parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True)
 
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.')
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
@@ -35,9 +42,43 @@ def triton():
     estimate = (int(parsed.time)/float(parsed.timestep))*1024*2*4*1e-6
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
-    index = int(parsed.delta_r)
-    interval = np.logspace(float(parsed.rmin),float(parsed.rmax),int(parsed.rpoints))
-    deltaR = float(interval[index]) # Map the passed slurm index to a value
+    # Map the array task id to a 2d grid
+
+    task_id = int(parsed.array_task_id)
+    cols = int(parsed.seeds)
+    arr_max = int(parsed.array_length)
+
+    no_of_rows = arr_max // cols
+
+    row = task_id // cols   # Let this be noise
+    col = task_id % cols    # Let this be the seed
+
+    seed = col
+
+    print(f"seed : {seed} row : {row} col : {col} no of rows : {no_of_rows}")
+
+    rmin = float(parsed.rmin)
+    rmax = float(parsed.rmax)
+
+    interval = np.logspace(rmin,rmax, no_of_rows) # Number of points is determined from seed count and array len
+    deltaR = interval[row - 1] # Map the passed slurm index to a value
+
+    # Determine here limits for tau
+
+    if rmin <= deltaR <= 0.1:
+        tau_min = 0
+        tau_max = deltaR*(1 + 0.05)
+    elif 0.1 < deltaR < 10:
+        tau_min = deltaR*(1 - 0.05)
+        tau_max = deltaR*(1 + 2)
+    elif 10 <= deltaR <= rmax:
+        tau_min = deltaR*(1 + 0.2)
+        tau_max = deltaR*(1 + 1)
+    else:
+        tau_min = deltaR*(1 + 0.2)
+        tau_max = deltaR*(1 + 1)
+    
+    print(f"tau_min : {tau_min}  tau_max : {tau_max} deltaR : {deltaR}")
 
     if parsed.cores == None:
         cores = mp.cpu_count()
@@ -46,8 +87,8 @@ def triton():
 
     if parsed.partial:
 
-        depinning = DepinningPartial(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
-                        time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
+        depinning = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=int(parsed.points),
+                        time=float(parsed.time), dt=float(parsed.timestep), seed=seed,
                         folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
         
         v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
@@ -56,7 +97,7 @@ def triton():
         depining_path = Path(parsed.folder)
         depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
         depining_path.mkdir(exist_ok=True, parents=True)
-        depining_path = depining_path.joinpath(f"depinning-tau-{parsed.tau_min}-{parsed.tau_max}-p-{int(parsed.points)}-t-{parsed.time}-s-{parsed.seed}-R-{deltaR:.4f}.json")
+        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min}-{tau_max}-p-{int(parsed.points)}-t-{parsed.time}-s-{seed}-R-{deltaR:.4f}.json")
 
         with open(str(depining_path), 'w') as fp:
             json.dump({
@@ -94,8 +135,8 @@ def triton():
 
     elif parsed.single:
 
-        depinning = DepinningSingle(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
-                        time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
+        depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=int(parsed.points),
+                        time=float(parsed.time), dt=float(parsed.timestep), seed=seed, 
                         folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
         
         vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
