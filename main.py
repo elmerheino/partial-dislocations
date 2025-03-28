@@ -69,13 +69,13 @@ def triton():
         tau_min = 0
         tau_max = deltaR*(1 + 0.05)
     elif 0.1 < deltaR < 10:
-        tau_min = deltaR*(1 - 0.05)
+        tau_min = deltaR*(1 - 0.2)
         tau_max = deltaR*(1 + 2)
     elif 10 <= deltaR <= rmax:
-        tau_min = deltaR*(1 + 0.5)
+        tau_min = deltaR*(1.02)
         tau_max = deltaR*(1 + 1)
     else:
-        tau_min = deltaR*(1 + 0.5)
+        tau_min = deltaR*(1.02)
         tau_max = deltaR*(1 + 1)
     
     print(f"tau_min : {tau_min}  tau_max : {tau_max} deltaR : {deltaR}")
@@ -87,9 +87,10 @@ def triton():
 
     if parsed.partial:
 
-        # TODO: Here run mulptiple small depinning simulations to get an idea which tau interval contains the critical force based on the initial guess.
+        # Run here mulptiple small depinning simulations to get an idea which tau interval contains the critical force starting from the intial guesses.
 
         delta = tau_min*0.1
+        tau_c_tolerance = 0.1
 
         for i in range(0,10):
             test = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=5,
@@ -99,7 +100,7 @@ def triton():
             v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = test.run()
             v_range = max(vcm) - min(vcm)
 
-            tau_crit_i = np.argmax(np.array(vcm) > 1e-2)
+            tau_crit_i = np.argmax(np.array(vcm) > tau_c_tolerance)
 
             middle = len(vcm) / 2
 
