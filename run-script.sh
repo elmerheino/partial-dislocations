@@ -2,7 +2,7 @@
 #SBATCH --time=02:30:00
 #SBATCH --mem-per-cpu=10G
 #SBATCH --output=depinning.out
-#SBATCH --array=1-9
+#SBATCH --array=1-100
 #SBATCH --cpus-per-task=9
 
 DATE=$(date +"%Y-%m-%d")
@@ -16,8 +16,8 @@ module load scicomp-python-env
 NOISE_MIN=-2
 NOISE_MAX=2
 
-ARRAY_LEN=9 # SEEDS*SEEDS=ARRAY_LEN for a square grid
-SEEDS=3
+ARRAY_LEN=100 # SEEDS*SEEDS=ARRAY_LEN for a square grid
+SEEDS=1
 
 # Seed count is array-max/noise points
 
