@@ -488,36 +488,24 @@ def v_fit(tau_ext, tau_crit, beta, a):
             v_res[n] = 0
     return v_res
 
-def normalizedDepinnings(folder_path, optimized=False):
+def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=False):
     # Make such plots for a single dislocation first
-    sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
-    pd_path = Path(folder_path).joinpath("partial-dislocation/depinning-dumps")
-
-    if optimized:
-        sd_path = Path(folder_path).joinpath("single-dislocation/optimal-depinning-dumps")
-        pd_path = Path(folder_path).joinpath("partial-dislocation/optimal-depinning-dumps")
-
     # Collect all values of tau_c
 
-    tau_c_perfect = dict()
-    tau_c_partial = dict()
+    tau_c = dict()
 
     # Collect all datapoints for binning
 
     data_perfect = dict()
-    data_partial = dict()
 
-    for noise_path_perfect, noise_path_partial in zip(sd_path.iterdir(), pd_path.iterdir()):
-        noise_partial = noise_path_partial.name.split("-")[1]
-        noise_perfect = noise_path_perfect.name.split("-")[1] # Maybe these two are the same?
+    for noise_path in depinning_path.iterdir():
+        noise = noise_path.name.split("-")[1]
 
-        tau_c_perfect[noise_perfect] = list()
-        tau_c_partial[noise_partial] = list()
+        tau_c[noise] = list()
 
-        data_perfect[noise_perfect] = list()
-        data_partial[noise_partial] = list()
+        data_perfect[noise] = list()
 
-        for fpath in noise_path_perfect.iterdir():
+        for fpath in noise_path.iterdir():
             with open(fpath, "r") as fp:
                 depinning = json.load(fp)
             
@@ -533,12 +521,12 @@ def normalizedDepinnings(folder_path, optimized=False):
                                                                             0.9           # a
                                                                             ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=1600)
             except:
-                print(f"Could not find fit w/ perfect dislocation noise : {noise_perfect} seed : {seed}")
+                print(f"Could not find fit w/ perfect dislocation noise : {noise} seed : {seed}")
                 continue
 
             tauCrit, beta, a = fit_params
 
-            tau_c_perfect[noise_perfect].append(tauCrit)
+            tau_c[noise].append(tauCrit)
 
             xnew = np.linspace(min(tauExt), max(tauExt), 100)
             ynew = v_fit(xnew, *fit_params)
@@ -550,7 +538,7 @@ def normalizedDepinnings(folder_path, optimized=False):
             # Scale the fit x-axis as well
             xnew = (xnew - tauCrit)/tauCrit
 
-            data_perfect[noise_perfect] += zip(x,y)
+            data_perfect[noise] += zip(x,y)
 
             plt.clf()
             plt.figure(figsize=(8,8))
@@ -561,85 +549,17 @@ def normalizedDepinnings(folder_path, optimized=False):
             plt.ylabel("$v_{{cm}}$")
             plt.legend()
 
-            p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_perfect}")
+            p = save_folder.joinpath(f"noise-{noise}")
             p.mkdir(exist_ok=True, parents=True)
-            if optimized:
-                plt.savefig(p.joinpath(f"normalized-depinning-{seed}-opt.png"))
-            else:
-                plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
-            plt.close()
-
-        # Next, do the same for a the partial dislocation
-        for fpath2 in noise_path_partial.iterdir():
-            with open(fpath2, "r") as fp:
-                depinning_partial = json.load(fp)
-
-            tauExt = depinning_partial["stresses"]
-            vCm = depinning_partial["v_rel"]
-            seed = depinning_partial["seed"]
-
-            t_c_arvaus = (max(tauExt) - min(tauExt))/2
-
-            try:
-                fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[
-                    t_c_arvaus,
-                    0.9,
-                    0.9
-                ], maxfev=1600, bounds=(0, [ max(tauExt), 2, 2 ]))
-            except:
-                print(f"Could find a fit with partial dislocation noise : {noise_partial} seed : {seed}")
-                continue
-
-            tauCrit, beta, a = fit_params
-
-            tau_c_partial[noise_partial].append(tauCrit)
-
-            xnew = np.linspace(min(tauExt), max(tauExt), 100)
-            ynew = v_fit(xnew, *fit_params)
-
-            # Scale the original data
-            x = (tauExt - tauCrit)/tauCrit
-            y = vCm
-
-            data_partial[noise_partial] += zip(x,y)
-
-            # Scale the fit x-axis as well
-            xnew = (xnew - tauCrit)/tauCrit
-
-            plt.clf()
-            plt.figure(figsize=(8,8))
-            plt.scatter(x,y, marker='x', color="red", label="Depinning")
-            plt.plot(xnew, ynew, color="blue", label="fit")
-
-            plt.title(f"Partial dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
-            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-            plt.ylabel("$v_{{cm}}$")
-            plt.legend()
-
-            p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_partial}")
-            p.mkdir(exist_ok=True, parents=True)
-
-            if optimized:
-                plt.savefig(p.joinpath(f"normalized-depinning-{seed}-opt.png"))
-            else:
-                plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
-            
+            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
             plt.close()
     
-    # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
-    d = {
-        "non-partial dislocation": {
-            "tau_c":tau_c_perfect,
-        },
-        "partial dislocation": {
-            "tau_c":tau_c_partial,
-        }
-    }
+    # TODO: save tau_c in a reasonable dir
 
-    with open(Path(folder_path).joinpath("tau_c.json"), "w") as fp:
-        json.dump(d,fp, indent=2)
+    with open(save_folder.joinpath("tau_c.json"), "w") as fp:
+        json.dump(tau_c, fp)
 
-    return data_perfect, data_partial
+    return data_perfect
 
 def confidence_interval_lower(l, c_level):
     # Does not handle empy lists at all, assumes normal distribution
@@ -656,6 +576,7 @@ def confidence_interval_upper(l, c_level):
     return c[1]
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
+    # TODO: update this function to handle the new file structure
     tau_c_perfect, tau_c_partial = analyze_tau(results_root)
     for perfect_partial in data.keys():
         for noise in data[perfect_partial].keys():
@@ -757,6 +678,7 @@ def getCriticalForces(dir_path):
 def globalFit(dir_path):
     global_data = list() # Global data for partial dislocation
     # TODO: Also gather global data for single dislocation
+    # TODO: Handle new directtory structure here as well
     for sd, pd in zip(Path(dir_path).joinpath("single-dislocation/depinning-dumps").iterdir(), Path(dir_path).joinpath("partial-dislocation/depinning-dumps").iterdir()):
         # sd # path to single dislocation depinning
         # pd # path to partial dislocation depinning
@@ -853,15 +775,16 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         plt.savefig(dest.joinpath(f"depinning.png"))
         pass
 
-def makeNoisePlot(dir_path):
-    path = Path(dir_path).joinpath("tau_c.json")
-    with open(path, "r") as fp:
+def makeNoisePlot(tau_c_path, save_path, title):
+    with open(tau_c_path, "r") as fp:
         loaded = json.load(fp)
     
     # partial dislocation
-    partial_data = loaded["partial dislocation"]["tau_c"]
+    partial_data = loaded
+
     noises = list()
     tau_cs = list()
+
     for noise in partial_data.keys():
         tau_c = partial_data[noise]
         noises.append(float(noise))
@@ -870,11 +793,12 @@ def makeNoisePlot(dir_path):
     plt.figure(figsize=(8,8))
     plt.xscale("log")
     plt.yscale("log")
+    plt.grid(True)
     plt.scatter(noises, tau_cs, marker='x')
-    plt.title("Noise amplitude and critical force of a partial dislocation")
+    plt.title(title)
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
-    plt.savefig(Path(dir_path).joinpath("noise-tau_c-partial.png"), dpi=300)
+    plt.savefig(save_path, dpi=300)
     plt.close()
     pass
 
@@ -907,11 +831,6 @@ if __name__ == "__main__":
     if parsed.all or parsed.avg_roughness:
         averageRoughnessBySeed(parsed.folder)
 
-    # Makes a gif from a complete saved simualation
-    # sim = loadResults("results/15-feb-1/pickle-dumps/seed-100/sim-3.0000.npz")
-    # makeVelocityPlot(sim, "results/15-feb-1/")
-    # makeGif(sim, "results/15-feb-1/")
-
     # Plots dislocations at the end of simulation
     if parsed.all or parsed.dislocations:
         print("Making plots of some singe dislocations at time t.")
@@ -934,17 +853,34 @@ if __name__ == "__main__":
     # Make normalized depinning plots
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
-        non_partial_data, partial_data = normalizedDepinnings(results_root)
+
+        partial_data = normalizedDepinnings(
+            results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
+            save_folder=results_root.joinpath("partial-dislocation/normalized-plots")
+        )
+        
+        non_partial_data = normalizedDepinnings(
+            results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
+            save_folder=results_root.joinpath("single-dislocation/normalized-plots")
+        )
 
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
             json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
+        
+        # TODO: deal with the optimal depinnings
+        partial_data_opt = normalizedDepinnings(
+            results_root.joinpath("partial-dislocation").joinpath("optimal-depinning-dumps"),
+            save_folder=results_root.joinpath("partial-dislocation/normalized-plots-opt")
+        )
+        
+        non_partial_data_opt = normalizedDepinnings(
+            results_root.joinpath("single-dislocation").joinpath("optimal-depinning-dumps"),
+            save_folder=results_root.joinpath("single-dislocation/normalized-plots-opt")
+        )
 
-        non_partial_data, partial_data = normalizedDepinnings(results_root, optimized=True)
+        with open(Path(results_root).joinpath("global_data_dump_opt.json"), "w") as fp:
+            json.dump({"perfect_data":non_partial_data_opt, "partial_data":partial_data_opt}, fp, indent=2)
 
-        with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
-            json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
-
-    
     if parsed.all or parsed.binning:
         p = Path(results_root).joinpath("global_data_dump.json")
 
@@ -961,4 +897,24 @@ if __name__ == "__main__":
         globalFit(results_root)
 
     if parsed.all or parsed.noise:
-        makeNoisePlot(parsed.folder)
+        Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
+        makeNoisePlot(
+            Path(parsed.folder).joinpath("single-dislocation/normalized-plots/tau_c.json"),
+            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.png"),
+            title="Noise magnitude and external force for perfect dislocation"
+            )
+        makeNoisePlot(
+            Path(parsed.folder).joinpath("partial-dislocation/normalized-plots/tau_c.json"),
+            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png"),
+            title="Noise magnitude and external force for partial dislocation"
+            )
+        makeNoisePlot(
+            Path(parsed.folder).joinpath("partial-dislocation/normalized-plots-opt/tau_c.json"),
+            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial-opt.png"),
+            title="Noise magnitude and external force for partial dislocation from closeup data"
+            )
+        makeNoisePlot(
+            Path(parsed.folder).joinpath("single-dislocation/normalized-plots-opt/tau_c.json"),
+            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect-opt.png"),
+            title="Noise magnitude and external force for perfect dislocation from closeup data"
+            )
