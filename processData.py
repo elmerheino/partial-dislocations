@@ -567,6 +567,7 @@ def normalizedDepinnings(folder_path, optimized=False):
                 plt.savefig(p.joinpath(f"normalized-depinning-{seed}-opt.png"))
             else:
                 plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            plt.close()
 
         # Next, do the same for a the partial dislocation
         for fpath2 in noise_path_partial.iterdir():
@@ -617,10 +618,13 @@ def normalizedDepinnings(folder_path, optimized=False):
 
             p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_partial}")
             p.mkdir(exist_ok=True, parents=True)
+
             if optimized:
                 plt.savefig(p.joinpath(f"normalized-depinning-{seed}-opt.png"))
             else:
                 plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            
+            plt.close()
     
     # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
     d = {
@@ -849,6 +853,30 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         plt.savefig(dest.joinpath(f"depinning.png"))
         pass
 
+def makeNoisePlot(dir_path):
+    path = Path(dir_path).joinpath("tau_c.json")
+    with open(path, "r") as fp:
+        loaded = json.load(fp)
+    
+    # partial dislocation
+    partial_data = loaded["partial dislocation"]["tau_c"]
+    noises = list()
+    tau_cs = list()
+    for noise in partial_data.keys():
+        tau_c = partial_data[noise]
+        noises.append(float(noise))
+        tau_cs.append(tau_c)
+    
+    plt.figure(figsize=(8,8))
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.scatter(noises, tau_cs, marker='x')
+    plt.title("Noise amplitude and critical force of a partial dislocation")
+    plt.xlabel("R")
+    plt.ylabel("$ \\tau_c $")
+    plt.savefig(Path(dir_path).joinpath("noise-tau_c-partial.png"), dpi=300)
+    plt.close()
+    pass
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation data processing")
@@ -861,6 +889,7 @@ if __name__ == "__main__":
     parser.add_argument('--dislocations', help='Plot dislocations at the end of simulation.', action="store_true")
     parser.add_argument('--binning', help='Make a binned plot. --np must have been called before', action="store_true")
     parser.add_argument('--confidence', help='Confidence level for depinning, must be called with --binning.', type=float, default=0.95)
+    parser.add_argument('--noise', help="Analyse critical force as function of noise amplitude", action="store_true")
 
     parsed = parser.parse_args()
 
@@ -930,3 +959,6 @@ if __name__ == "__main__":
     if parsed.all:
         print("Making a global fit with a global plot.")
         globalFit(results_root)
+
+    if parsed.all or parsed.noise:
+        makeNoisePlot(parsed.folder)
