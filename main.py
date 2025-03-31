@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 from plots import *
 from depinning import *
 import json
+from scipy import optimize
+from processData import v_fit
 
 # import time
 
@@ -137,55 +139,90 @@ def triton():
             pass
 
     elif parsed.single:
-
-        depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=int(parsed.points),
-                        time=float(parsed.time), dt=float(parsed.timestep), seed=seed, 
-                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
-        
-        vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
-
-        # Save the results to a .json file
-
-        depining_path = Path(parsed.folder)
-        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
-        depining_path.mkdir(exist_ok=True, parents=True)
-
-        tau_min_ = min(depinning.stresses.tolist())
-        tau_max_ = max(depinning.stresses.tolist())
-        points = len(depinning.stresses.tolist())
-        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR:.4f}.json")
-        with open(str(depining_path), 'w') as fp:
-            json.dump({
-                "stresses":depinning.stresses.tolist(),
-                "v_rel":vcm,
-                "seed":depinning.seed,
-                "time":depinning.time,
-                "dt":depinning.dt
-            },fp)
-        
-        # Save all the roughnesses
-        for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
-            deltaR_i = params[4]
-            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
-            p.mkdir(exist_ok=True, parents=True)
-            p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR_i:.4f}.npz")
-            
-            np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
-
-            pass
-
-        for y_i, params in zip(y_last, parameters):
-            tauExt = params[10]
-            deltaR_i = params[4]
-            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
-            p.mkdir(exist_ok=True, parents=True)
-            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
-            np.savez(p0, y=y_i, parameters=params)
+        perfect_dislocation_depinning(parsed, tau_min, tau_max, cores, seed, deltaR)
 
     else:
         raise Exception("Not specified which type of dislocation must be simulated.")
 
     pass
+
+def perfect_dislocation_depinning(parsed, tau_min, tau_max, cores, seed, deltaR):
+    depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=int(parsed.points),
+                time=float(parsed.time), dt=float(parsed.timestep), seed=seed, 
+                folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
+    
+    vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
+
+    # Save the results to a .json file
+    depining_path = Path(parsed.folder)
+    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
+    depining_path.mkdir(exist_ok=True, parents=True)
+
+    tau_min_ = min(depinning.stresses.tolist())
+    tau_max_ = max(depinning.stresses.tolist())
+    points = len(depinning.stresses.tolist())
+    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR:.4f}.json")
+    with open(str(depining_path), 'w') as fp:
+        json.dump({
+            "stresses":depinning.stresses.tolist(),
+            "v_rel":vcm,
+            "seed":depinning.seed,
+            "time":depinning.time,
+            "dt":depinning.dt
+        },fp)
+
+    # Do a depinning run where tau_c should be in the middle
+
+    t_c_arvio = np.argmax(np.array(vcm) > 1e-2)
+    t_c_arvio = l_range[t_c_arvio]
+
+    fit_params, pcov = optimize.curve_fit(v_fit, depinning.stresses, vcm, p0 = [
+        t_c_arvio,
+        1.9,
+        0.9
+    ])
+    t_c, beta, a = fit_params
+
+    depinning_optimal = DepinningSingle(tau_min=0.5*t_c, tau_max=t_c*1.5, points=int(parsed.points),
+            time=float(parsed.time), dt=float(parsed.timestep), seed=seed, 
+            folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
+    vcm_opt, l_range_opt, roughnesses_opt, y_last_opt, parameters_opt = depinning_optimal.run()
+    print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}")
+
+    optimal_depinning_path = Path(parsed.folder).joinpath("optimal-depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
+    optimal_depinning_path.mkdir(parents=True, exist_ok=True)
+    optimal_depinning_path = optimal_depinning_path.joinpath(
+        f"depinning-tau-{0.5*t_c}-{t_c*1.5}-p-{points}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.4f}.json"
+        )
+    
+    with open(str(optimal_depinning_path), 'w') as fp:
+        json.dump({
+            "stresses":depinning_optimal.stresses.tolist(),
+            "v_rel":vcm_opt,
+            "seed":depinning_optimal.seed,
+            "time":depinning_optimal.time,
+            "dt":depinning_optimal.dt
+        },fp)
+
+    # Save all the roughnesses
+    for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
+        deltaR_i = params[4]
+        p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+        p.mkdir(exist_ok=True, parents=True)
+        p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR_i:.4f}.npz")
+        
+        np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
+
+        pass
+
+    for y_i, params in zip(y_last, parameters):
+        tauExt = params[10]
+        deltaR_i = params[4]
+        p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+        p.mkdir(exist_ok=True, parents=True)
+        p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
+        np.savez(p0, y=y_i, parameters=params)
+
 
 def searchOptimalTau(tau_min_guess, tau_max_guess, deltaR, parsed, seed, cores):
     # Run mulptiple small depinning simulations to get an idea which tau interval contains the critical force starting from the intial guesses.
