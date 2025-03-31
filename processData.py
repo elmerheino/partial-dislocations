@@ -488,10 +488,14 @@ def v_fit(tau_ext, tau_crit, beta, a):
             v_res[n] = 0
     return v_res
 
-def normalizedDepinnings(folder_path):
+def normalizedDepinnings(folder_path, optimized=False):
     # Make such plots for a single dislocation first
     sd_path = Path(folder_path).joinpath("single-dislocation/depinning-dumps")
     pd_path = Path(folder_path).joinpath("partial-dislocation/depinning-dumps")
+
+    if optimized:
+        sd_path = Path(folder_path).joinpath("single-dislocation/optimal-depinning-dumps")
+        pd_path = Path(folder_path).joinpath("partial-dislocation/optimal-depinning-dumps")
 
     # Collect all values of tau_c
 
@@ -525,9 +529,9 @@ def normalizedDepinnings(folder_path):
 
             try:
                 fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
-                                                                            1.9,          # beta
+                                                                            0.9,          # beta
                                                                             0.9           # a
-                                                                            ], maxfev=1600)
+                                                                            ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=1600)
             except:
                 print(f"Could not find fit w/ perfect dislocation noise : {noise_perfect} seed : {seed}")
                 continue
@@ -559,7 +563,10 @@ def normalizedDepinnings(folder_path):
 
             p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_perfect}")
             p.mkdir(exist_ok=True, parents=True)
-            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            if optimized:
+                plt.savefig(p.joinpath(f"normalized-depinning-{seed}-opt.png"))
+            else:
+                plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
 
         # Next, do the same for a the partial dislocation
         for fpath2 in noise_path_partial.iterdir():
@@ -575,9 +582,9 @@ def normalizedDepinnings(folder_path):
             try:
                 fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[
                     t_c_arvaus,
-                    1.9,
+                    0.9,
                     0.9
-                ], maxfev=1600)
+                ], maxfev=1600, bounds=(0, [ max(tauExt), 2, 2 ]))
             except:
                 print(f"Could find a fit with partial dislocation noise : {noise_partial} seed : {seed}")
                 continue
@@ -610,7 +617,10 @@ def normalizedDepinnings(folder_path):
 
             p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots").joinpath(f"noise-{noise_partial}")
             p.mkdir(exist_ok=True, parents=True)
-            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            if optimized:
+                plt.savefig(p.joinpath(f"normalized-depinning-{seed}-opt.png"))
+            else:
+                plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
     
     # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
     d = {
@@ -770,8 +780,15 @@ def globalFit(dir_path):
     plt.savefig(Path(dir_path).joinpath("global-depinning.png"), dpi=300)
     print(f"Fit done with parameters tau_c = {tauC:.4f} beta = {beta:.4f} and A = {a}")
 
-def makeAveragedDepnningPlots(dir_path):
-    for noise_dir in Path(dir_path).joinpath("partial-dislocation/depinning-dumps").iterdir():
+def makeAveragedDepnningPlots(dir_path, opt=False):
+    partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/depinning-dumps")
+    perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/depinning-dumps")
+
+    if opt:
+        partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/optimal-depinning-dumps")
+        perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/optimal-depinning-dumps")
+
+    for noise_dir in partial_depinning_path.iterdir():
         noise = noise_dir.name.split("-")[1]
         velocities = list()
         stresses = None
@@ -797,10 +814,13 @@ def makeAveragedDepnningPlots(dir_path):
 
         dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/noise-{noise}")
         dest.mkdir(parents=True, exist_ok=True)
-        plt.savefig(dest.joinpath(f"depinning-noise.png"))
+        if opt:
+            plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
+        else:
+            plt.savefig(dest.joinpath(f"depinning-noise.png"))
         pass
 
-    for noise_dir in Path(dir_path).joinpath("single-dislocation/depinning-dumps").iterdir():
+    for noise_dir in perfect_depinning_path.iterdir():
         noise = noise_dir.name.split("-")[1]
         velocities = list()
         stresses = None
@@ -847,13 +867,8 @@ if __name__ == "__main__":
     results_root = Path(parsed.folder)
 
     if parsed.all or parsed.avg:
-        # print("Making depinning plots.")
-        # stresses, vCm = loadDepinningDumps(results_root.joinpath('single-dislocation/depinning-dumps'), partial=False)
-        # stresses1, vCm_partial = loadDepinningDumps(results_root.joinpath('partial-dislocation/depinning-dumps'), partial=True)
-
-        # makeDepinningPlotAvg(10000, 100, [stresses, stresses1], [vCm[0:100], vCm_partial[0:100]], ["single", "partial"], 
-        #                     folder_name=results_root, colors=["red", "blue"])
         makeAveragedDepnningPlots(parsed.folder)
+        makeAveragedDepnningPlots(parsed.folder, opt=True)
         pass
         
     if parsed.all or parsed.roughness:
@@ -894,6 +909,12 @@ if __name__ == "__main__":
 
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
             json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
+
+        non_partial_data, partial_data = normalizedDepinnings(results_root, optimized=True)
+
+        with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
+            json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
+
     
     if parsed.all or parsed.binning:
         p = Path(results_root).joinpath("global_data_dump.json")
