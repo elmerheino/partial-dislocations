@@ -281,7 +281,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     c, zeta = c_values[n_selected], zetas[n_selected]
     ynew_exp = exp_beheavior(exp_l, c, zeta)
 
-    plt.plot(np.log(exp_l), np.log(ynew_exp), label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
+    plt.plot(exp_l, ynew_exp, label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
 
     # Now find out the constant behavior from N/4 < L < 3N/4
 
@@ -295,7 +295,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     
     new_c = np.ones(len(const_l))*fit_c_range
 
-    plt.plot(np.log(const_l), np.log(new_c), label=f"N/4 < L < 3N/4", color="orange")
+    plt.plot(const_l, new_c, label=f"N/4 < L < 3N/4", color="orange")
 
     # Take the constant from the piecewise cutoff
     start = int(round(cutoff_piecewise))
@@ -368,8 +368,8 @@ def makeAvgRoughnessPlots(root_dir):
     for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
 
         # For now only make plots for seed-0 to save time
-        # if (str(seed_folder) != "results/14-mar-roughness/partial-dislocation/averaged-roughnesses/seed-0"):
-        #     continue
+        if (str(seed_folder) != "results/14-mar-roughness/partial-dislocation/averaged-roughnesses/seed-0"):
+            continue
 
         print(f"Making plots for seed {seed_folder}")
 
@@ -397,8 +397,8 @@ def makeAvgRoughnessPlots(root_dir):
     for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
 
         # For now only make plots for seed-0 to save time
-        # if (str(seed_folder) != "results/14-mar-roughness/single-dislocation/averaged-roughnesses/seed-0"):
-        #     continue
+        if (str(seed_folder) != "results/14-mar-roughness/single-dislocation/averaged-roughnesses/seed-0"):
+            continue
 
         print(f"Making plots for seed {seed_folder}")
         with mp.Pool(7) as pool:
