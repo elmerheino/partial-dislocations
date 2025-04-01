@@ -146,6 +146,7 @@ def getCriticalForce(stresses, vcm):
     return critical_force, beta, a
 
 # Roughness plots, averaging, rearranging
+# TODO: make all these functions compatible with the new directory structure.
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -186,7 +187,6 @@ def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
-
 def loadRoughnessData_partial(path_to_file, root_dir):
     # Helper function to enable multiprocessing
     loaded = np.load(path_to_file)
@@ -203,7 +203,6 @@ def loadRoughnessData_partial(path_to_file, root_dir):
     tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlot_partial(l_range, avg_w12, params, p)
 
     return (tauExt, seed, c, zeta, cutoff, k)
-
 
 def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partial -> perfect dislocation
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
@@ -240,7 +239,9 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     plt.clf()
     plt.figure(figsize=(8,8))
 
-    plt.plot(np.log(l_0_range), zetas, label="zeta")
+    plt.plot(l_0_range, zetas, label="zeta")
+    plt.xscale("log")
+    plt.grid(True)
     plt.axhline(y=zetas[0]*(1-0.05), label="$5 \\% $", linestyle='--', color="blue")
     plt.axhline(y=zetas[0]*(1-0.10), label="$10 \\% $", linestyle='--', color="red")
 
@@ -252,13 +253,14 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     zeta_save_path.mkdir(parents=True, exist_ok=True)
     zeta_save_path = zeta_save_path.joinpath(f"l0-zeta-{tauExt:.4f}.png")
     plt.savefig(zeta_save_path)
+    plt.close()
 
     # Now make the actual plot with suitable fit
     plt.clf()
     plt.figure(figsize=(8,8))
 
-    plt.scatter(np.log(l_range), np.log(avg_w), label="$W$", marker="x")
-    plt.plot(np.log(l_range), np.log(ynew), label="piecewise fit", color="blue")
+    plt.scatter(l_range, avg_w, label="$W$", marker="x")
+    plt.plot(l_range, ynew, label="piecewise fit", color="blue")
 
     # Select zeta that is 10% at most smaller than initial zeta
     target_zeta = zetas[0]*(1-0.10)  # TODO: check this more closely, there might be something wrong.
@@ -270,7 +272,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     c, zeta = c_values[n_selected], zetas[n_selected]
     ynew_exp = exp_beheavior(exp_l, c, zeta)
 
-    plt.plot(np.log(exp_l), np.log(ynew_exp), label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
+    plt.plot(exp_l, ynew_exp, label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
 
     # Now find out the constant behavior
 
@@ -284,7 +286,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     
     new_c = np.ones(len(const_l))*fit_c
 
-    plt.plot(np.log(const_l), np.log(new_c), label=f"N/4 < L < 3N/4", color="orange")
+    plt.plot(const_l, new_c, label=f"N/4 < L < 3N/4", color="orange")
 
     # Take the constant from the piecewise cutoff
     start = int(round(cutoff_piecewise))
@@ -296,8 +298,10 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     
     new_c = np.ones(len(const_l))*fit_c
 
-    plt.plot(np.log(const_l), np.log(new_c), label=f"log(L) > {np.log(start):.3f}", color="magenta")
-
+    plt.plot(const_l, new_c, label=f"log(L) > {np.log(start):.3f}", color="magenta")
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.grid(True)
 
     plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
@@ -305,6 +309,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     plt.legend()
 
     plt.savefig(save_path, dpi=300)
+    plt.close()
 
     return (tauExt, seed, c, zeta, cutoff_piecewise, k)
 
@@ -667,14 +672,6 @@ def analyze_tau(dir):
     
     return perfect_tau_means, partial_tau_means
 
-def getCriticalForces(dir_path):
-    # Get all the critical forces from the depinning dir path.
-    crit_forces = list()
-    for file_path in Path(dir_path).iterdir():
-        c = getCriticalForceFromFile(file_path)
-        crit_forces.append(c)
-    return crit_forces
-
 def globalFit(dir_path):
     global_data = list() # Global data for partial dislocation
     # TODO: Also gather global data for single dislocation
@@ -787,6 +784,10 @@ def makeNoisePlot(tau_c_path, save_path, title):
 
     for noise in partial_data.keys():
         tau_c = partial_data[noise]
+    
+        print(len(tau_c))
+        tau_c = sum(tau_c)/len(tau_c)
+
         noises.append(float(noise))
         tau_cs.append(tau_c)
     
