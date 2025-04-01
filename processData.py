@@ -175,8 +175,11 @@ def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
 
     plt.clf()
     plt.figure(figsize=(8,8))
-    plt.scatter(np.log(l_range), np.log(avg_w12), label="$W_{{12}}$", marker="x")
-    plt.plot(np.log(l_range), np.log(ynew), label=f"fit, c={c}, $\\zeta = $ {zeta}")
+    plt.scatter(l_range, avg_w12, label="$W_{{12}}$", marker="x")
+    plt.plot(l_range, ynew, label=f"fit, c={c}, $\\zeta = $ {zeta}")
+
+    plt.xscale("log")
+    plt.yscale("log")
 
     plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
@@ -184,6 +187,7 @@ def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
     plt.legend()
 
     plt.savefig(save_path, dpi=300)
+    plt.close()
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
@@ -207,7 +211,7 @@ def loadRoughnessData_partial(path_to_file, root_dir):
 def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partial -> perfect dislocation
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-    # Regular piecewise fit on all data
+    # Make a piecewise fit on all data
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
                                                                             1.1, # zeta
                                                                             4.1 ]) # cutoff
@@ -259,22 +263,22 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     plt.clf()
     plt.figure(figsize=(8,8))
 
-    plt.scatter(l_range, avg_w, label="$W$", marker="x")
-    plt.plot(l_range, ynew, label="piecewise fit", color="blue")
+    plt.scatter(l_range, avg_w, label="$W$", marker="x") # Plot the data as is
+    # plt.plot(l_range, ynew, label="piecewise fit", color="blue") # Plot the piecewise fit
 
     # Select zeta that is 10% at most smaller than initial zeta
     target_zeta = zetas[0]*(1-0.10)  # TODO: check this more closely, there might be something wrong.
     n_selected = np.argmax(zetas < target_zeta)
 
-    last = np.argmax(l_range > l_0_range[n_selected])
-    exp_l = l_range[:last]
+    last_exp = np.argmax(l_range > l_0_range[n_selected])
+    exp_l = l_range[:last_exp]
 
     c, zeta = c_values[n_selected], zetas[n_selected]
     ynew_exp = exp_beheavior(exp_l, c, zeta)
 
     plt.plot(exp_l, ynew_exp, label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
 
-    # Now find out the constant behavior
+    # Now find out the constant behavior from N/4 < L < 3N/4
 
     start = int(round(len(l_range)/4))
     end = int(round(3*len(l_range)/4 ))
@@ -282,9 +286,9 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     const_l = l_range[start:end]
     const_w = avg_w[start:end]
 
-    fit_c, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+    fit_c_range, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
     
-    new_c = np.ones(len(const_l))*fit_c
+    new_c = np.ones(len(const_l))*fit_c_range
 
     plt.plot(const_l, new_c, label=f"N/4 < L < 3N/4", color="orange")
 
@@ -294,11 +298,31 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     const_l = l_range[start:]
     const_w = avg_w[start:]
 
-    fit_c, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+    fit_c_piecewise, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
     
-    new_c = np.ones(len(const_l))*fit_c
+    new_c = np.ones(len(const_l))*fit_c_piecewise
 
-    plt.plot(const_l, new_c, label=f"log(L) > {np.log(start):.3f}", color="magenta")
+    # plt.plot(const_l, new_c, label=f"log(L) > {np.log(start):.3f}", color="magenta")
+
+    # Next find out the transition point between power law and constant behavior
+
+    fit_c_range = fit_c_range[0]   # This is the constant of constant behavior y = c
+    zeta = zeta
+    c = c                       # This is the factor in power law y=c*l^zeta
+
+    change_p = (fit_c_range / c)**(1/zeta)  # This is the points l=change_p where is changes from power to constant.
+
+    plt.scatter([change_p], [fit_c_range], label="Tansition point")
+
+    # Plot dashed lines to illustrate the intersection
+    dashed_x = np.linspace(change_p, max(l_range)/4, 10)
+    dahsed_y = np.ones(10)*fit_c_range
+    plt.plot(dashed_x, dahsed_y, linestyle="dashed", color="grey")
+
+    dashed_x = np.linspace(last_exp, change_p, 10)
+    dahsed_y = exp_beheavior(dashed_x, c, zeta)
+    plt.plot(dashed_x, dahsed_y, linestyle="dashed", color="grey")
+
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
@@ -311,7 +335,7 @@ def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partia
     plt.savefig(save_path, dpi=300)
     plt.close()
 
-    return (tauExt, seed, c, zeta, cutoff_piecewise, k)
+    return (tauExt, seed, c, zeta, change_p, fit_c_range)
 
 def loadRoughnessData_np(f1, root_dir):
     # Helper function to enable use of multiprocessing when making plots
@@ -340,8 +364,8 @@ def makeAvgRoughnessPlots(root_dir):
     for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
 
         # For now only make plots for seed-0 to save time
-        if (str(seed_folder) != "results/14-mar-roughness/partial-dislocation/averaged-roughnesses/seed-0"):
-            continue
+        # if (str(seed_folder) != "results/14-mar-roughness/partial-dislocation/averaged-roughnesses/seed-0"):
+        #     continue
 
         print(f"Making plots for seed {seed_folder}")
 
@@ -369,8 +393,8 @@ def makeAvgRoughnessPlots(root_dir):
     for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
 
         # For now only make plots for seed-0 to save time
-        if (str(seed_folder) != "results/14-mar-roughness/single-dislocation/averaged-roughnesses/seed-0"):
-            continue
+        # if (str(seed_folder) != "results/14-mar-roughness/single-dislocation/averaged-roughnesses/seed-0"):
+        #     continue
 
         print(f"Making plots for seed {seed_folder}")
         with mp.Pool(7) as pool:
@@ -391,6 +415,7 @@ def makeAvgRoughnessPlots(root_dir):
     pass
 
 def analyzeRoughnessFitParamteters(root_dir):
+    # TODO: also analyze the partial dislocation fit parameters
     with open(Path(root_dir).joinpath("roughness_np.json"), "r") as fp:
         roughnesses_np = json.load(fp)
     with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
@@ -401,7 +426,8 @@ def analyzeRoughnessFitParamteters(root_dir):
     data = np.column_stack([
         roughnesses_np["tauExt"],
         roughnesses_np["zeta"],
-        roughnesses_np["seed"]
+        roughnesses_np["seed"],
+        roughnesses_np["cutoff"]
     ])
     # x = data[data[:,2] == 0][:,0] # Only take seed 0
     # y = data[data[:,2] == 0][:,1]
@@ -412,6 +438,21 @@ def analyzeRoughnessFitParamteters(root_dir):
     plt.xlabel("$\\tau_{{ext}}$")
     plt.ylabel("$\\zeta$")
     plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all-perfect.png"), dpi=300)
+    plt.close()
+
+    plt.clf()
+    plt.figure(figsize=(8,8))
+
+    x = data[:,0] # Take all fit data
+    y = data[:,3]
+
+    plt.scatter(x, y, label="Transition", marker="x", color="blue")
+    plt.title("Transition from power to constant behavior for seed 0")
+    plt.xlabel("$\\tau_{{ext}}$")
+    plt.ylabel("$\\k$")
+    plt.savefig(Path(root_dir).joinpath("tau_ext-transition-all-perfect.png"), dpi=300)
+    plt.close()
+
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
