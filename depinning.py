@@ -37,7 +37,7 @@ class Depinning(object):
 
 class DepinningPartial(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0, bigB=1, smallB=1, b_p=1, 
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0, bigB=1, smallB=1, b_p=0.5, 
                  mu=1, seed=None, bigN=1024, length=1024, d0=39, c_gamma=20, cLT1=0.1, cLT2=0.1, sequential=False):
         
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, 
