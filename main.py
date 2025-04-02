@@ -21,9 +21,6 @@ def triton():
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True)
 
     parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0)
-    parser.add_argument("-rmin", help="Minimun value of noise", default=0.0)
-    parser.add_argument("-rmax", help="Maximum value of noise", default=2.0)
-    parser.add_argument("-rpoints", help="Number of points of noise in triton.", default=10)
 
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.')
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
@@ -35,9 +32,7 @@ def triton():
     estimate = (int(parsed.time)/float(parsed.timestep))*1024*2*4*1e-6
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
-    index = int(parsed.delta_r)
-    interval = np.logspace(float(parsed.rmin),float(parsed.rmax),int(parsed.rpoints))
-    deltaR = float(interval[index]) # Map the passed slurm index to a value
+    deltaR = float(parsed.delta_r)
 
     if parsed.cores == None:
         cores = mp.cpu_count()
@@ -54,7 +49,7 @@ def triton():
 
         # Save the depinning to a .json file
         depining_path = Path(parsed.folder)
-        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
+        depining_path = depining_path.joinpath("depinning-dumps")
         depining_path.mkdir(exist_ok=True, parents=True)
         depining_path = depining_path.joinpath(f"depinning-tau-{parsed.tau_min}-{parsed.tau_max}-p-{int(parsed.points)}-t-{parsed.time}-s-{parsed.seed}-R-{deltaR:.4f}.json")
 
@@ -73,7 +68,7 @@ def triton():
         for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
             tauExt_i = params[11]
             deltaR_i = params[4]
-            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
             p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR:.4f}.npz")
             
@@ -103,7 +98,7 @@ def triton():
         # Save the results to a .json file
 
         depining_path = Path(parsed.folder)
-        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
+        depining_path = depining_path.joinpath("depinning-dumps")
         depining_path.mkdir(exist_ok=True, parents=True)
 
         tau_min_ = min(depinning.stresses.tolist())
@@ -122,7 +117,7 @@ def triton():
         # Save all the roughnesses
         for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
             deltaR_i = params[4]
-            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+            p = Path(parsed.folder).joinpath(f"averaged-roughnesses").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
             p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR_i:.4f}.npz")
             
@@ -133,7 +128,7 @@ def triton():
         for y_i, params in zip(y_last, parameters):
             tauExt = params[10]
             deltaR_i = params[4]
-            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+            p = Path(parsed.folder).joinpath(f"dislocations-last").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
             p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
             np.savez(p0, y=y_i, parameters=params)
