@@ -552,7 +552,7 @@ def normalizedDepinnings(folder_path):
         vCm = depinning["v_rel"]
         seed = depinning["seed"]
 
-        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[1.4, 1.5, 1], maxfev=800)
         tauCrit, beta, a = fit_params
 
         tau_c_single.append(tauCrit)
@@ -581,6 +581,7 @@ def normalizedDepinnings(folder_path):
         p = Path(folder_path).joinpath("single-dislocation").joinpath("normalized-plots")
         p.mkdir(exist_ok=True, parents=True)
         plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+        plt.close()
 
         # Next, do the same for a the partial dislocation
 
@@ -591,7 +592,7 @@ def normalizedDepinnings(folder_path):
         vCm = depinning_partial["v_rel"]
         seed = depinning_partial["seed"]
 
-        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[2.5, 1.5, 1], maxfev=800)
+        fit_params, pcov = optimize.curve_fit(v_fit, tauExt, vCm, p0=[1.6, 1.5, 1], maxfev=800)
         tauCrit, beta, a = fit_params
 
         tau_c_partial.append(tauCrit)
@@ -621,6 +622,7 @@ def normalizedDepinnings(folder_path):
         p = Path(folder_path).joinpath("partial-dislocation").joinpath("normalized-plots")
         p.mkdir(exist_ok=True, parents=True)
         plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+        plt.close()
     
     # Save the average and standard deviation of tau_c for both the partial and non-partial dislocation
     d = {
