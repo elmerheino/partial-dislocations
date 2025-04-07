@@ -7,6 +7,7 @@
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
+NAME="shockley"
 
 CORES=9
 NOISE=1.0
@@ -17,5 +18,5 @@ module load scicomp-python-env
 # Seed count is array-max/noise points
 
 # Job step
-srun python3 main.py --seed ${SLURM_ARRAY_TASK_ID} -R ${NOISE} -f ${WRKDIR}/results/${DATE}-perfect-partial/partial-dislocation -tmin 1 -tmax 2 -p 100 -dt 0.05 -c ${CORES} -t 10000 --partial
-srun python3 main.py --seed ${SLURM_ARRAY_TASK_ID} -R ${NOISE} -f ${WRKDIR}/results/${DATE}-perfect-partial/single-dislocation -tmin 1 -tmax 2 -p 100 -dt 0.05 -c ${CORES} -t 10000 --single
+srun python3 main.py --seed ${SLURM_ARRAY_TASK_ID} -R ${NOISE} -f ${WRKDIR}/results/${DATE}-${NAME}/partial-dislocation -tmin 1 -tmax 2 -p 100 -dt 0.05 -c ${CORES} -t 10000 --partial
+srun python3 main.py --seed ${SLURM_ARRAY_TASK_ID} -R ${NOISE} -f ${WRKDIR}/results/${DATE}-${NAME}/single-dislocation -tmin 1 -tmax 2 -p 100 -dt 0.05 -c ${CORES} -t 10000 --single

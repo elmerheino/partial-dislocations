@@ -37,7 +37,9 @@ class Depinning(object):
 
 class DepinningPartial(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0, bigB=1, smallB=1, b_p=0.5, 
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0, bigB=1, 
+                 smallB=0.7071067812, # 1/sqrt(2) Here the default values reflects a dislocation along 1/2 <110>
+                 b_p=0.4082482905,    # 1/sqrt(6) and this is the Shockley partial 
                  mu=1, seed=None, bigN=1024, length=1024, d0=39, c_gamma=20, cLT1=0.1, cLT2=0.1, sequential=False):
         
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, 
@@ -83,7 +85,11 @@ class DepinningPartial(Depinning):
 
 class DepinningSingle(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, bigB=1, smallB=1, b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, cLT1=0.1, sequential=False):
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, bigB=1, 
+                 smallB=0.7071067812, # b^2 = a^2 / 2 where a = 1
+                 b_p=0.7071067812, 
+                 mu=1,
+            seed=None, bigN=1024, length=1024, d0=39, cLT1=0.1, sequential=False):
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, seed, bigN, length, d0, sequential)
         self.cLT1 = cLT1
 
