@@ -43,7 +43,13 @@ def triton():
 
         depinning = DepinningPartial(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
+                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR,
+                        c_gamma=60.5,
+                        mu=20.7,
+                        smallB=3.05,
+                        cLT1=0.35, # Edge dislocation according to Zaiser
+                        cLT2=0.35
+                        )
         
         v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
 
@@ -91,7 +97,12 @@ def triton():
 
         depinning = DepinningSingle(tau_min=float(parsed.tau_min), tau_max=float(parsed.tau_max), points=int(parsed.points),
                         time=float(parsed.time), dt=float(parsed.timestep), seed=int(parsed.seed), 
-                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
+                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, 
+                        deltaR=deltaR,
+                        mu=20.7,
+                        smallB=3.05,
+                        cLT1=0.35, # Edge dislocation according to Zaiser
+                        )
         
         vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
 
