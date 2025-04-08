@@ -7,8 +7,8 @@ from pathlib import Path
 
 class Depinning(object):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, bigB=1, smallB=1,
-                  b_p=1, mu=1, seed=None, bigN=1024, length=1024, d0=39, sequential=False):
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float, bigB, smallB,
+                mu, bigN, length, d0, sequential=False, seed=None):
         # The common constructor for both types of depinning simulations
         self.tau_min = tau_min
         self.tau_max = tau_max
@@ -25,7 +25,6 @@ class Depinning(object):
         self.bigB = bigB
         self.smallB = smallB
         self.mu = mu
-        self.b_p = b_p
 
         self.bigN = bigN
         self.length = length
@@ -48,13 +47,13 @@ class DepinningPartial(Depinning):
                         c_gamma=20
                         ): # Use realistic values from paper by Zaiser and Wu 2022
         
-        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, 
-                         seed, bigN, length, d0, sequential)
+        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
         # The initializations specific to a partial dislocation depinning simulation.
         self.cLT1 = cLT1
         self.cLT2 = cLT2
         self.c_gamma =c_gamma
         self.results = list()
+        self.b_p = b_p
     
     def studyConstantStress(self, tauExt):
         simulation = PartialDislocationsSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p, 
@@ -91,18 +90,18 @@ class DepinningPartial(Depinning):
 
 class DepinningSingle(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, seed=None, bigN=1024, length=1024, d0=39, sequential=False,
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, seed=None, bigN=1024, length=1, d0=39, sequential=False,
                         bigB=1,
                         smallB=3.05,
                         mu=20.7,
                         cLT1=0.35
                 ):
 
-        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, b_p, mu, seed, bigN, length, d0, sequential)
+        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
         self.cLT1 = cLT1
 
     def studyConstantStress(self, tauExt):
-        sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p,
+        sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed)
 

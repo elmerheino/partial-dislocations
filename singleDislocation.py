@@ -4,8 +4,8 @@ from simulation import Simulation
 
 class DislocationSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, seed=None, d0=40):
-        super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, seed)
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, d0=40):
+        super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1}
         self.d0 = d0
@@ -16,9 +16,9 @@ class DislocationSimulation(Simulation):
         
     def timestep(self, dt, y1):
         dy1 = ( 
-            self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.b_p*self.tau(y1) # The random stress term
-            + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) # The external stress term
+            self.cLT1*self.mu*(self.smallB**2)*self.secondDerivative(y1) # The gradient term # type: ignore
+            + self.smallB*self.tau(y1) # The random stress term
+            + self.smallB*self.tau_ext()*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
         
         newY1 = (y1 + dy1*dt)
@@ -97,7 +97,7 @@ class DislocationSimulation(Simulation):
     def getParameteters(self):
         parameters = np.array([
             self.bigN, self.length, self.time, self.dt,     # Index 0-3
-            self.deltaR, self.bigB, self.smallB, self.b_p,  # 4 - 7
+            self.deltaR, self.bigB, self.smallB,  # 4 - 7
             self.cLT1, self.mu, self.tauExt,                # 8 - 10
             self.d0, self.seed, self.tau_cutoff             # 11 - 13
         ])

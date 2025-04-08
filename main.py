@@ -230,61 +230,6 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
         np.savez(p0, y=y_i, parameters=params)
 
-
-def searchOptimalTau(tau_min_guess, tau_max_guess, deltaR, parsed, seed, cores):
-    # Run mulptiple small depinning simulations to get an idea which tau interval contains the critical force starting from the intial guesses.
-
-    tau_min = tau_min_guess
-    tau_max = tau_max_guess
-    delta = tau_min*0.1
-    tau_c_tolerance = 0.1
-
-    for i in range(0,10):
-        test = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=5,
-                        time=float(parsed.time), dt=float(parsed.timestep), seed=seed,
-                        folder_name=parsed.folder, cores=cores, sequential=parsed.seq, deltaR=deltaR)
-        
-        v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = test.run()
-        v_range = max(vcm) - min(vcm)
-
-        tau_crit_i = np.argmax(np.array(vcm) > tau_c_tolerance)
-
-        middle = len(vcm) / 2
-
-        # Handle spcial cases first
-
-        if tau_crit_i == 0 and v_range > 0.1: # All are too big probably so tau_c resides on the left -> Decrease limits
-            print(f"Limits were: {tau_min} < tau < {tau_max}")
-            tau_min -= delta
-            tau_max -= delta
-            print(f"Limits are lowered to: {tau_min} < tau < {tau_max}")
-            continue
-        elif tau_crit_i == 0 and v_range < 0.1: # All are too small so tau_c resides on the right -> Increase them
-            print(f"Limits were: {tau_min} < tau < {tau_max}")
-            tau_min += delta
-            tau_max += delta
-            print(f"Limits are increased to: {tau_min} < tau < {tau_max}")
-            continue
-
-
-        if tau_crit_i < middle:
-            print(f"Limits were: {tau_min} < tau < {tau_max}")
-            tau_min += delta
-            tau_max += delta
-            print(f"Limits are increased to: {tau_min} < tau < {tau_max}")
-            pass # increase limits
-        elif tau_crit_i > middle:
-            print(f"Limits were: {tau_min} < tau < {tau_max}")
-            tau_min -= delta
-            tau_max -= delta
-            print(f"Limits are lowered to: {tau_min} < tau < {tau_max}")
-            pass # decrease limits
-    
-    print(f"Proceeding with limits {tau_min:.3f} < tau < {tau_max:.3f} (noise: {deltaR})")
-
-    return (tau_min, tau_max)
-
-
 if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation simulation")
     subparsers = parser.add_subparsers(help="Do a grid search on noise or just a single depinning.", dest="command")

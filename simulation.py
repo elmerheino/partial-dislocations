@@ -4,7 +4,7 @@ import math
 from numba import jit
 
 class Simulation(object):
-    def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, b_p, mu, tauExt, seed=None):
+    def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, mu, tauExt, seed=None):
 
         self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
         self.x_points = np.arange(self.bigN)
@@ -21,9 +21,6 @@ class Simulation(object):
 
         self.bigB = bigB                        # Bulk modulus
         self.smallB = smallB                    # Size of Burgers vector
-        # TODO: make sure the value of b aligns w/ b_p and C_LT1 and C_LT2
-
-        self.b_p = b_p                          # Equal lengths of the partial burgers vectors
         self.mu = mu                            # mu, parameter for tension
 
         self.tauExt = tauExt
@@ -45,7 +42,7 @@ class Simulation(object):
         x_hat = fft.fft(x)
         k = fft.fftfreq(n=self.bigN, d=self.deltaL)*2*np.pi
 
-        d_x_hat = -x_hat*(k)**2
+        d_x_hat = -x_hat*(k**2)
 
         return fft.ifft(d_x_hat).real
     
@@ -166,7 +163,7 @@ class Simulation(object):
         return [
             f"N={self.bigN}", f"L={self.length}", f"t={self.time}",
             f"dt={self.dt}", f"\\Delta R = {self.deltaR}",
-            f"\\tau_{{ext}} = {self.tauExt}", f"b_p = {self.b_p}"]
+            f"\\tau_{{ext}} = {self.tauExt}"]
     
     def getTvalues(self):
         # Returns the times ealaped at each step
