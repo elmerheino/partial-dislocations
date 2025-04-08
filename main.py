@@ -287,25 +287,13 @@ def searchOptimalTau(tau_min_guess, tau_max_guess, deltaR, parsed, seed, cores):
 
 if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation simulation")
+    subparsers = parser.add_subparsers(help="Do a grid search on noise or just a single depinning.", dest="command")
+    grid_parser = subparsers.add_parser("grid")
     # parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True)
 
     parser.add_argument('-f', '--folder', help='Specify the output folder for all the dumps and results.', required=True)
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True, type=float)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True, type=int)
-
-    parser.add_argument('-id', '--array-task-id', help="The array task id.", required=True, type=int)
-    parser.add_argument('-sl', '--seeds', help="Number of seeds in the grid (or columns)", required=True, type=int)
-    parser.add_argument('-arr', '--array-length', help="Length of the array job. (determines the n. of rows)", required=True, type=int)
-
-    # Calculate noise magnitude and seed based on this parameter
-
-    # parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0)
-    parser.add_argument("--rmin", help="Minimun value of noise", default=0.0, type=float)
-    parser.add_argument("--rmax", help="Maximum value of noise", default=2.0, type=float)
-    # parser.add_argument("--rpoints", help="Number of points of noise in triton.", default=10)
-
-    # parser.add_argument('-tmin', '--tau-min', help='Start value for stress.', required=True)
-    # parser.add_argument('-tmax', '--tau-max', help='End value for stress.', required=True)
     parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True, type=int)
 
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.', type=int)
@@ -313,15 +301,41 @@ if __name__ == "__main__":
     parser.add_argument('--single', help='Simulate a single dislocation.', action="store_true")
     parser.add_argument('--seq', help='Sequential.', action="store_true", default=False)
 
+    grid_parser.add_argument('-id', '--array-task-id', help="The array task id.", required=True, type=int)
+    grid_parser.add_argument('-sl', '--seeds', help="Number of seeds in the grid (or columns)", required=True, type=int)
+    grid_parser.add_argument('-arr', '--array-length', help="Length of the array job. (determines the n. of rows)", required=True, type=int)
+
+    # Calculate noise magnitude and seed based on this parameter
+
+    grid_parser.add_argument("--rmin", help="Minimun value of noise", default=0.0, type=float)
+    grid_parser.add_argument("--rmax", help="Maximum value of noise", default=2.0, type=float)
+
+    pinning_parser = subparsers.add_parser("pinning")
+
+    pinning_parser.add_argument('-tmin', '--tau-min', help='Start value for stress.', required=True, type=float)
+    pinning_parser.add_argument('-tmax', '--tau-max', help='End value for stress.', required=True, type=float)
+    pinning_parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True, type=int)
+    pinning_parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0, type=float)
+
     parsed = parser.parse_args()
+    
+    if parsed.command == "grid":
+        partial_ = None
 
-    partial_ = None
+        if parsed.partial:
+            partial_ = True
+        elif parsed.single:
+            partial_ = False
 
-    if parsed.partial:
-        partial_ = True
-    elif parsed.single:
-        partial_ = False
+        grid_search(parsed.rmin, parsed.rmax, parsed.array_task_id, parsed.seeds, parsed.array_length, parsed.time, parsed.timestep, parsed.points, parsed.cores, partial_, parsed.folder, 
+                    parsed.seq)
+    elif parsed.command == "pinning":
+        if parsed.partial:
+            partial_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
+                                          parsed.folder, parsed.seq)
+        if parsed.single:
+            perfect_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
+                                          parsed.folder, parsed.seq)
+        pass
 
-    grid_search(parsed.rmin, parsed.rmax, parsed.array_task_id, parsed.seeds, parsed.array_length, parsed.time, parsed.timestep, parsed.points, parsed.cores, partial_, parsed.folder, 
-                parsed.seq)
     pass
