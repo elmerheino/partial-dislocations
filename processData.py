@@ -344,7 +344,7 @@ def loadRoughnessData_np(f1, root_dir):
     loaded = np.load(f1)
     avg_w = loaded["avg_w"]
     l_range = loaded["l_range"]
-    params = loaded["paramerters"]
+    params = loaded["parameters"]
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     # TODO: loop over each noise level here
@@ -361,32 +361,37 @@ def loadRoughnessData_np(f1, root_dir):
 def makeAvgRoughnessPlots(root_dir):
     # Makes roughness plots that have been averaged only at simulation (that is velocity) level
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
-    roughnesses_partial = {
-        "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-        "cutoff" : list(), "k":list()
-    }
-    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+
+    roughnesses_partial = dict()
+
+    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
 
         # For now only make plots for seed-0 to save time
         # if (str(seed_folder) != "results/14-mar-roughness/partial-dislocation/averaged-roughnesses/seed-0"):
         #     continue
 
-        print(f"Making plots for seed {seed_folder}")
+        noise_val = noise_folder.name.split("-")[1]
 
-        with mp.Pool(7) as pool:
-            results = pool.map(partial(loadRoughnessData_partial, root_dir=root_dir), seed_folder.iterdir())
-            tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-            roughnesses_partial["tauExt"] += tauExt
-            roughnesses_partial["seed"] += seed_r
-            roughnesses_partial["c"] += c
-            roughnesses_partial["zeta"] += zeta
-            roughnesses_partial["cutoff"] += cutoff
-            roughnesses_partial["k"] += k
+        roughnesses_partial_noise = {
+            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+            "cutoff" : list(), "k":list()
+        }
 
-    roughnesses_np = {
-        "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-        "cutoff" : list(), "k":list()
-    }
+        print(f"Making plots for noise {noise_folder}")
+        for seed_folder in noise_folder.iterdir():
+            print(f"Making plots for seed {seed_folder}")
+            with mp.Pool(7) as pool:
+                results = pool.map(partial(loadRoughnessData_partial, root_dir=root_dir), seed_folder.iterdir())
+                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
+                roughnesses_partial_noise["tauExt"] += tauExt
+                roughnesses_partial_noise["seed"] += seed_r
+                roughnesses_partial_noise["c"] += c
+                roughnesses_partial_noise["zeta"] += zeta
+                roughnesses_partial_noise["cutoff"] += cutoff
+                roughnesses_partial_noise["k"] += k
+        
+        roughnesses_partial[noise_val] = roughnesses_partial_noise
+
     
     with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
         json.dump(roughnesses_partial, fp)
@@ -394,25 +399,39 @@ def makeAvgRoughnessPlots(root_dir):
     # analyzeRoughnessFitParamteters(root_dir)
 
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
-    for seed_folder in [s for s in p.iterdir() if s.is_dir()]:
+
+    roughnesses_perfect = dict()
+
+    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
 
         # For now only make plots for seed-0 to save time
         # if (str(seed_folder) != "results/14-mar-roughness/single-dislocation/averaged-roughnesses/seed-0"):
         #     continue
 
-        print(f"Making plots for seed {seed_folder}")
-        with mp.Pool(7) as pool:
-            results = pool.map(partial(loadRoughnessData_np, root_dir=root_dir), seed_folder.iterdir())
-            tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-            roughnesses_np["tauExt"] += tauExt
-            roughnesses_np["seed"] += seed_r
-            roughnesses_np["c"] += c
-            roughnesses_np["zeta"] += zeta
-            roughnesses_np["cutoff"] += cutoff
-            roughnesses_np["k"] += k
+        noise_val = noise_folder.name.split("-")[1]
+
+        roughnesses_np_noise = {
+            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+            "cutoff" : list(), "k":list()
+        }
+
+
+        print(f"Making plots for noise {noise_folder}")
+        for seed_folder in noise_folder.iterdir():
+            with mp.Pool(7) as pool:
+                results = pool.map(partial(loadRoughnessData_np, root_dir=root_dir), seed_folder.iterdir())
+                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
+                roughnesses_np_noise["tauExt"] += tauExt
+                roughnesses_np_noise["seed"] += seed_r
+                roughnesses_np_noise["c"] += c
+                roughnesses_np_noise["zeta"] += zeta
+                roughnesses_np_noise["cutoff"] += cutoff
+                roughnesses_np_noise["k"] += k
         
-    with open(Path(root_dir).joinpath("roughness_np.json"), "w") as fp:
-        json.dump(roughnesses_np, fp)
+        roughnesses_perfect[noise_val] = roughnesses_np_noise
+        
+    with open(Path(root_dir).joinpath("roughness_perfect.json"), "w") as fp:
+        json.dump(roughnesses_perfect, fp)
     
     analyzeRoughnessFitParamteters(root_dir)
     
@@ -420,42 +439,43 @@ def makeAvgRoughnessPlots(root_dir):
 
 def analyzeRoughnessFitParamteters(root_dir):
     # TODO: also analyze the partial dislocation fit parameters
-    with open(Path(root_dir).joinpath("roughness_np.json"), "r") as fp:
+    with open(Path(root_dir).joinpath("roughness_perfect.json"), "r") as fp:
         roughnesses_np = json.load(fp)
     with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
         roughnesses_partial = json.load(fp)
     
-    plt.clf()
-    plt.figure(figsize=(8,8))
-    data = np.column_stack([
-        roughnesses_np["tauExt"],
-        roughnesses_np["zeta"],
-        roughnesses_np["seed"],
-        roughnesses_np["cutoff"]
-    ])
-    # x = data[data[:,2] == 0][:,0] # Only take seed 0
-    # y = data[data[:,2] == 0][:,1]
-    x = data[:,0] # Take all fit data
-    y = data[:,1]
-    plt.scatter(x, y, label="paramteri", marker="x", color="blue")
-    plt.title("Roughness fit exponent for seed 0")
-    plt.xlabel("$\\tau_{{ext}}$")
-    plt.ylabel("$\\zeta$")
-    plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all-perfect.png"), dpi=300)
-    plt.close()
+    for noise in roughnesses_np.keys():
+        plt.clf()
+        plt.figure(figsize=(8,8))
+        data = np.column_stack([
+            roughnesses_np[noise]["tauExt"],
+            roughnesses_np[noise]["zeta"],
+            roughnesses_np[noise]["seed"],
+            roughnesses_np[noise]["cutoff"]
+        ])
+        # x = data[data[:,2] == 0][:,0] # Only take seed 0
+        # y = data[data[:,2] == 0][:,1]
+        x = data[:,0] # Take all fit data
+        y = data[:,1]
+        plt.scatter(x, y, label="paramteri", marker="x", color="blue")
+        plt.title(f"Roughness fit exponent for seed 0 R={noise}")
+        plt.xlabel("$\\tau_{{ext}}$")
+        plt.ylabel("$\\zeta$")
+        plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all-perfect.png"), dpi=300)
+        plt.close()
 
-    plt.clf()
-    plt.figure(figsize=(8,8))
+        plt.clf()
+        plt.figure(figsize=(8,8))
 
-    x = data[:,0] # Take all fit data
-    y = data[:,3]
+        x = data[:,0] # Take all fit data
+        y = data[:,3]
 
-    plt.scatter(x, y, label="Transition", marker="x", color="blue")
-    plt.title("Transition from power to constant behavior for seed 0")
-    plt.xlabel("$\\tau_{{ext}}$")
-    plt.ylabel("$\\k$")
-    plt.savefig(Path(root_dir).joinpath("tau_ext-transition-all-perfect.png"), dpi=300)
-    plt.close()
+        plt.scatter(x, y, label="Transition", marker="x", color="blue")
+        plt.title(f"Transition from power to constant behavior for seed 0 R={noise}")
+        plt.xlabel("$\\tau_{{ext}}$")
+        plt.ylabel("$\\k$")
+        plt.savefig(Path(root_dir).joinpath("tau_ext-transition-all-perfect.png"), dpi=300)
+        plt.close()
 
 
 def rearrangeRoughnessDataByTau(root_dir):
