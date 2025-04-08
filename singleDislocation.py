@@ -17,8 +17,7 @@ class DislocationSimulation(Simulation):
     def timestep(self, dt, y1):
         dy1 = ( 
             self.cLT1*self.mu*(self.smallB**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.smallB*self.tau(y1) # The random stress term
-            + self.smallB*self.tau_ext()*np.ones(self.bigN) # The external stress term
+            + self.smallB*(self.tau(y1) + self.tau_ext()*np.ones(self.bigN) )
             ) * ( self.bigB/self.smallB )
         
         newY1 = (y1 + dy1*dt)
