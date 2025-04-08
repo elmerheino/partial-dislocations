@@ -22,12 +22,8 @@ SEEDS=1
 # Seed count is array-max/noise points
 
 # Job step
-srun python3 main.py --array-task-id ${SLURM_ARRAY_TASK_ID} --rmin ${NOISE_MIN} --rmax ${NOISE_MAX} \
-    --array-length ${ARRAY_LEN} --seeds ${SEEDS} -p 100 -dt 0.05 \
-    -f ${WRKDIR}/results/${DATE}/single-dislocation -c ${CORES} \
-    -t 10000 --single \
+srun python3 main.py -p 100 -dt 0.05 -t 10000 --single -f ${WRKDIR}/results/${DATE}/single-dislocation -c ${CORES} \
+    grid --array-task-id ${SLURM_ARRAY_TASK_ID} --rmin ${NOISE_MIN} --rmax ${NOISE_MAX} --array-length ${ARRAY_LEN} --seeds ${SEEDS}
 
-srun python3 main.py --array-task-id ${SLURM_ARRAY_TASK_ID} --rmin ${NOISE_MIN} --rmax ${NOISE_MAX} \
-    --array-length ${ARRAY_LEN} --seeds ${SEEDS} -p 100 -dt 0.05 \
-    -f ${WRKDIR}/results/${DATE}/partial-dislocation -c ${CORES} \
-    -t 10000 --partial \
+srun python3 main.py -p 100 -dt 0.05 -t 10000 --partial -f ${WRKDIR}/results/${DATE}/partial-dislocation -c ${CORES} \
+    grid --array-task-id ${SLURM_ARRAY_TASK_ID} --rmin ${NOISE_MIN} --rmax ${NOISE_MAX} --array-length ${ARRAY_LEN} --seeds ${SEEDS}
