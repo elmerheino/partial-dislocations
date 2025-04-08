@@ -199,6 +199,8 @@ def loadRoughnessData_partial(path_to_file, root_dir):
     l_range = loaded["l_range"]
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
+    # Loop through every noise level here
+
     p = Path(root_dir)
     p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
     p.mkdir(parents=True, exist_ok=True)
@@ -344,6 +346,8 @@ def loadRoughnessData_np(f1, root_dir):
     l_range = loaded["l_range"]
     params = loaded["paramerters"]
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+
+    # TODO: loop over each noise level here
 
     p = Path(root_dir)
     p = p.joinpath("roughness-non-partial").joinpath(f"seed-{seed}")
@@ -623,7 +627,19 @@ def confidence_interval_upper(l, c_level):
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     # TODO: update this function to handle the new file structure
-    tau_c_perfect, tau_c_partial = analyze_tau(results_root)
+    # TODO: do this for each noise
+
+    with open(results_root.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+        data_tau_perfect = json.load(fp)
+    
+    tau_c_perfect = sum(data_tau_perfect["1.0000"])/len(data_tau_perfect["1.0000"])
+
+    with open(results_root.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+        data_tau_partial = json.load(fp)
+    
+    tau_c_partial = sum(data_tau_partial["1.0000"])/len(data_tau_partial["1.0000"])
+
+    
     for perfect_partial in data.keys():
         for noise in data[perfect_partial].keys():
             d = data[perfect_partial]
@@ -643,9 +659,9 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
             plt.figure(figsize=(8,8))
 
             if perfect_partial == "perfect_data":
-                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_perfect[noise]:.4f} $ ")
+                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_perfect:.4f} $ ")
             elif perfect_partial == "partial_data":
-                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_partial[noise]:.4f} $ ")
+                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_partial:.4f} $ ")
             
             plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
             plt.ylabel("$v_{{cm}}$")
@@ -675,43 +691,6 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
             plt.savefig(p, dpi=600)
     pass
 
-def analyze_tau(dir):
-    p_root = Path(dir)
-    p = p_root.joinpath("tau_c.json")
-
-    with open(p, "r") as fp:
-        data = json.load(fp)
-    
-    tau_np = data["non-partial dislocation"]["tau_c"]
-    tau_p = data["partial dislocation"]["tau_c"]
-
-    perfect_tau_means = dict()
-    partial_tau_means = dict()
-
-    for noise in tau_np.keys():
-        mean_tau_perfect = sum(tau_np[noise])/len(tau_np[noise])
-        mean_tau_partial = sum(tau_p[noise])/len(tau_p[noise])
-
-        perfect_tau_means[noise] = mean_tau_perfect
-        partial_tau_means[noise] = mean_tau_partial
-
-        plt.clf()
-        plt.figure(figsize=(8,8))
-        plt.title(f"Non partial dislocation R={noise} $\\langle \\tau_c \\rangle = $ {mean_tau_perfect:.3f}")
-        plt.hist(tau_np[noise], 15, edgecolor="black")
-        plt.xlabel("$ \\tau_c $")
-        plt.ylabel("Frequency")
-        plt.savefig(p_root.joinpath(f"perfect_tau_c_histogram-R-{noise}.png"), dpi=300)
-
-        plt.clf()
-        plt.figure(figsize=(8,8))
-        plt.title(f"Partial dislocation R={noise} $\\langle \\tau_c \\rangle = $ {mean_tau_partial:.3f}")
-        plt.hist(tau_p[noise], 15, edgecolor="black")
-        plt.xlabel("$ \\tau_c $")
-        plt.ylabel("Frequency")
-        plt.savefig(p_root.joinpath(f"partial_tau_c_histogram-R-{noise}.png"), dpi=300)
-    
-    return perfect_tau_means, partial_tau_means
 
 def globalFit(dir_path):
     global_data = list() # Global data for partial dislocation
@@ -810,7 +789,10 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
 
         dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
         dest.mkdir(parents=True, exist_ok=True)
-        plt.savefig(dest.joinpath(f"depinning.png"))
+        if opt:
+            plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
+        else:
+            plt.savefig(dest.joinpath(f"depinning-noise.png"))
         pass
 
 def makeNoisePlot(tau_c_path, save_path, title):
