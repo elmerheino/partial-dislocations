@@ -211,7 +211,7 @@ def loadRoughnessData_partial(path_to_file, root_dir):
     return (tauExt, seed, c, zeta, cutoff, k)
 
 def makeRoughnessPlot_np(l_range, avg_w, params, save_path : Path): # Non-partial -> perfect dislocation
-    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     # Make a piecewise fit on all data
     fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
@@ -345,7 +345,7 @@ def loadRoughnessData_np(f1, root_dir):
     avg_w = loaded["avg_w"]
     l_range = loaded["l_range"]
     params = loaded["parameters"]
-    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     # TODO: loop over each noise level here
 
@@ -510,43 +510,43 @@ def averageRoughnessBySeed(root_dir):
     dest = Path(root_dir).joinpath("roughness-avg-tau")
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
         p = Path(root_dir).joinpath(dislocation_dir)
-        for tauExt in p.joinpath("avg-rough-arranged").iterdir():
-            l_range = list()
-            roughnesses = list()
-            params = list()
-            tauExtValue = tauExt.name.split("-")[1]
-            for seed_file in tauExt.iterdir():
-                loaded = np.load(seed_file)
-                if dislocation_dir == "single-dislocation": # This code is here bc before 25-3 there was a typo in the simulation code
-                    params = loaded["paramerters"]
-                else:
+        for noise_folder in p.joinpath("avg-rough-arranged").iterdir():
+
+            noise_val = noise_folder.name.split("-")[1]
+
+            for tauExt in noise_folder.iterdir():
+                l_range = list()
+                roughnesses = list()
+                params = list()
+                tauExtValue = tauExt.name.split("-")[1]
+                for seed_file in tauExt.iterdir():
+                    loaded = np.load(seed_file)
                     params = loaded["parameters"]
-                # params = loaded["parameters"]
-                params = params
-                w = loaded["avg_w"]
-                l_range = loaded["l_range"]
 
-                roughnesses.append(w)
-                l_range = l_range
-                pass
+                    w = loaded["avg_w"]
+                    l_range = loaded["l_range"]
 
-            roughnesses = np.array(roughnesses)
-            w_avg = np.mean(roughnesses, axis=0)
-            
-            dest_plot = None
-            
-            if dislocation_dir == "single-dislocation":
-                dest_plot = dest.joinpath(dislocation_dir).joinpath("plots")
-                dest_plot.mkdir(parents=True, exist_ok=True)
-                dest_plot = dest_plot.joinpath(f"roughness-tau-{tauExtValue}.png")
+                    roughnesses.append(w)
+                    l_range = l_range
+                    pass
 
-                makeRoughnessPlot_np(l_range, w_avg, params, dest_plot)
-            elif dislocation_dir == "partial-dislocation":
-                dest_plot = dest.joinpath(dislocation_dir).joinpath("plots")
-                dest_plot.mkdir(parents=True, exist_ok=True)
-                dest_plot = dest_plot.joinpath(f"roughness-tau-{tauExtValue}.png")
+                roughnesses = np.array(roughnesses)
+                w_avg = np.mean(roughnesses, axis=0)
+                
+                dest_plot = None
+                
+                if dislocation_dir == "single-dislocation":
+                    dest_plot = dest.joinpath(dislocation_dir).joinpath(f"plots/noise-{noise_val}")
+                    dest_plot.mkdir(parents=True, exist_ok=True)
+                    dest_plot = dest_plot.joinpath(f"roughness-tau-{tauExtValue}.png")
 
-                makeRoughnessPlot_partial(l_range, w_avg, params, dest_plot)
+                    makeRoughnessPlot_np(l_range, w_avg, params, dest_plot)
+                elif dislocation_dir == "partial-dislocation":
+                    dest_plot = dest.joinpath(dislocation_dir).joinpath(f"plots/noise-{noise_val}")
+                    dest_plot.mkdir(parents=True, exist_ok=True)
+                    dest_plot = dest_plot.joinpath(f"roughness-tau-{tauExtValue}.png")
+
+                    makeRoughnessPlot_partial(l_range, w_avg, params, dest_plot)
     pass
 
 # Depinning, critical force, etc.
@@ -648,7 +648,6 @@ def confidence_interval_upper(l, c_level):
     return c[1]
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
-    # TODO: update this function to handle the new file structure
     # TODO: do this for each noise
 
     with open(results_root.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
@@ -712,7 +711,6 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
             p = p.joinpath(f"binned-depinning-noise-{noise}-conf-{conf_level}.png")
             plt.savefig(p, dpi=600)
     pass
-
 
 def globalFit(dir_path):
     global_data = list() # Global data for partial dislocation
@@ -963,7 +961,7 @@ if __name__ == "__main__":
         
     if parsed.rearrange or parsed.all:
         rearrangeRoughnessDataByTau(parsed.folder)
-        
+
     if parsed.all:
         print("Making a global fit with a global plot.")
         globalFit(results_root)
