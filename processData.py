@@ -487,18 +487,20 @@ def rearrangeRoughnessDataByTau(root_dir):
             print(f"{dislocation_dir} already rearranged.")
             continue
 
-        for seed_folder in [i for i in p.joinpath("averaged-roughnesses").iterdir() if i.is_dir()]:
-            for file_path in seed_folder.iterdir():
-                fname = file_path.stem
-                tauExt = fname.split("-")[2]
-                seed = seed_folder.stem.split("-")[1]
+        for noise_folder in [i for i in p.joinpath("averaged-roughnesses").iterdir() if i.is_dir()]:
+            for seed_folder in noise_folder.iterdir():
+                for file_path in seed_folder.iterdir():
+                    fname = file_path.stem
+                    tauExt = fname.split("-")[2]
+                    seed = seed_folder.stem.split("-")[1]
+                    noise = noise_folder.stem.split("-")[1]
 
-                new_dir = dest.joinpath(f"tau-{tauExt}")
-                new_dir.mkdir(parents=True, exist_ok=True)
+                    new_dir = dest.joinpath(f"noise-{noise}/tau-{tauExt}")
+                    new_dir.mkdir(parents=True, exist_ok=True)
 
-                new_path = new_dir.joinpath(f"roughness-tau-{tauExt}-seed-{seed}.npz")
+                    new_path = new_dir.joinpath(f"roughness-tau-{tauExt}-seed-{seed}.npz")
 
-                shutil.copy(file_path, new_path)
+                    shutil.copy(file_path, new_path)
                 pass
     pass
 
@@ -858,6 +860,7 @@ if __name__ == "__main__":
     parser.add_argument('--binning', help='Make a binned plot. --np must have been called before', action="store_true")
     parser.add_argument('--confidence', help='Confidence level for depinning, must be called with --binning.', type=float, default=0.95)
     parser.add_argument('--noise', help="Analyse critical force as function of noise amplitude", action="store_true")
+    parser.add_argument('--rearrange', help="Rearrange roughness data by tau instead of seed.", action="store_true")
 
     parsed = parser.parse_args()
 
@@ -911,7 +914,6 @@ if __name__ == "__main__":
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
             json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
         
-        # TODO: deal with the optimal depinnings
         partial_data_opt = normalizedDepinnings(
             results_root.joinpath("partial-dislocation").joinpath("optimal-depinning-dumps"),
             save_folder=results_root.joinpath("partial-dislocation/normalized-plots-opt")
@@ -936,10 +938,6 @@ if __name__ == "__main__":
 
         binning(data, results_root, conf_level=parsed.confidence)
 
-    if parsed.all:
-        print("Making a global fit with a global plot.")
-        globalFit(results_root)
-
     if parsed.all or parsed.noise:
         Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
         makeNoisePlot(
@@ -962,3 +960,10 @@ if __name__ == "__main__":
             save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect-opt.png"),
             title="Noise magnitude and external force for perfect dislocation from closeup data"
             )
+        
+    if parsed.rearrange or parsed.all:
+        rearrangeRoughnessDataByTau(parsed.folder)
+        
+    if parsed.all:
+        print("Making a global fit with a global plot.")
+        globalFit(results_root)
