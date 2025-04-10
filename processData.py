@@ -4,13 +4,11 @@ from pathlib import Path
 import json
 from plots import *
 import numpy as np
-from partialDislocation import PartialDislocationsSimulation
 from scipy import optimize
 from scipy import stats
 from argparse import ArgumentParser
 import multiprocessing as mp
 from functools import partial
-from numba import jit
 import shutil
 
 def plotDislocation_partial(path_to_file, save_path, point=None):
@@ -61,89 +59,6 @@ def plotDislocation_nonp(path_to_file, save_path, point=None):
     p = p.joinpath(f"single-dislocation-s-{seed}-t-{tauExt}.png")
     plt.savefig(p, dpi=300)
     pass
-    
-def loadResults(file_path):
-    # Load the results from a file at file_path to a new simulation object for further processing
-
-    loaded  = np.load(file_path)
-
-    bigN, length, time, dt, deltaR, bigB, smallB, b_p, cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff = loaded["params"]
-
-    res = PartialDislocationsSimulation(bigN=bigN.astype(int), bigB=bigB, length=length,
-                                        time=time,timestep_dt=dt, deltaR=deltaR, 
-                                        smallB=smallB, b_p=b_p, cLT1=cLT1, cLT2=cLT2,
-                                        mu=mu, tauExt=tauExt, c_gamma=c_gamma, d0=d0, seed=seed.astype(int))
-    
-    # Modify the internal state of the object according to loaded parameters
-    res.tau_cutoff = tau_cutoff
-    res.has_simulation_been_run = True
-
-    res.y1 = loaded["y1"]
-    res.y2 = loaded["y2"]
-
-    return res
-
-def dumpDepinning(tauExts:np.ndarray, v_rels:list, time, seed, dt, folder_name:str, extra:list = None): # TODO: get rid of this function
-    results_json = {
-        "stresses":tauExts.tolist(),
-        "v_rel":v_rels,
-        "seed":seed,
-        "time":time,
-        "dt":dt
-    }
-    if extra != None:
-        results_json["extra"] = extra
-
-    depining_path = Path(folder_name)
-    depining_path = depining_path.joinpath("depinning-dumps")
-    depining_path.mkdir(exist_ok=True, parents=True)
-    depining_path = depining_path.joinpath(f"depinning-{min(tauExts)}-{max(tauExts)}-{len(tauExts)}-{time}-{seed}.json")
-    with open(str(depining_path), 'w') as fp:
-        json.dump(results_json,fp)
-
-    pass
-
-def loadDepinningDumps(folder, partial:bool):
-    vCm = list()
-    stresses = None
-    for file in Path(folder).iterdir():
-        with open(file, "r") as fp:
-            try:
-                depinning = json.load(fp)
-            except:
-                print(f"File {file} is corrupted.")
-
-            if stresses == None:
-                stresses = depinning["stresses"]
-            
-            vCm_i = depinning["v_rel"]
-            if len(vCm_i) == 0: # Check for empty lists
-                seed = depinning["seed"]
-                print(f"There was problem loading data with seed {seed}")
-                continue
-
-            vCm.append(vCm_i)
-
-    return (stresses, vCm) # Retuns a single list of stresses and a list of lists of velocities vCm
-
-def getCriticalForceFromFile(file_path):
-
-    with open(file_path, 'r') as fp:
-        depinning = json.load(fp)
-    
-    stresses = depinning["stresses"]
-    vcm = depinning["v_rel"]
-
-    critical_force = getCriticalForce(stresses, vcm)
-
-    return critical_force
-
-def getCriticalForce(stresses, vcm):
-    fit_params, pcov = optimize.curve_fit(v_fit, stresses, vcm, p0=[2.5, 1.5, 1], maxfev=1600)
-
-    critical_force, beta, a = fit_params
-
-    return critical_force, beta, a
 
 # Roughness plots, averaging, rearranging
 # TODO: make all these functions compatible with the new directory structure.
@@ -653,7 +568,11 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
     with open(results_root.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
     
-    tau_c_perfect = sum(data_tau_perfect["1.0000"])/len(data_tau_perfect["1.0000"])
+    first_key = data_tau_perfect.keys()[0]
+    
+    # tau_c_perfect = sum(data_tau_perfect["1.0000"])/len(data_tau_perfect["1.0000"])
+    tau_c_perfect = sum(data_tau_perfect[first_key])/len(data_tau_perfect[first_key])
+
 
     with open(results_root.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_partial = json.load(fp)
