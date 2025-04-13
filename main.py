@@ -187,7 +187,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         t_c_arvio,
         0.8,
         0.046
-    ], bounds=(0, [ max(depinning.stresses), 1, 1 ]))
+    ], bounds=(0, [ max(depinning.stresses), 2, 2 ]))
     t_c, beta, a = fit_params
 
     depinning_optimal = DepinningSingle(tau_min=0.5*t_c, tau_max=t_c*1.5, points=int(points),

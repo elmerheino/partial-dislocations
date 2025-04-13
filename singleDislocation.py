@@ -12,13 +12,32 @@ class DislocationSimulation(Simulation):
         
         # Pre-allocate memory here
         self.y1 = np.empty((self.timesteps, self.bigN)) # Each timestep is one row, bigN is number of columns
+
+        self.lineTension = self.cLT1*self.mu*(self.smallB**2)
+
+        self.a = np.sqrt(2*self.lineTension)
+        self.t0 = self.smallB/self.bigB
+
+        self.scaled_length = self.length*self.a
+        self.scaled_deltaL = self.scaled_length / self.bigN
+        self.scaled_dt = self.t0*self.dt
+        # using these parameters x = a x'   y = a h'    t = t0 t'
         pass
-        
+
+    def secondDerivative(self, x):
+        x_hat = fft.fft(x)
+        k = fft.fftfreq(n=self.bigN, d=self.scaled_deltaL)*2*np.pi
+
+        d_x_hat = -x_hat*(k**2)
+
+        return fft.ifft(d_x_hat).real
+
     def timestep(self, dt, y1):
+        # TODO: Update this function to use the rescaled version PDE
         dy1 = ( 
-            self.cLT1*self.mu*(self.smallB**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.smallB*(self.tau(y1) + self.tau_ext()*np.ones(self.bigN) )
-            ) * ( self.bigB/self.smallB )
+            self.lineTension*self.secondDerivative(y1) # The gradient term # type: ignore
+            + self.smallB*(self.tau(y1/self.a) + self.tau_ext()*np.ones(self.bigN) )
+            )
         
         newY1 = (y1 + dy1*dt)
 
@@ -38,7 +57,12 @@ class DislocationSimulation(Simulation):
         
         self.has_simulation_been_run = True
     
+    def getResults(self):
+        # TODO: This functions has to return the results rescaled back to original variables.
+        return self.y1*self.a
+    
     def getLineProfiles(self, time_to_consider=None):
+        # TODO: use getResutls instead
         start = 0
 
         if time_to_consider != None:
@@ -48,7 +72,7 @@ class DislocationSimulation(Simulation):
             start = self.timesteps - 1
 
         if self.has_simulation_been_run:
-            return self.y1[start:]
+            return self.getResults()[start:]
         else:
             raise Exception("Simulation has not been run.")
         
@@ -57,18 +81,19 @@ class DislocationSimulation(Simulation):
     
     def getAverageDistances(self):
         # Returns the average distance from y=0
-        return np.average(self.y1, axis=1)
+        return np.average(self.getResults(), axis=1)
     
     def getCM(self):
         # Return the centres of mass of the two lines as functions of time
         if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
 
-        y1_CM = np.mean(self.y1, axis=1)
+        y1_CM = np.mean(self.getResults(), axis=1)
 
         return y1_CM
     
     def getRelaxedVelocity(self, time_to_consider=1000):
+        # TODO: use get results instead
         if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
         
@@ -103,14 +128,15 @@ class DislocationSimulation(Simulation):
         return parameters
 
     def getAveragedRoughness(self, time_to_consider):
+        # TODO: use get results instead
         steps_to_consider = round(time_to_consider / self.dt)
         start = self.timesteps - steps_to_consider
 
-        l_range, _ = self.roughnessW(self.y1[0], self.bigN)
+        l_range, _ = self.roughnessW(self.getResults()[0], self.bigN)
 
         roughnesses = np.empty((steps_to_consider, self.bigN))
         for i in range(start,self.timesteps):
-            _, rough = self.roughnessW(self.y1[i], self.bigN)
+            _, rough = self.roughnessW(self.getResults()[i], self.bigN)
             roughnesses[i-start] = rough
         
         avg = np.average(roughnesses, axis=0)
