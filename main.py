@@ -115,7 +115,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         optimal_depinning_path = Path(folder).joinpath("optimal-depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
         optimal_depinning_path.mkdir(parents=True, exist_ok=True)
         optimal_depinning_path = optimal_depinning_path.joinpath(
-            f"depinning-tau-{0.5*t_c}-{t_c*1.5}-p-{int(points)}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.4f}.json"
+            f"depinning-tau-{0.5*t_c:.2f}-{t_c*1.5:.2f}-p-{int(points)}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.4f}.json"
         )
         
         with open(str(optimal_depinning_path), 'w') as fp:
@@ -153,6 +153,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
+    print(f"Running a depinning with given parameters.")
     depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=int(points),
                 time=float(time), dt=float(timestep), seed=seed, 
                 folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
@@ -190,16 +191,18 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     ], bounds=(0, [ max(depinning.stresses), 2, 2 ]))
     t_c, beta, a = fit_params
 
+    print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}")
+    print(f"Running another depinning using estimated better parameters with {0.5*t_c:.2f} < tau < {1.5*t_c:.2f}")
+
     depinning_optimal = DepinningSingle(tau_min=0.5*t_c, tau_max=t_c*1.5, points=int(points),
             time=float(time), dt=float(timestep), seed=seed, 
             folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     vcm_opt, l_range_opt, roughnesses_opt, y_last_opt, parameters_opt = depinning_optimal.run()
-    print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}")
 
     optimal_depinning_path = Path(folder).joinpath("optimal-depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
     optimal_depinning_path.mkdir(parents=True, exist_ok=True)
     optimal_depinning_path = optimal_depinning_path.joinpath(
-        f"depinning-tau-{0.5*t_c}-{t_c*1.5}-p-{points}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.4f}.json"
+        f"depinning-tau-{0.5*t_c:.2f}-{t_c*1.5:.2f}-p-{points}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.3f}.json"
     )
     
     with open(str(optimal_depinning_path), 'w') as fp:
@@ -279,6 +282,7 @@ if __name__ == "__main__":
             partial_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
                                           parsed.folder, parsed.seq)
         if parsed.single:
+            print(f"Running a depinning for a perfect dislocation")
             perfect_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
                                           parsed.folder, parsed.seq)
         pass

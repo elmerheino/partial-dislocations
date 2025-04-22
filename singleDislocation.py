@@ -13,15 +13,20 @@ class DislocationSimulation(Simulation):
         # Pre-allocate memory here
         self.y1 = np.empty((self.timesteps, self.bigN)) # Each timestep is one row, bigN is number of columns
 
+        # Compute all the rescaling parameters
         self.lineTension = self.cLT1*self.mu*(self.smallB**2)
 
-        self.a = np.sqrt(2*self.lineTension)
+        self.a = np.sqrt(self.lineTension)
         self.t0 = self.smallB/self.bigB
+        self.epsilon = self.a/self.smallB
 
         self.scaled_length = self.length*self.a
+        self.scaled_time = self.time*self.t0
         self.scaled_deltaL = self.scaled_length / self.bigN
-        self.scaled_dt = self.t0*self.dt
-        # using these parameters x = a x'   y = a h'    t = t0 t'
+        self.stressField = np.random.normal(0,self.deltaR/self.epsilon,[self.bigN, 2*self.bigN])
+
+        print(f"Scaling parameters a = {self.a}   epsilon = {self.epsilon}  t0 = {self.t0}")
+        # using these above computed parameters the original variables are: x = a x'   y = a h'    t = t0 t'
         pass
 
     def secondDerivative(self, x):
@@ -35,8 +40,8 @@ class DislocationSimulation(Simulation):
     def timestep(self, dt, y1):
         # TODO: Update this function to use the rescaled version PDE
         dy1 = ( 
-            self.lineTension*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.smallB*(self.tau(y1/self.a) + self.tau_ext()*np.ones(self.bigN) )
+            self.secondDerivative(y1) # The gradient term # type: ignore
+            + ( self.tau(y1) + self.epsilon*self.tau_ext()*np.ones(self.bigN) )
             )
         
         newY1 = (y1 + dy1*dt)
