@@ -182,16 +182,24 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
     # t_c_arvio = np.argmax(np.array(vcm) > 1e-2)
     # t_c_arvio = depinning.stresses[t_c_arvio]
-    t_c_arvio = (max(depinning.stresses) - min(depinning.stresses))/2
+    t_c_arvio = (max(depinning.stresses) - min(depinning.stresses))*0.80
 
     fit_params, pcov = optimize.curve_fit(v_fit, depinning.stresses, vcm, p0 = [
         t_c_arvio,
-        0.8,
-        0.046
-    ], bounds=(0, [ max(depinning.stresses), 2, 2 ]))
+        1,
+        1
+    ], bounds=(0, [ max(depinning.stresses), 5, 100 ]))
     t_c, beta, a = fit_params
 
-    print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}")
+    # # Make a figure for debugging
+
+    # plt.figure(figsize=(8,8))
+    # plt.scatter(depinning.stresses, vcm, marker='x')
+    # xnew = np.linspace( min(depinning.stresses), max(depinning.stresses), 100)
+    # plt.plot(xnew, v_fit(xnew, *fit_params))
+    # plt.show()
+
+    print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}, other params : beta = {beta}  A = {a} ")
     print(f"Running another depinning using estimated better parameters with {0.5*t_c:.2f} < tau < {1.5*t_c:.2f}")
 
     depinning_optimal = DepinningSingle(tau_min=0.5*t_c, tau_max=t_c*1.5, points=int(points),
