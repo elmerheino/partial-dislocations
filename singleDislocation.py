@@ -20,12 +20,14 @@ class DislocationSimulation(Simulation):
         self.t0 = self.smallB/self.bigB
         self.epsilon = self.a/self.smallB
 
-        self.scaled_length = self.length*self.a
-        self.scaled_time = self.time*self.t0
+        self.scaled_length = self.length/self.a
+        self.scaled_time = self.time/self.t0
         self.scaled_deltaL = self.scaled_length / self.bigN
         self.stressField = np.random.normal(0,self.deltaR/self.epsilon,[self.bigN, 2*self.bigN])
 
-        print(f"Scaling parameters a = {self.a}   epsilon = {self.epsilon}  t0 = {self.t0}")
+        self.d0_scaled = self.d0/self.a
+
+        # print(f"Scaling parameters a = {self.a}   epsilon = {self.epsilon}  t0 = {self.t0}")
         # using these above computed parameters the original variables are: x = a x'   y = a h'    t = t0 t'
         pass
 
@@ -39,10 +41,10 @@ class DislocationSimulation(Simulation):
 
     def timestep(self, dt, y1):
         # TODO: Update this function to use the rescaled version PDE
-        dy1 = ( 
-            self.secondDerivative(y1) # The gradient term # type: ignore
-            + ( self.tau(y1) + self.epsilon*self.tau_ext()*np.ones(self.bigN) )
-            )
+        tau = self.tau(y1)
+        tau_ext = (self.tau_ext()/self.epsilon)
+        second_derivative = self.secondDerivative(y1)
+        dy1 = ( second_derivative + tau + tau_ext*np.ones(self.bigN) )
         
         newY1 = (y1 + dy1*dt)
 
@@ -51,7 +53,7 @@ class DislocationSimulation(Simulation):
         return newY1
 
     def run_simulation(self):
-        y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+        y10 = np.ones(self.bigN, dtype=float)*self.d0_scaled # Make sure its bigger than y2 to being with, and also that they have the initial distance d
         self.y1[0] = y10
 
         for i in range(1,self.timesteps):
@@ -63,7 +65,6 @@ class DislocationSimulation(Simulation):
         self.has_simulation_been_run = True
     
     def getResults(self):
-        # TODO: This functions has to return the results rescaled back to original variables.
         return self.y1*self.a
     
     def getLineProfiles(self, time_to_consider=None):
