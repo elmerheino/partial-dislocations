@@ -98,13 +98,12 @@ class DislocationSimulation(Simulation):
         return y1_CM
     
     def getRelaxedVelocity(self, time_to_consider=1000):
-        # TODO: use get results instead
         if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
         
         # Returns the velocities of the centres of mass
         y1_CM = self.getCM()
-        v1_CM = np.gradient(y1_CM)
+        v1_CM = np.gradient(y1_CM, self.dt)
 
         # Condisering only time_to_consider seconds from the end
         start = round(self.timesteps - time_to_consider/self.dt)
