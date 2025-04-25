@@ -23,11 +23,14 @@ class DislocationSimulation(Simulation):
         self.scaled_length = self.length/self.a
         self.scaled_time = self.time/self.t0
         self.scaled_deltaL = self.scaled_length / self.bigN
+        self.scaled_dt = self.dt/self.t0
         self.stressField = np.random.normal(0,self.deltaR/self.epsilon,[self.bigN, 2*self.bigN])
 
         self.d0_scaled = self.d0/self.a
-
+        self.tau_cutoff = self.scaled_time/3
+        
         # print(f"Scaling parameters a = {self.a}   epsilon = {self.epsilon}  t0 = {self.t0}")
+        print(f"Scaled: dx : {self.scaled_deltaL:.4f}, dt : {self.scaled_dt:.4f}, line tension : {self.lineTension:.4f}, dx^2/2T = {self.scaled_deltaL**2 / 2*self.lineTension :.4f}")
         # using these above computed parameters the original variables are: x = a x'   y = a h'    t = t0 t'
         pass
 
@@ -46,9 +49,9 @@ class DislocationSimulation(Simulation):
         second_derivative = self.secondDerivative(y1)
         dy1 = ( second_derivative + tau + tau_ext*np.ones(self.bigN) )
         
-        newY1 = (y1 + dy1*dt)
+        newY1 = (y1 + dy1*self.scaled_dt)
 
-        self.time_elapsed += dt    # Update how much time has elapsed by adding dt
+        self.time_elapsed += self.scaled_dt    # Update how much time has elapsed by adding dt
 
         return newY1
 
