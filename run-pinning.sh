@@ -1,22 +1,22 @@
 #!/bin/bash
 #SBATCH --time=01:30:00
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=15G
 #SBATCH --output=depinning.out
 #SBATCH --array=0-100
-#SBATCH --cpus-per-task=9
+#SBATCH --cpus-per-task=20
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
 NAME="non-physical-params"
 
-CORES=9
+CORES=20
 NOISE=1.0
 
 TAU_MIN=0
 TAU_MAX=10
-
 POINTS=100
-DT=0.005
+
+DT=0.05
 TIME=10000
 
 # You may put the commands below:
