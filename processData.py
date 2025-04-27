@@ -568,7 +568,7 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
     with open(results_root.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
     
-    first_key = data_tau_perfect.keys()[0]
+    first_key = next(iter(data_tau_perfect.keys())) # Only consider the first noise
     
     # tau_c_perfect = sum(data_tau_perfect["1.0000"])/len(data_tau_perfect["1.0000"])
     tau_c_perfect = sum(data_tau_perfect[first_key])/len(data_tau_perfect[first_key])

@@ -7,7 +7,7 @@
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
-NAME="zaiser-params"
+NAME="non-physical-params"
 
 CORES=9
 NOISE=1.0
@@ -17,15 +17,17 @@ TAU_MAX=10
 
 POINTS=100
 DT=0.005
+TIME=10000
 
 # You may put the commands below:
 module load scicomp-python-env
 
 # Seed count is array-max/noise points
 
-# Job step
-srun python3 main.py -f ${WRKDIR}/results/${DATE}-${NAME}/partial-dislocation -p ${POINTS} -dt ${DT} -c ${CORES} -t 10000 --partial \
+# Job step partial dislocation
+srun python3 main.py -f ${WRKDIR}/results/${DATE}-${NAME}/partial-dislocation -p ${POINTS} -dt ${DT} -c ${CORES} -t ${TIME} --partial \
     pinning --seed ${SLURM_ARRAY_TASK_ID} -R ${NOISE} -tmin ${TAU_MIN} -tmax ${TAU_MAX}
 
-srun python3 main.py -f ${WRKDIR}/results/${DATE}-${NAME}/single-dislocation -p ${POINTS} -dt ${DT} -c ${CORES} -t 10000 --single \
+# Job step perfect dislocation
+srun python3 main.py -f ${WRKDIR}/results/${DATE}-${NAME}/single-dislocation -p ${POINTS} -dt ${DT} -c ${CORES} -t ${TIME} --single \
     pinning --seed ${SLURM_ARRAY_TASK_ID} -R ${NOISE} -tmin ${TAU_MIN} -tmax ${TAU_MAX}
