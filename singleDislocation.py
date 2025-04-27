@@ -30,7 +30,7 @@ class DislocationSimulation(Simulation):
         self.tau_cutoff = self.scaled_time/3
         
         # print(f"Scaling parameters a = {self.a}   epsilon = {self.epsilon}  t0 = {self.t0}")
-        print(f"Scaled: dx : {self.scaled_deltaL:.4f}, dt : {self.scaled_dt:.4f}, line tension : {self.lineTension:.4f}, dx^2/2T = {self.scaled_deltaL**2 / 2*self.lineTension :.4f}")
+        # print(f"Scaled: dx : {self.scaled_deltaL:.4f}, dt : {self.scaled_dt:.4f}, line tension : {self.lineTension:.4f}, dx^2/2T = {self.scaled_deltaL**2 / 2*self.lineTension :.4f}")
         # using these above computed parameters the original variables are: x = a x'   y = a h'    t = t0 t'
         pass
 
