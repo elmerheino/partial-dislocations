@@ -7,9 +7,10 @@ class Simulation(object):
     def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, mu, tauExt, seed=None):
 
         self.bigN = bigN                        # Number of discrete heights in the line so len(y1) = len(y2) = bigN
-        self.x_points = np.arange(self.bigN)
+        self.x_indices = np.arange(self.bigN)
 
         self.length = length
+        self.x = np.linspace(0, length, self.bigN, endpoint=False)
         self.deltaL = self.length/self.bigN     # The dx value in x direction
 
         self.time = time                        # Time in seconds
@@ -57,13 +58,13 @@ class Simulation(object):
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
     
     def tau(self, y):
-        return self.tau_interpolated_static(y, self.bigN, self.stressField, self.x_points) # x is discrete anyways here
+        return self.tau_interpolated_static(y, self.bigN, self.stressField, self.x_indices) # x is discrete anyways here
     
     def tau_interpolated(self, y): # Takes around 541.84 mu s, which is 8x slower than w/o interpolation
         # tau_res = [ np.interp(y[x], self.x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in self.x_points ]
 
         tau_res = np.empty(self.bigN)
-        for x in self.x_points:
+        for x in self.x_indices:
             col = self.stressField[x,0:self.bigN]
             y_x = y[x]
 
