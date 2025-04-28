@@ -55,18 +55,83 @@ def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int
 
     pass
 
+def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, cores, partial=False):
+    found = False
+    attemtpts = 0
+
+    tau_min = tau_min_0
+    tau_max = tau_max_0
+
+    while not found and attemtpts < 20:
+        depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=5,
+                    time=float(time), dt=float(timestep), seed=seed,
+                    folder_name=folder, cores=cores, sequential=False, deltaR=deltaR)
+        
+        if partial:
+            depinning = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=5,
+                    time=float(time), dt=float(timestep), seed=seed,
+                    folder_name=folder, cores=cores, sequential=False, deltaR=deltaR)
+            v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
+        else:
+            vcm, l_range, roughnesses, y_last, parameters = depinning.run()
+        
+        t_c_arvio = ( max(depinning.stresses) - min(depinning.stresses) ) / 2
+        
+        fit_params, pcov = optimize.curve_fit(v_fit, depinning.stresses, vcm,
+            p0 = [
+                t_c_arvio,
+                0.8,
+                0.05
+            ], 
+            bounds=(0, [max(depinning.stresses), 5, 100] )
+        )
+        t_c, beta, a = fit_params
+
+        print(f"Fit results tau_c = {t_c}  beta = {beta}  A = {a}")
+
+        tolerance = 0.1
+
+        if t_c < (1 - tolerance)*max(depinning.stresses) and t_c > tolerance*min(depinning.stresses):
+            found = True
+            print(f"Found good parameters")
+            tau_min = t_c*0.5
+            tau_max = t_c*1.5
+        
+        delta = t_c*0.5
+        if t_c > max(depinning.stresses)*(1 - tolerance):
+            # Shift limits to the right increasing them by delta
+            tau_min = tau_min + delta
+            tau_max = tau_max + delta
+            attemtpts += 1
+            print(f"Adjusting limits to the right")
+        
+        if t_c < min(depinning.stresses)*tolerance:
+            # Shift limits to the left decreasing them by delta
+            print(f"Adjusting limits to the left")
+            tau_min = tau_min - delta
+            tau_max = tau_max - delta
+            attemtpts += 1
+
+    return tau_min, tau_max
+
 def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
-        depinning = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=points,
+        tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=True)
+
+        depinning = DepinningPartial(tau_min=tau_min_opt, tau_max=tau_max_opt, points=points,
                     time=time, dt=timestep, seed=seed,
                     folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     
         v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
 
+        tau_min_ = min(depinning.stresses.tolist())
+        tau_max_ = max(depinning.stresses.tolist())
+        points = len(depinning.stresses.tolist())
+
         # Save the depinning to a .json file
         depining_path = Path(folder)
         depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
         depining_path.mkdir(exist_ok=True, parents=True)
-        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min}-{tau_max}-p-{int(points)}-t-{time}-s-{seed}-R-{deltaR:.4f}.json")
+        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{time}-s-{seed}-R-{deltaR:.4f}.json")
 
         with open(str(depining_path), 'w') as fp:
             json.dump({
@@ -101,7 +166,10 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
-    depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=int(points),
+    # Searching for better limits to find critical force
+    tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
+
+    depinning = DepinningSingle(tau_min=tau_min_opt, tau_max=tau_max_opt, points=int(points),
                 time=float(time), dt=float(timestep), seed=seed, 
                 folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     
