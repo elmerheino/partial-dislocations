@@ -39,12 +39,12 @@ class DepinningPartial(Depinning):
     def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0,
                  seed=None, bigN=1024, length=1024, d0=39, sequential=False,
                         bigB=1,
-                        b_p=1.761,     # b = a / sqrt(6) = 1.761
-                        smallB=3.05,    # b^2 = a^2 / 2 -> a = 3.05 * sqrt(2) = 4.313
-                        mu=20.7,
-                        cLT1=0.35,
-                        cLT2=0.35,
-                        c_gamma=20
+                        b_p=0.5773499805, # b^2 = a^2 / 6
+                        smallB=1,
+                        mu=1,
+                        cLT1=1,
+                        cLT2=1,
+                        c_gamma=1
                         ): # Use realistic values from paper by Zaiser and Wu 2022
         
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
@@ -92,9 +92,9 @@ class DepinningSingle(Depinning):
 
     def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, seed=None, bigN=1024, length=1024, d0=39, sequential=False,
                         bigB=1,
-                        smallB=3.05,
-                        mu=20.7,
-                        cLT1=0.35
+                        smallB=1,    # b^2 = a^2 / 2 = 1
+                        mu=1,
+                        cLT1=1
                 ):
 
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)

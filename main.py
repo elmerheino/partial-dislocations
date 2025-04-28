@@ -97,36 +97,6 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         # Find out the critical force here and do another depinning around it
         # t_c_arvio = np.argmax(np.array(vcm) > 1e-2)
         # t_c_arvio = depinning.stresses[t_c_arvio]
-        t_c_arvio = (max(depinning.stresses) - min(depinning.stresses))/2
-
-        fit_params, pcov = optimize.curve_fit(v_fit, depinning.stresses, vcm, p0 = [
-            t_c_arvio,
-            0.8,
-            0.05
-        ], bounds=(0, [max(depinning.stresses), 1, 1]))
-        t_c, beta, a = fit_params
-
-        depinning_optimal = DepinningSingle(tau_min=0.5*t_c, tau_max=t_c*1.5, points=int(points),
-                time=float(time), dt=float(timestep), seed=seed, 
-                folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
-        vcm_opt, l_range_opt, roughnesses_opt, y_last_opt, parameters_opt = depinning_optimal.run()
-        print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}")
-
-        optimal_depinning_path = Path(folder).joinpath("optimal-depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
-        optimal_depinning_path.mkdir(parents=True, exist_ok=True)
-        optimal_depinning_path = optimal_depinning_path.joinpath(
-            f"depinning-tau-{0.5*t_c}-{t_c*1.5}-p-{int(points)}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.4f}.json"
-        )
-        
-        with open(str(optimal_depinning_path), 'w') as fp:
-            json.dump({
-                "stresses":depinning_optimal.stresses.tolist(),
-                "v_rel":vcm_opt,
-                "seed":depinning_optimal.seed,
-                "time":depinning_optimal.time,
-                "dt":depinning_optimal.dt
-            },fp)
-
 
         # Save the roughnesses in an organized way
         for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
@@ -175,40 +145,6 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
             "seed":depinning.seed,
             "time":depinning.time,
             "dt":depinning.dt
-        },fp)
-
-    # Do a depinning run where tau_c should be in the middle
-
-    # t_c_arvio = np.argmax(np.array(vcm) > 1e-2)
-    # t_c_arvio = depinning.stresses[t_c_arvio]
-    t_c_arvio = (max(depinning.stresses) - min(depinning.stresses))/2
-
-    fit_params, pcov = optimize.curve_fit(v_fit, depinning.stresses, vcm, p0 = [
-        t_c_arvio,
-        0.8,
-        0.046
-    ], bounds=(0, [ max(depinning.stresses), 1, 1 ]))
-    t_c, beta, a = fit_params
-
-    depinning_optimal = DepinningSingle(tau_min=0.5*t_c, tau_max=t_c*1.5, points=int(points),
-            time=float(time), dt=float(timestep), seed=seed, 
-            folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
-    vcm_opt, l_range_opt, roughnesses_opt, y_last_opt, parameters_opt = depinning_optimal.run()
-    print(f"Estimated t_c using curve fit: {t_c}, initial guess : {t_c_arvio}")
-
-    optimal_depinning_path = Path(folder).joinpath("optimal-depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
-    optimal_depinning_path.mkdir(parents=True, exist_ok=True)
-    optimal_depinning_path = optimal_depinning_path.joinpath(
-        f"depinning-tau-{0.5*t_c}-{t_c*1.5}-p-{points}-t-{depinning_optimal.time}-s-{depinning_optimal.seed}-R-{deltaR:.4f}.json"
-    )
-    
-    with open(str(optimal_depinning_path), 'w') as fp:
-        json.dump({
-            "stresses":depinning_optimal.stresses.tolist(),
-            "v_rel":vcm_opt,
-            "seed":depinning_optimal.seed,
-            "time":depinning_optimal.time,
-            "dt":depinning_optimal.dt
         },fp)
 
     # Save all the roughnesses
