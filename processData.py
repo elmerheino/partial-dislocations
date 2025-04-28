@@ -568,7 +568,7 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
     with open(results_root.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
     
-    first_key = data_tau_perfect.keys()[0]
+    first_key = next(iter(data_tau_perfect.keys()))
     
     # tau_c_perfect = sum(data_tau_perfect["1.0000"])/len(data_tau_perfect["1.0000"])
     tau_c_perfect = sum(data_tau_perfect[first_key])/len(data_tau_perfect[first_key])
@@ -577,7 +577,7 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
     with open(results_root.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_partial = json.load(fp)
     
-    tau_c_partial = sum(data_tau_partial["1.0000"])/len(data_tau_partial["1.0000"])
+    tau_c_partial = sum(data_tau_partial[first_key])/len(data_tau_partial[first_key])
 
     
     for perfect_partial in data.keys():
@@ -592,7 +592,7 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
 
             bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=100)
 
-            print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} respectively.')
+            print(f'Total of {sum(bin_counts)} bins. The bins have {" ".join(bin_counts.astype(str))} respectively.')
 
             plt.clf()
             plt.close('all')
@@ -785,7 +785,7 @@ if __name__ == "__main__":
 
     if parsed.all or parsed.avg:
         makeAveragedDepnningPlots(parsed.folder)
-        makeAveragedDepnningPlots(parsed.folder, opt=True)
+        # makeAveragedDepnningPlots(parsed.folder, opt=True)
         pass
         
     if parsed.all or parsed.roughness:
@@ -831,18 +831,18 @@ if __name__ == "__main__":
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
             json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
         
-        partial_data_opt = normalizedDepinnings(
-            results_root.joinpath("partial-dislocation").joinpath("optimal-depinning-dumps"),
-            save_folder=results_root.joinpath("partial-dislocation/normalized-plots-opt")
-        )
+        # partial_data_opt = normalizedDepinnings(
+        #     results_root.joinpath("partial-dislocation").joinpath("optimal-depinning-dumps"),
+        #     save_folder=results_root.joinpath("partial-dislocation/normalized-plots-opt")
+        # )
         
-        non_partial_data_opt = normalizedDepinnings(
-            results_root.joinpath("single-dislocation").joinpath("optimal-depinning-dumps"),
-            save_folder=results_root.joinpath("single-dislocation/normalized-plots-opt")
-        )
+        # non_partial_data_opt = normalizedDepinnings(
+        #     results_root.joinpath("single-dislocation").joinpath("optimal-depinning-dumps"),
+        #     save_folder=results_root.joinpath("single-dislocation/normalized-plots-opt")
+        # )
 
-        with open(Path(results_root).joinpath("global_data_dump_opt.json"), "w") as fp:
-            json.dump({"perfect_data":non_partial_data_opt, "partial_data":partial_data_opt}, fp, indent=2)
+        # with open(Path(results_root).joinpath("global_data_dump_opt.json"), "w") as fp:
+        #     json.dump({"perfect_data":non_partial_data_opt, "partial_data":partial_data_opt}, fp, indent=2)
 
     if parsed.all or parsed.binning:
         p = Path(results_root).joinpath("global_data_dump.json")
@@ -867,16 +867,16 @@ if __name__ == "__main__":
             save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png"),
             title="Noise magnitude and external force for partial dislocation"
             )
-        makeNoisePlot(
-            Path(parsed.folder).joinpath("partial-dislocation/normalized-plots-opt/tau_c.json"),
-            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial-opt.png"),
-            title="Noise magnitude and external force for partial dislocation from closeup data"
-            )
-        makeNoisePlot(
-            Path(parsed.folder).joinpath("single-dislocation/normalized-plots-opt/tau_c.json"),
-            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect-opt.png"),
-            title="Noise magnitude and external force for perfect dislocation from closeup data"
-            )
+        # makeNoisePlot(
+        #     Path(parsed.folder).joinpath("partial-dislocation/normalized-plots-opt/tau_c.json"),
+        #     save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial-opt.png"),
+        #     title="Noise magnitude and external force for partial dislocation from closeup data"
+        #     )
+        # makeNoisePlot(
+        #     Path(parsed.folder).joinpath("single-dislocation/normalized-plots-opt/tau_c.json"),
+        #     save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect-opt.png"),
+        #     title="Noise magnitude and external force for perfect dislocation from closeup data"
+        #     )
         
     if parsed.rearrange or parsed.all:
         rearrangeRoughnessDataByTau(parsed.folder)

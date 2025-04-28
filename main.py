@@ -36,23 +36,8 @@ def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int
     interval = np.logspace(rmin,rmax, no_of_rows) # Number of points is determined from seed count and array len
     deltaR = interval[row - 1] # Map the passed slurm index to a value
 
-    # Determine here initial guesses tau search limits
-
-    if rmin <= deltaR <= 0.1:
-        tau_min = 0
-        tau_max = 0.1*(1+0.05)
-    elif 0.1 < deltaR <= 10:
-        tau_min = deltaR*0
-        tau_max = deltaR*5
-    elif 10 < deltaR <= 50:
-        tau_min = deltaR*2
-        tau_max = deltaR*5.5
-    elif 50 < deltaR:
-        tau_min = 0
-        tau_max = deltaR*4
-    else:
-        tau_min = deltaR*(1.02)
-        tau_max = deltaR*(1 + 1)
+    tau_min = 0
+    tau_max = deltaR*1.7
     
     print(f"tau_min : {tau_min}  tau_max : {tau_max} deltaR : {deltaR}")
 
@@ -94,10 +79,6 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
                 "v_2" : v2
             },fp)
         
-        # Find out the critical force here and do another depinning around it
-        # t_c_arvio = np.argmax(np.array(vcm) > 1e-2)
-        # t_c_arvio = depinning.stresses[t_c_arvio]
-
         # Save the roughnesses in an organized way
         for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
             tauExt_i = params[11]
@@ -116,9 +97,6 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
             p.mkdir(exist_ok=True, parents=True)
             p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i:.3f}-R-{deltaR_i:.4f}.npz")
             np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
-
-            # with open(p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}.json"), "w") as fp:
-            #     json.dump({"y1" : y1_i.tolist(), "y2" : y2_i.tolist(), "parameters" : params.tolist()}, fp)
             pass
 
 
