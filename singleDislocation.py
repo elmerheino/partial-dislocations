@@ -13,18 +13,26 @@ class DislocationSimulation(Simulation):
         # Pre-allocate memory here
         self.y1 = np.empty((self.timesteps, self.bigN)) # Each timestep is one row, bigN is number of columns
         pass
-        
-    def timestep(self, dt, y1):
-        dy1 = ( 
+    
+    def funktio(self, y1):
+        dy1 = (
             self.cLT1*self.mu*(self.smallB**2)*self.secondDerivative(y1) # The gradient term # type: ignore
             + self.smallB*(self.tau(y1) + self.tau_ext()*np.ones(self.bigN) )
-            ) * ( self.bigB/self.smallB )
+        ) * ( self.bigB/self.smallB )
+        return dy1
+
+
+    def timestep(self, dt, y):
+        k1 = self.funktio(y)
+        k2 = self.funktio(y + dt*k1/2)
+        k3 = self.funktio(y + dt*k2/2)
+        k4 = self.funktio(y + dt*k3)
         
-        newY1 = (y1 + dy1*dt)
+        newY = y + (dt/6)*(k1 + 2*k2 + 2*k3 + k4)
 
         self.time_elapsed += dt    # Update how much time has elapsed by adding dt
 
-        return newY1
+        return newY
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
