@@ -167,9 +167,9 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
     # Searching for better limits to find critical force
-    # tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
+    tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
 
-    depinning = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=int(points),
+    depinning = DepinningSingle(tau_min=tau_min_opt, tau_max=tau_max_opt, points=int(points),
                 time=float(time), dt=float(timestep), seed=seed, 
                 folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     

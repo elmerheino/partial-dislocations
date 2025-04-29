@@ -531,7 +531,7 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
             plt.figure(figsize=(8,8))
             plt.scatter(x,y, marker='x', color="red", label="Depinning")
             plt.plot(xnew, ynew, color="blue", label="fit")
-            plt.title(f"Dislocation $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+            plt.title(f"Depinning $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
             plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
             plt.ylabel("$v_{{cm}}$")
             plt.legend()
@@ -663,6 +663,7 @@ def globalFit(dir_path):
     print(f"Fit done with parameters tau_c = {tauC:.4f} beta = {beta:.4f} and A = {a}")
 
 def makeAveragedDepnningPlots(dir_path, opt=False):
+    print("Making averaged depinning plots.")
     partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/depinning-dumps")
     perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/depinning-dumps")
 
@@ -701,6 +702,7 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         else:
             plt.savefig(dest.joinpath(f"depinning-noise.png"))
         pass
+        plt.close()
 
     for noise_dir in perfect_depinning_path.iterdir():
         noise = noise_dir.name.split("-")[1]
@@ -733,8 +735,10 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         else:
             plt.savefig(dest.joinpath(f"depinning-noise.png"))
         pass
+        plt.close()
 
 def makeNoisePlot(tau_c_path, save_path, title):
+    print("Making noise plots")
     with open(tau_c_path, "r") as fp:
         loaded = json.load(fp)
     
@@ -747,7 +751,6 @@ def makeNoisePlot(tau_c_path, save_path, title):
     for noise in partial_data.keys():
         tau_c = partial_data[noise]
     
-        print(len(tau_c))
         tau_c = sum(tau_c)/len(tau_c)
 
         noises.append(float(noise))
