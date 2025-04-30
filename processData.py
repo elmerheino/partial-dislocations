@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 from pathlib import Path
 import json
 from plots import *
@@ -486,6 +487,8 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
     data_perfect = dict()
 
     for noise_path in depinning_path.iterdir():
+        if not noise_path.is_dir():
+            continue
         noise = noise_path.name.split("-")[1]
 
         tau_c[noise] = list()
@@ -570,14 +573,10 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
     
     first_key = next(iter(data_tau_perfect.keys()))
     
-    # tau_c_perfect = sum(data_tau_perfect["1.0000"])/len(data_tau_perfect["1.0000"])
-    tau_c_perfect = sum(data_tau_perfect[first_key])/len(data_tau_perfect[first_key])
-
 
     with open(results_root.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_partial = json.load(fp)
     
-    tau_c_partial = sum(data_tau_partial[first_key])/len(data_tau_partial[first_key])
 
     
     for perfect_partial in data.keys():
@@ -585,23 +584,26 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
             d = data[perfect_partial]
             x,y = zip(*d[noise])
 
-            bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=100)
+            tau_c_perfect = sum(data_tau_perfect[str(noise)])/len(data_tau_perfect[str(noise)])
+            tau_c_partial = sum(data_tau_perfect[str(noise)])/len(data_tau_perfect[str(noise)])
+
+            bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
 
             lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
             upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=bins)
 
-            bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=100)
+            bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=bins)
 
-            print(f'Total of {sum(bin_counts)} bins. The bins have {" ".join(bin_counts.astype(str))} respectively.')
+            # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
 
             plt.clf()
             plt.close('all')
             plt.figure(figsize=(8,8))
 
             if perfect_partial == "perfect_data":
-                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_perfect:.4f} $ ")
+                plt.title(f"$ \\langle \\tau_c \\rangle = {tau_c_perfect:.4f} $")
             elif perfect_partial == "partial_data":
-                plt.title(f"Perfect dislocation binned depinning $ \\langle \\tau_c \\rangle = {tau_c_partial:.4f} $ ")
+                plt.title(f"$ \\langle \\tau_c \\rangle = {tau_c_partial:.4f} $")
             
             plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
             plt.ylabel("$v_{{cm}}$")
@@ -672,6 +674,8 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/optimal-depinning-dumps")
 
     for noise_dir in partial_depinning_path.iterdir():
+        if not noise_dir.is_dir():
+            continue
         noise = noise_dir.name.split("-")[1]
         velocities = list()
         stresses = None
@@ -705,6 +709,9 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         plt.close()
 
     for noise_dir in perfect_depinning_path.iterdir():
+        if not noise_dir.is_dir():
+            continue
+
         noise = noise_dir.name.split("-")[1]
         velocities = list()
         stresses = None
@@ -768,6 +775,115 @@ def makeNoisePlot(tau_c_path, save_path, title):
     plt.close()
     pass
 
+def makeDislocationPlots(folder):
+    # First plot all perfect dislocations
+    path = Path(folder).joinpath("single-dislocation/dislocations-last")
+    dest_folder = Path(folder).joinpath("single-dislocation/dislocations-last-pictures")
+    for noise_path in path.iterdir():
+        for seed_path in noise_path.iterdir():
+            for dislocation_file in seed_path.iterdir():
+                loaded = np.load(dislocation_file)
+                parameters = loaded['parameters']
+
+                bigN, length, time, dt, deltaR, bigB, smallB,  cLT1, mu, tauExt, d0, seed, tau_cutoff =  parameters
+                bigN = int(bigN)
+                length = int(length)
+                seed = int(seed)
+
+                y = loaded['y']
+
+                x = np.linspace(0, length, bigN)
+                y = y[0]
+
+                np.random.seed(seed)
+                stressField = np.random.normal(0,deltaR,[bigN, 2*bigN])
+
+                plt.clf()
+                plt.figure(figsize=(8,8))
+
+                min_y = int(math.floor(min(y)) - 1)
+                max_y = int(math.ceil(max(y)) + 1)
+
+                relevantPart = stressField[:,min_y:max_y]*10
+                # print(relevantPart.shape, min_y, max_y)
+
+                # interpolated = np.array([
+                #     np.interp(np.linspace(0, relevantPart.shape[1], 1000), np.arange(relevantPart.shape[1]), relevantPart[row, :]) for row in range(relevantPart.shape[0])
+                # ])
+                plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")
+
+                plt.xlabel("$x$")
+                plt.ylabel("$y(x)$")
+
+                plt.plot(x, y, color='blue')
+
+
+                dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/")
+                dest_file.mkdir(exist_ok=True, parents=True)
+                dest_file = dest_file.joinpath("dislocation.png")
+
+                plt.savefig(dest_file, dpi=300)
+                plt.close()
+        pass
+
+    path = Path(folder).joinpath("partial-dislocation/dislocations-last")
+    dest_folder = Path(folder).joinpath("partial-dislocation/dislocations-last-pictures")
+    # Next plot all partial dislocations
+    for noise_path in path.iterdir():
+        for seed_folder in noise_path.iterdir():
+            for dislocation_file in seed_folder.iterdir():
+                loaded = np.load(dislocation_file)
+                parameters = loaded['parameters']
+
+                bigN, length, time, dt, deltaR, bigB, smallB, b_p,  cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff =  parameters
+                bigN = int(bigN)
+                length = int(length)
+                seed = int(seed)
+
+                y1 = loaded['y1']
+                y2 = loaded['y2']
+
+                x = np.linspace(0, length, bigN)
+                y1 = y1[0]
+                y2 = y2[0]
+
+                np.random.seed(seed)
+                stressField = np.random.normal(0,deltaR,[bigN, 2*bigN])
+
+                plt.clf()
+                plt.figure(figsize=(8,8))
+
+                min_y = min([
+                    int(math.floor(min(y1)) - 1), int(math.floor(min(y2)) - 1)
+                    ])
+                max_y = max([
+                    int(math.ceil(max(y1)) + 1), int(math.ceil(max(y2)) + 1)
+                ])
+
+                relevantPart = stressField[:,min_y:max_y]*10
+
+                # interpolated = np.array([
+                #     np.interp(np.linspace(0, relevantPart.shape[1], 1000), np.arange(relevantPart.shape[1]), relevantPart[row, :]) for row in range(relevantPart.shape[0])
+                # ])
+                plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")
+
+                plt.xlabel("$x$")
+                plt.ylabel("$y(x)$")
+
+                plt.plot(x, y1, color='blue')
+                plt.plot(x, y2, color='red')
+
+
+                dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.3f}/")
+                dest_file.mkdir(exist_ok=True, parents=True)
+                dest_file = dest_file.joinpath("dislocation.png")
+
+                plt.savefig(dest_file, dpi=300)
+                plt.close()
+            pass
+        pass
+    pass
+
 if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation data processing")
     parser.add_argument('-f', '--folder', help='Specify the output folder of the simulation.', required=True)
@@ -800,23 +916,8 @@ if __name__ == "__main__":
 
     # Plots dislocations at the end of simulation
     if parsed.all or parsed.dislocations:
-        print("Making plots of some singe dislocations at time t.")
-        np_dir = results_root.joinpath("single-dislocation/simulation-dumps")
-        if np_dir.exists():
-            for seed in np_dir.iterdir():
-                with mp.Pool(7) as pool:
-                    pool.map(partial(plotDislocation_nonp, save_path=results_root), seed.iterdir())
-        else:
-            print("Raw dislocation data not saved.")
-        
-        p_dir = results_root.joinpath("partial-dislocation/simulation-dumps")
-        if p_dir.exists():
-            for seed in p_dir.iterdir():
-                with mp.Pool(7) as pool:
-                    pool.map(partial(plotDislocation_partial, save_path=results_root), seed.iterdir())
-        else:
-            print("Raw dislocation data not saved.")
-        
+        makeDislocationPlots(parsed.folder)
+
     # Make normalized depinning plots
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")

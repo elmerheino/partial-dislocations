@@ -65,7 +65,7 @@ class Simulation(object):
 
         tau_res = np.empty(self.bigN)
         for x in self.x_indices:
-            col = self.stressField[x,0:self.bigN]
+            col = self.stressField[x,0:self.bigN] # This is actually a row
             y_x = y[x]
 
             x1 = math.floor(y_x)
