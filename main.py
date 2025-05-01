@@ -4,9 +4,7 @@ from plots import *
 from depinning import *
 import json
 from scipy import optimize
-from processData import v_fit
-
-# import time
+from processData import velocity_fit
 
 save_plots = False      # Don't save any images of figures. Still saves all data as dumps.
 
@@ -15,7 +13,7 @@ def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int
                 folder, sequential = False):
     # k = time.time()
 
-    estimate = (time/timestep)*1024*2*4*1e-6
+    # estimate = (time/timestep)*1024*2*4*1e-6
     # input(f"One simulation will take up {estimate:.1f} MB disk space totalling {estimate*int(parsed.points)*1e-3:.1f} GB")
 
     # Map the array task id to a 2d grid
@@ -77,7 +75,7 @@ def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, core
         
         t_c_arvio = ( max(depinning.stresses) - min(depinning.stresses) ) / 2
         
-        fit_params, pcov = optimize.curve_fit(v_fit, depinning.stresses, vcm,
+        fit_params, pcov = optimize.curve_fit(velocity_fit, depinning.stresses, vcm,
             p0 = [
                 t_c_arvio,
                 0.8,
