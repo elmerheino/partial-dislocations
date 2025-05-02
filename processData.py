@@ -15,9 +15,8 @@ from roughnessPlots import *
 from velocityPlots import *
 
 
-def makeNoisePlot(tau_c_path, save_path, title):
-    print("Making noise plots")
-    with open(tau_c_path, "r") as fp:
+def makePartialNoisePlot(res_root : Path, save_path):
+    with open(res_root.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         loaded = json.load(fp)
     
     # partial dislocation
@@ -35,18 +34,143 @@ def makeNoisePlot(tau_c_path, save_path, title):
         tau_cs.append(tau_c)
     
     plt.figure(figsize=(8,8))
+    plt.scatter(noises, tau_cs, marker='x', label="data", color='red')
+
+    data_partial = np.array(list(zip(noises, tau_cs)))
+    sorted_args = np.argsort(data_partial[:,0])
+    data_partial = data_partial[sorted_args]
+    
+    # Fit power law to first region of data
+    region1_index = np.where(data_partial[:,0] > 0.1)[0][0]
+
+    x = data_partial[0:region1_index,0]
+    y = data_partial[0:region1_index,1]
+
+    print(region1_index, x.shape, y.shape)
+    fit_params, pcov = optimize.curve_fit(
+        lambda x, a, b: a*x**b, 
+        x, y)
+    
+    fit_x = np.linspace(data_partial[0,0], data_partial[region1_index,0], 100)
+    fit_y = fit_params[0]*fit_x**fit_params[1]
+
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue')
+    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+
+    # Fit power law to second region of data
+
+    region1_end = np.where(data_partial[:,0] > 1)[0][0]
+
+    x = data_partial[region1_index:region1_end,0]
+    y = data_partial[region1_index:region1_end,1]
+
+    fit_params, pcov = optimize.curve_fit(
+        lambda x, a, b: a*x**b,
+        x, y)
+    
+    fit_x = np.linspace(data_partial[region1_index,0], data_partial[region1_end,0], 100)
+    fit_y = fit_params[0]*fit_x**fit_params[1]
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle='--')
+    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+
+    # Fit power law to third region of data
+
+    x = data_partial[region1_end:,0]
+    y = data_partial[region1_end:,1]
+
+    fit_params, pcov = optimize.curve_fit(
+        lambda x, a, b: a*x**b,
+        x, y)
+    fit_x = np.linspace(data_partial[region1_end,0], data_partial[-1,0], 100)
+    fit_y = fit_params[0]*fit_x**fit_params[1]
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=3)
+    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+
+
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
-    plt.scatter(noises, tau_cs, marker='x')
-    plt.title(title)
+    plt.title(f"Noise magnitude and external force for partial dislocation")
+    plt.legend()
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
     plt.savefig(save_path, dpi=300)
     plt.close()
-    pass
 
-def makeCommonPlot(root_dir : Path):
+def makePerfectNoisePlot(results_root : Path, save_path):
+    with open(results_root.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+        loaded = json.load(fp)
+    
+    # partial dislocation
+    partial_data = loaded
+
+    noises = list()
+    tau_cs = list()
+
+    for noise in partial_data.keys():
+        tau_c = partial_data[noise]
+    
+        tau_c = sum(tau_c)/len(tau_c)
+
+        noises.append(float(noise))
+        tau_cs.append(tau_c)
+    
+    plt.figure(figsize=(8,8))
+    plt.scatter(noises, tau_cs, marker='x', label="data", color='blue')
+
+    data_perfect = np.array(list(zip(noises, tau_cs)))
+    sorted_args = np.argsort(data_perfect[:,0])
+    data_perfect = data_perfect[sorted_args]
+
+    # Fit power law to first region of data
+    region1_index = np.where(data_perfect[:,0] > 0.1)[0][0]
+    x = data_perfect[0:region1_index,0]
+    y = data_perfect[0:region1_index,1]
+    print(region1_index, x.shape, y.shape)
+    fit_params, pcov = optimize.curve_fit(
+        lambda x, a, b: a*x**b,
+        x, y)
+    fit_x = np.linspace(data_perfect[0,0], data_perfect[region1_index,0], 100)
+    fit_y = fit_params[0]*fit_x**fit_params[1]
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red')
+    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+
+    # Fit power law to second region of data
+    region1_end = np.where(data_perfect[:,0] > 1)[0][0]
+    x = data_perfect[region1_index:region1_end,0]
+    y = data_perfect[region1_index:region1_end,1]
+    fit_params, pcov = optimize.curve_fit(
+        lambda x, a, b: a*x**b,
+        x, y)
+    fit_x = np.linspace(data_perfect[region1_index,0], data_perfect[region1_end,0], 100)
+    fit_y = fit_params[0]*fit_x**fit_params[1]
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle='--')
+    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+
+    # Fit power law to third region of data
+    x = data_perfect[region1_end:,0]
+    y = data_perfect[region1_end:,1]
+    fit_params, pcov = optimize.curve_fit(
+        lambda x, a, b: a*x**b,
+        x, y)
+    fit_x = np.linspace(data_perfect[region1_end,0], data_perfect[-1,0], 100)
+    fit_y = fit_params[0]*fit_x**fit_params[1]
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=3)
+    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+
+    
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.grid(True)
+    plt.title(f"Noise magnitude and external force for perfect dislocation")
+    plt.xlabel("R")
+    plt.ylabel("$ \\tau_c $")
+    plt.legend()
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+
+
+def makeCommonNoisePlot(root_dir : Path):
     tau_c_perfect = root_dir.joinpath("single-dislocation/normalized-plots/tau_c.json")
     tau_c_partial = root_dir.joinpath("partial-dislocation/normalized-plots/tau_c.json")
 
@@ -73,12 +197,20 @@ def makeCommonPlot(root_dir : Path):
     data_partial = np.array(data_partial)
     data_perfect = np.array(data_perfect)
 
+    sorted_args = np.argsort(data_partial[:,0])
+    data_partial = data_partial[sorted_args]
+
+    sorted_args = np.argsort(data_perfect[:,0])
+    data_perfect = data_perfect[sorted_args]
+
     plt.figure(figsize=(8,8))
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
+
     plt.scatter(data_partial[:,0], data_partial[:,1], marker='x', label="Partial dislocation", color='red')
     plt.scatter(data_perfect[:,0], data_perfect[:,1], marker='x', label="Perfect dislocation", color="blue")
+
     plt.title("Noise magnitude and external force")
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
@@ -272,27 +404,13 @@ if __name__ == "__main__":
 
     if parsed.all or parsed.noise:
         Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
-        makeNoisePlot(
-            Path(parsed.folder).joinpath("single-dislocation/normalized-plots/tau_c.json"),
-            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.png"),
-            title="Noise magnitude and external force for perfect dislocation"
-            )
-        makeNoisePlot(
-            Path(parsed.folder).joinpath("partial-dislocation/normalized-plots/tau_c.json"),
-            save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png"),
-            title="Noise magnitude and external force for partial dislocation"
-            )
-        makeCommonPlot(Path(parsed.folder))
-        # makeNoisePlot(
-        #     Path(parsed.folder).joinpath("partial-dislocation/normalized-plots-opt/tau_c.json"),
-        #     save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial-opt.png"),
-        #     title="Noise magnitude and external force for partial dislocation from closeup data"
-        #     )
-        # makeNoisePlot(
-        #     Path(parsed.folder).joinpath("single-dislocation/normalized-plots-opt/tau_c.json"),
-        #     save_path=Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect-opt.png"),
-        #     title="Noise magnitude and external force for perfect dislocation from closeup data"
-        #     )
+        makePartialNoisePlot(Path(parsed.folder), 
+            Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png")
+        )
+        makePerfectNoisePlot(Path(parsed.folder), 
+            Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.png")
+        )
+        makeCommonNoisePlot(Path(parsed.folder))
         
     if parsed.rearrange or parsed.all:
         rearrangeRoughnessDataByTau(parsed.folder)

@@ -15,6 +15,13 @@ def velocity_fit(tau_ext, tau_crit, beta, a):
     return v_res
 
 def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=False):
+    """
+    Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
+    save the tau_c values for each noise in a json file. The veclocities are normalized
+    with v = (tau_ext - tau_c)/tau_ext. The tau_c values are calculated by fitting the
+    function v = A*(tau_ext - tau_c)^beta to the data.
+    """
+
     # Make such plots for a single dislocation first
     # Collect all values of tau_c
 
@@ -82,8 +89,6 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
             plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
             plt.close()
     
-    # TODO: save tau_c in a reasonable dir
-
     with open(save_folder.joinpath("tau_c.json"), "w") as fp:
         json.dump(tau_c, fp)
 
@@ -105,6 +110,12 @@ def confidence_interval_upper(l, c_level):
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     # TODO: do this for each noise
+
+    """
+    Make binned depinning plots from the data. The data is binned and the mean and confidence intervals are calculated.
+
+    Here dict is a dictionary containing all the normalized data for each noise level.
+    """
 
     with open(res_dir.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
