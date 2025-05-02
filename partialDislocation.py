@@ -34,22 +34,42 @@ class PartialDislocationsSimulation(Simulation):
         numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
         return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
 
-    def timestep(self, dt, y1,y2):
-        dy1 = ( 
+    def f1(self, y1,y2):
+        dy = ( 
             self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
             + self.b_p*self.tau(y1) # The random stress term
             + self.force1(y1, y2) # Interaction force
             + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
-        dy2 = ( 
+
+        return dy
+
+    def f2(self, y1,y2):
+        dy = ( 
             self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
             + self.b_p*self.tau(y2) 
             + self.force2(y1, y2)
             + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
-        
-        newY1 = (y1 + dy1*dt)
-        newY2 = (y2 + dy2*dt)
 
+        return dy
+
+    def timestep(self, dt, y1,y2):
+
+        k1_y1 = self.f1(y1, y2)
+        k1_y2 = self.f2(y1, y2)
+
+        k2_y1 = self.f1(y1 + dt*k1_y1/2, y2 + dt*k1_y2/2)
+        k2_y2 = self.f2(y1 + dt*k1_y1/2, y2 + dt*k1_y2/2)
+
+        k3_y1 = self.f1(y1 + dt*k2_y1/2, y2 + dt*k2_y2/2)
+        k3_y2 = self.f2(y1 + dt*k2_y1/2, y2 + dt*k2_y2/2)
+
+        k4_y1 = self.f1(y1 + dt*k3_y1, y2 + dt*k3_y2)
+        k4_y2 = self.f2(y1 + dt*k3_y1, y2 + dt*k3_y2)
+
+        newY1 = y1 + (dt/6)*(k1_y1 + 2*k2_y1 + 2*k3_y1 + k4_y1)
+        newY2 = y2 + (dt/6)*(k1_y2 + 2*k2_y2 + 2*k3_y2 + k4_y2)
+        
         self.time_elapsed += dt    # Update how much time has elapsed by adding dt
 
         return (newY1, newY2)
