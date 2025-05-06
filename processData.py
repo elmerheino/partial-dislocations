@@ -23,20 +23,37 @@ def makePartialNoisePlot(res_root : Path, save_path):
     partial_data = loaded
 
     noises = list()
-    tau_cs = list()
+    tau_c_means = list()
+    tau_c_stds = list()
 
     for noise in partial_data.keys():
         tau_c = partial_data[noise]
     
-        tau_c = sum(tau_c)/len(tau_c)
+        tau_c_mean = sum(tau_c)/len(tau_c)
+        tau_c_std = np.std(tau_c)
 
         noises.append(float(noise))
-        tau_cs.append(tau_c)
+        tau_c_means.append(tau_c_mean)
+        tau_c_stds.append(tau_c_std)
+    
+    # Convert list to numpy arrays
+    tau_c_means = np.array(tau_c_means)
+    tau_c_stds = np.array(tau_c_stds)
+    noises = np.array(noises)
+
+    # Sort the data by noise
+    sorted_args = np.argsort(noises)
+    tau_c_means = tau_c_means[sorted_args]
+    tau_c_stds = tau_c_stds[sorted_args]
+    noises = noises[sorted_args]
+
     
     plt.figure(figsize=(8,8))
-    plt.scatter(noises, tau_cs, marker='x', label="data", color='red')
+    plt.scatter(noises, tau_c_means, marker='x', label="data", color='red', linewidths=1, s=50)
+    plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
+    plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
 
-    data_partial = np.array(list(zip(noises, tau_cs)))
+    data_partial = np.array(list(zip(noises, tau_c_means)))
     sorted_args = np.argsort(data_partial[:,0])
     data_partial = data_partial[sorted_args]
     
@@ -54,7 +71,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     fit_x = np.linspace(data_partial[0,0], data_partial[region1_index,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
 
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue')
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linewidth=2)
     print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
 
     # Fit power law to second region of data
@@ -70,7 +87,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     
     fit_x = np.linspace(data_partial[region1_index,0], data_partial[region1_end,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle='--')
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle='--', linewidth=3.5)
     print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
 
     # Fit power law to third region of data
@@ -83,7 +100,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
         x, y)
     fit_x = np.linspace(data_partial[region1_end,0], data_partial[-1,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=3)
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=3.5)
     print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
 
 
@@ -92,7 +109,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     plt.grid(True)
     plt.title(f"Noise magnitude and external force for partial dislocation")
     plt.legend()
-    plt.xlabel("R")
+    plt.xlabel("$\\Delta R$")
     plt.ylabel("$ \\tau_c $")
     plt.savefig(save_path, dpi=300)
     plt.close()
@@ -105,20 +122,33 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     partial_data = loaded
 
     noises = list()
-    tau_cs = list()
+    tau_c_means = list()
+    tau_c_stds = list()
 
     for noise in partial_data.keys():
         tau_c = partial_data[noise]
     
-        tau_c = sum(tau_c)/len(tau_c)
+        tau_c_mean = np.mean(tau_c)
+        tau_c_std = np.std(tau_c)
 
         noises.append(float(noise))
-        tau_cs.append(tau_c)
+        tau_c_means.append(tau_c_mean)
+        tau_c_stds.append(tau_c_std)
+    
+    tau_c_means = np.array(tau_c_means)
+    tau_c_stds = np.array(tau_c_stds)
+    noises = np.array(noises)
+    sorted_args = np.argsort(noises)
+    tau_c_means = tau_c_means[sorted_args]
+    tau_c_stds = tau_c_stds[sorted_args]
+    noises = noises[sorted_args]
     
     plt.figure(figsize=(8,8))
-    plt.scatter(noises, tau_cs, marker='x', label="data", color='blue')
+    plt.scatter(noises, tau_c_means, marker='x', label="data", color='blue', linewidths=0.5, s=50)
+    plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
+    plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
 
-    data_perfect = np.array(list(zip(noises, tau_cs)))
+    data_perfect = np.array(list(zip(noises, tau_c_means)))
     sorted_args = np.argsort(data_perfect[:,0])
     data_perfect = data_perfect[sorted_args]
 
@@ -132,7 +162,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
         x, y)
     fit_x = np.linspace(data_perfect[0,0], data_perfect[region1_index,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red')
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linewidth=2)
     print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
 
     # Fit power law to second region of data
@@ -144,7 +174,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
         x, y)
     fit_x = np.linspace(data_perfect[region1_index,0], data_perfect[region1_end,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle='--')
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle='--', linewidth=3.5)
     print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
 
     # Fit power law to third region of data
@@ -155,7 +185,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
         x, y)
     fit_x = np.linspace(data_perfect[region1_end,0], data_perfect[-1,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=3)
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=3.5)
     print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
 
     
@@ -163,7 +193,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     plt.yscale("log")
     plt.grid(True)
     plt.title(f"Noise magnitude and external force for perfect dislocation")
-    plt.xlabel("R")
+    plt.xlabel("$\\Delta R$")
     plt.ylabel("$ \\tau_c $")
     plt.legend()
     plt.savefig(save_path, dpi=300)
@@ -208,8 +238,8 @@ def makeCommonNoisePlot(root_dir : Path):
     plt.yscale("log")
     plt.grid(True)
 
-    plt.scatter(data_partial[:,0], data_partial[:,1], marker='x', label="Partial dislocation", color='red')
-    plt.scatter(data_perfect[:,0], data_perfect[:,1], marker='x', label="Perfect dislocation", color="blue")
+    plt.scatter(data_partial[:,0], data_partial[:,1], marker='x', label="Partial dislocation", color='red', linewidths=1, s=50)
+    plt.scatter(data_perfect[:,0], data_perfect[:,1], marker='x', label="Perfect dislocation", color="blue", linewidths=1, s=50)
 
     plt.title("Noise magnitude and external force")
     plt.xlabel("R")
@@ -340,6 +370,7 @@ if __name__ == "__main__":
     parser.add_argument('--confidence', help='Confidence level for depinning, must be called with --binning.', type=float, default=0.95)
     parser.add_argument('--noise', help="Analyse critical force as function of noise amplitude", action="store_true")
     parser.add_argument('--rearrange', help="Rearrange roughness data by tau instead of seed.", action="store_true")
+    parser.add_argument('--analyse-roughness', help="Analyse roughness fit parameters.", action="store_true")
 
     parsed = parser.parse_args()
 
@@ -353,6 +384,9 @@ if __name__ == "__main__":
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
         makeAvgRoughnessPlots(parsed.folder)
+    
+    if parsed.all or parsed.analyse_roughness:
+        analyzeRoughnessFitParamteters(parsed.folder)
 
     if parsed.all or parsed.avg_roughness:
         averageRoughnessBySeed(parsed.folder)

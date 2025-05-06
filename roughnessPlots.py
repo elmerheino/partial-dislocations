@@ -53,11 +53,16 @@ def analyzeRoughnessFitParamteters(root_dir):
         # y = data[data[:,2] == 0][:,1]
         x = data[:,0] # Take all fit data
         y = data[:,1]
-        plt.scatter(x, y, label="paramteri", marker="x", color="blue")
-        plt.title(f"Roughness fit exponent for seed 0 R={noise}")
+        data_count = len(x) # = len(y)
+        plt.scatter(x, y, label="$\\zeta$", marker="x", color="blue")
+        plt.title(f"Roughness fit exponent for noise R={noise} and N={data_count}")
         plt.xlabel("$\\tau_{{ext}}$")
         plt.ylabel("$\\zeta$")
-        plt.savefig(Path(root_dir).joinpath("tau_ext-zeta-all-perfect.png"), dpi=300)
+
+        save_path = Path(root_dir).joinpath("roughness-fit-exponents-perfect")
+        save_path.mkdir(parents=True, exist_ok=True)
+        save_path = save_path.joinpath(f"roughness-fit-exponent-{noise}.png")
+        plt.savefig(save_path, dpi=300)
         plt.close()
 
         plt.clf()
@@ -70,19 +75,20 @@ def analyzeRoughnessFitParamteters(root_dir):
         plt.title(f"Transition from power to constant behavior for seed 0 R={noise}")
         plt.xlabel("$\\tau_{{ext}}$")
         plt.ylabel("$\\k$")
-        plt.savefig(Path(root_dir).joinpath("tau_ext-transition-all-perfect.png"), dpi=300)
+
+        save_path = Path(root_dir).joinpath("tau-ext-transitions-perfect")
+        save_path.mkdir(parents=True, exist_ok=True)
+        save_path = save_path.joinpath(f"tau_ext-transition-{noise}.png")
+        plt.savefig(save_path, dpi=300)
         plt.close()
 
-def makeAvgRoughnessPlots(root_dir):
-    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
-    # for partial dislocations
 
+def makePartialRoughnessPlots(root_dir):
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
 
     roughnesses_partial = dict()
 
     for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
-        break
 
         noise_val = noise_folder.name.split("-")[1]
 
@@ -112,10 +118,9 @@ def makeAvgRoughnessPlots(root_dir):
     
     with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
         json.dump(roughnesses_partial, fp)
-    
-    # analyzeRoughnessFitParamteters(root_dir)
 
-    # Next make rougheness plots for perfect dislocation
+
+def makePerfectRoughnessPlots(root_dir):
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
 
     roughnesses_perfect = dict()
@@ -127,7 +132,6 @@ def makeAvgRoughnessPlots(root_dir):
             "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
             "cutoff" : list(), "k":list()
         }
-
 
         for seed_folder in noise_folder.iterdir():
             seed = int(seed_folder.stem.split("-")[1])
@@ -149,7 +153,14 @@ def makeAvgRoughnessPlots(root_dir):
         
     with open(Path(root_dir).joinpath("roughness_perfect.json"), "w") as fp:
         json.dump(roughnesses_perfect, fp)
-    
+
+
+def makeAvgRoughnessPlots(root_dir):
+    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
+    # for partial dislocations
+
+    makePerfectRoughnessPlots(root_dir)
+    makePartialRoughnessPlots(root_dir)
     analyzeRoughnessFitParamteters(root_dir)
     
     pass
@@ -165,7 +176,7 @@ def loadRoughnessDataPerfect(f1, root_dir):
     # TODO: loop over each noise level here
 
     save_path = Path(root_dir)
-    save_path = save_path.joinpath("roughness-non-partial").joinpath(f"seed-{seed}")
+    save_path = save_path.joinpath("roughness-non-partial").joinpath(f"noise-{deltaR:.4f}/seed-{seed}")
     save_path.mkdir(parents=True, exist_ok=True)
     save_path = save_path.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
 
@@ -173,7 +184,7 @@ def loadRoughnessDataPerfect(f1, root_dir):
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
-def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path): # Non-partial -> perfect dislocation
+def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     # Make a piecewise fit on all data
@@ -241,7 +252,7 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path): # Non-pa
     c, zeta = c_values[n_selected], zetas[n_selected]
     ynew_exp = exp_beheavior(exp_l, c, zeta)
 
-    plt.plot(exp_l, ynew_exp, label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit", color="red")
+    plt.plot(exp_l, ynew_exp, label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit with $\\zeta = $ {zeta:.3f}", color="red")
 
     # Now find out the constant behavior from N/4 < L < 3N/4
 
@@ -272,8 +283,8 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path): # Non-pa
     # Next find out the transition point between power law and constant behavior
 
     fit_c_range = fit_c_range[0]   # This is the constant of constant behavior y = c
-    zeta = zeta
-    c = c                       # This is the factor in power law y=c*l^zeta
+    zeta = zeta                     # This is the exponent of power law y = c*l^zeta
+    c = c                           # This is the factor in power law y=c*l^zeta
 
     change_p = (fit_c_range / c)**(1/zeta)  # This is the points l=change_p where is changes from power to constant.
 
@@ -316,7 +327,7 @@ def roughness_fit(l, c, zeta, cutoff):
 def roughness_partial(l, c, zeta, k, cutoff):
     return np.array(list(map(lambda i : c*(i**zeta) + k if i < cutoff else c*(cutoff**zeta) + k, l)))
 
-def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
+def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path : Path):
     # TODO: incorporate similar
     bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
@@ -330,7 +341,7 @@ def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path):
     plt.clf()
     plt.figure(figsize=(8,8))
     plt.scatter(l_range, avg_w12, label="$W_{{12}}$", marker="x")
-    plt.plot(l_range, ynew, label=f"fit, c={c}, $\\zeta = $ {zeta}")
+    # plt.plot(l_range, ynew, label=f"fit, c={c}, $\\zeta = $ {zeta}")
 
     plt.xscale("log")
     plt.yscale("log")
