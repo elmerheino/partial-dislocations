@@ -74,26 +74,32 @@ def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, core
             vcm, l_range, roughnesses, y_last, parameters = depinning.run()
         
         t_c_arvio = ( max(depinning.stresses) - min(depinning.stresses) ) / 2
-        
-        fit_params, pcov = optimize.curve_fit(velocity_fit, depinning.stresses, vcm,
-            p0 = [
-                t_c_arvio,
-                0.8,
-                0.05
-            ], 
-            bounds=(0, [max(depinning.stresses), 5, 100] )
-        )
-        t_c, beta, a = fit_params
+        try:
+            fit_params, pcov = optimize.curve_fit(velocity_fit, depinning.stresses, vcm,
+                p0 = [
+                    t_c_arvio,
+                    0.8,
+                    0.05
+                ], 
+                bounds=(0, [max(depinning.stresses), 5, 100] )
+            )
+            t_c, beta, a = fit_params
+            print(f"Fit results tau_c = {t_c}  beta = {beta}  A = {a}")
+        except:
+            return tau_min, tau_max
 
-        print(f"Fit results tau_c = {t_c}  beta = {beta}  A = {a}")
 
-        tolerance = 0.1
+        tolerance = 0.085
 
         if t_c < (1 - tolerance)*max(depinning.stresses) and t_c > tolerance*min(depinning.stresses):
             found = True
             print(f"Found good parameters")
-            tau_min = t_c*0.5
-            tau_max = t_c*1.5
+            if deltaR < 0.5:
+                tau_min = 0
+                tau_max = t_c*1.5
+            else:
+                tau_min = t_c*0.2
+                tau_max = t_c*1.5
         
         delta = t_c*0.5
         if t_c > max(depinning.stresses)*(1 - tolerance):
@@ -146,9 +152,9 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
             tauExt_i = params[11]
             deltaR_i = params[4]
-            p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+            p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
-            p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR:.4f}.npz")
+            p = p.joinpath(f"roughness-tau-{tau}-R-{deltaR}.npz")
             
             np.savez(p, l_range=l_range, avg_w=avg_w12, parameters=params)
         
@@ -156,9 +162,9 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         for y1_i, y2_i, params in zip(y1_last, y2_last, parameters):
             tauExt_i = params[11]
             deltaR_i = params[4]
-            p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+            p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
             p.mkdir(exist_ok=True, parents=True)
-            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i:.3f}-R-{deltaR_i:.4f}.npz")
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i}-R-{deltaR_i}.npz")
             np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
             pass
 
@@ -175,13 +181,13 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
     # Save the results to a .json file
     depining_path = Path(folder)
-    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
+    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.6f}")
     depining_path.mkdir(exist_ok=True, parents=True)
 
     tau_min_ = min(depinning.stresses.tolist())
     tau_max_ = max(depinning.stresses.tolist())
     points = len(depinning.stresses.tolist())
-    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR:.4f}.json")
+    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR:.6f}.json")
     with open(str(depining_path), 'w') as fp:
         json.dump({
             "stresses":depinning.stresses.tolist(),
@@ -194,9 +200,9 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     # Save all the roughnesses
     for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
         deltaR_i = params[4]
-        p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+        p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
         p.mkdir(exist_ok=True, parents=True)
-        p = p.joinpath(f"roughness-tau-{tau:.3f}-R-{deltaR_i:.4f}.npz")
+        p = p.joinpath(f"roughness-tau-{tau}-R-{deltaR_i}.npz")
         
         np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
 
@@ -205,9 +211,9 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     for y_i, params in zip(y_last, parameters):
         tauExt = params[10]
         deltaR_i = params[4]
-        p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR:.4f}").joinpath(f"seed-{depinning.seed}")
+        p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
         p.mkdir(exist_ok=True, parents=True)
-        p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt:.3f}-R-{deltaR:.4f}.npz")
+        p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt}-R-{deltaR}.npz")
         np.savez(p0, y=y_i, parameters=params)
 
 if __name__ == "__main__":
