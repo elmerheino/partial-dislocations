@@ -133,9 +133,9 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
         # Save the depinning to a .json file
         depining_path = Path(folder)
-        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.4f}")
+        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR}")
         depining_path.mkdir(exist_ok=True, parents=True)
-        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{time}-s-{seed}-R-{deltaR:.4f}.json")
+        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{time}-s-{seed}-R-{deltaR}.json")
 
         with open(str(depining_path), 'w') as fp:
             json.dump({
@@ -181,13 +181,13 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
     # Save the results to a .json file
     depining_path = Path(folder)
-    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR:.6f}")
+    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR}")
     depining_path.mkdir(exist_ok=True, parents=True)
 
     tau_min_ = min(depinning.stresses.tolist())
     tau_max_ = max(depinning.stresses.tolist())
     points = len(depinning.stresses.tolist())
-    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR:.6f}.json")
+    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR}.json")
     with open(str(depining_path), 'w') as fp:
         json.dump({
             "stresses":depinning.stresses.tolist(),
