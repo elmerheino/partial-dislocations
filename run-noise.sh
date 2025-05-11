@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --time=06:30:00
-#SBATCH --mem-per-cpu=9G
+#SBATCH --time=02:30:00
+#SBATCH --mem-per-cpu=20G
 #SBATCH --output=depinning-noise.out
 #SBATCH --array=1-1000
 #SBATCH --cpus-per-task=20
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
-NAME=2025-05-07-noise
+NAME=2025-05-07-noise-cm
 
 CORES=20
 
@@ -17,7 +17,7 @@ module load scicomp-python-env
 NOISE_MIN=-2
 NOISE_MAX=1
 
-ARRAY_LEN=100   # SEEDS*NOISES=ARRAY_LEN for a square grid
+ARRAY_LEN=1000   # SEEDS*NOISES=ARRAY_LEN for a square grid
 SEEDS=10         # Seed count is array-max/noise points
 
 TIME=10000
