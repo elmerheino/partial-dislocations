@@ -39,8 +39,8 @@ class DepinningPartial(Depinning):
     def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0,
                  seed=None, bigN=1024, length=1024, d0=39, sequential=False,
                         bigB=1,
-                        b_p=0.5773499805, # b^2 = a^2 / 6
-                        smallB=1,
+                        b_p=0.5773499805, # b_p^2 = a^2 / 6 => b_p^2 = 0.3333333333 => b_p = 0.5773499805
+                        smallB=1,         # b^2 = a^2 / 2 = 1 => a^2 = 2
                         mu=1,
                         cLT1=1,
                         cLT2=1,

@@ -345,6 +345,7 @@ def makeDislocationPlots(folder):
 
                 plt.plot(x, y1, color='blue')
                 plt.plot(x, y2, color='red')
+                plt.plot(x, (y1 + y2)/2, color='yellow', linestyle='--')
 
 
                 dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.3f}/")

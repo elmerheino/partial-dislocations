@@ -163,14 +163,16 @@ class PartialDislocationsSimulation(Simulation):
         return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
     
     def getAveragedRoughness(self, time_to_consider):
+        # Returns the averaged roughness of the two lines from their centre of mass (assuming equal mass distribution)x
         steps_to_consider = round(time_to_consider / self.dt)
         start = self.timesteps - steps_to_consider
 
-        l_range, _ = self.roughnessW12(self.y1[0], self.y2[0], self.bigN)
+        l_range, _ = self.roughnessW((self.y1[0] + self.y2[0])/2, self.bigN)
 
         roughnesses = np.empty((steps_to_consider, self.bigN))
         for i in range(start,self.timesteps):
-            _, rough = self.roughnessW12(self.y1[i], self.y2[i], self.bigN)
+            centre_of_mass = (self.y1[i] + self.y2[i])/2
+            _, rough = self.roughnessW(centre_of_mass, self.bigN)
             roughnesses[i-start] = rough
         
         avg = np.average(roughnesses, axis=0)
