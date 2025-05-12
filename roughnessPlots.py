@@ -6,6 +6,8 @@ import shutil
 import multiprocessing as mp
 from scipy import optimize, stats
 from functools import partial
+from numba import jit
+import math
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
@@ -579,11 +581,57 @@ def averageRoughnessBySeed(root_dir):
                     makeRoughnessPlot_partial(l_range, w_avg, params, dest_plot)
     pass
 
+@jit(nopython=True)
+def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
+    l_range = np.arange(0,int(bigN))    # TODO: Use range parameter instead
+    roughness = np.empty(int(bigN))
+
+    y_size = int(bigN) # TODO: check if len(y) = bigN ?
+    
+    for l in l_range:
+        res = 0
+        for i in range(0,1024):
+            res = res + ( y[i] - y[ (i+l) % y_size ] )**2
+        
+        res = res/y_size
+        c = np.sqrt(res)
+        roughness[l] = c
+
+    return l_range, roughness
+
+def extractRoughnessFromLast(root_dir):
+    path = Path(root_dir).joinpath("partial-dislocation").joinpath("dislocations-last")
+    for noise_folder in [s for s in path.iterdir() if s.is_dir()]:
+        noise_val = noise_folder.name.split("-")[1]
+
+        for seed_folder in noise_folder.iterdir():
+            seed = int(seed_folder.stem.split("-")[1])
+            print(f"Extracting params from data with noise {noise_val} and seed {seed}")
+
+            for file_path in seed_folder.iterdir():
+                loaded = np.load(file_path)
+                parameters = loaded["parameters"]
+                bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = parameters
+                new_params = np.array([bigN, length, time, dt, deltaR, bigB, smallB, cLT1, mu, tauExt, d0, seed, tau_cutoff])
+                y1 = loaded["y1"]
+                y2 = loaded["y2"]
+
+                y_avg = (y1 + y2)/2
+
+                l_range, roughness = roughnessW(y_avg.flatten(), 1024)
+
+                save_path = Path(root_dir).joinpath("partial-dislocation").joinpath("roughness-from-last").joinpath(f"noise-{noise_val}/seed-{seed}")
+                save_path.mkdir(parents=True, exist_ok=True)
+                save_path = save_path.joinpath(f"roughness-tau-{parameters[12]:.3f}.png")
+                makeRoughnessPlotPerfect(l_range, roughness, new_params, save_path)
+    pass
+
 if __name__ == "__main__":
     # root_dir = Path("/home/niklas/Projects/Dislocation-Depinning-Model/roughness-data")
     # makeAvgRoughnessPlots(root_dir)
     # makeRoughnessExponentDataset(root_dir)
     # averageRoughnessBySeed(root_dir)
     # makeRoughnessExponentDataset("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    processExponentData("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
+    # processExponentData("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
+    # extractRoughnessFromLast("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
     pass
