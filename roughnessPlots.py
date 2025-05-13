@@ -406,7 +406,7 @@ def makeRoughnessExponentDataset(root_dir):
     data = np.array(data)
     np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta"])
 
-def makeZetaPlot(data, chosen_noise):
+def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt
     chosen_noise = np.round(chosen_noise, 4)
     noise = data[:,0]
@@ -443,7 +443,7 @@ def makeZetaPlot(data, chosen_noise):
     plt.legend()
     plt.grid(True)
 
-    save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
+    save_path = Path(root_dir)
     save_path = save_path.joinpath("roughness-exponent-plots")
     save_path.mkdir(parents=True, exist_ok=True)
     save_path = save_path.joinpath(f"roughness-exponent-{chosen_noise}.png")
@@ -472,7 +472,7 @@ def processExponentData(root_dir):
     unique_noises = set(noise)
 
     for unique_noise in unique_noises:
-        makeZetaPlot(data, np.round(unique_noise, 4))
+        makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -616,13 +616,19 @@ def extractRoughnessFromLast(root_dir):
                 y1 = loaded["y1"]
                 y2 = loaded["y2"]
 
+                save_path = Path(root_dir).joinpath("partial-dislocation").joinpath("roughness-from-last").joinpath(f"noise-{noise_val}/seed-{seed}")
+                save_path.mkdir(parents=True, exist_ok=True)
+                save_path = save_path.joinpath(f"roughness-tau-{tauExt}.png")
+
+                if save_path.exists():
+                    print("skip")
+                    continue
+
+
                 y_avg = (y1 + y2)/2
 
                 l_range, roughness = roughnessW(y_avg.flatten(), 1024)
 
-                save_path = Path(root_dir).joinpath("partial-dislocation").joinpath("roughness-from-last").joinpath(f"noise-{noise_val}/seed-{seed}")
-                save_path.mkdir(parents=True, exist_ok=True)
-                save_path = save_path.joinpath(f"roughness-tau-{parameters[12]:.3f}.png")
                 makeRoughnessPlotPerfect(l_range, roughness, new_params, save_path)
     pass
 
