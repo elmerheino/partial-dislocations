@@ -119,7 +119,24 @@ def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, core
     return tau_min, tau_max
 
 def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
-        tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=True)
+        # tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=True)
+
+        if 0 <= deltaR < 0.1: 
+            tau_min_opt = 0
+            tau_c = 2.620 * deltaR**1.885
+            tau_max_opt = tau_c*1.4
+        elif 0.1 <= deltaR < 1.0:
+            tau_min_opt = 0
+            tau_c = 0.954 * deltaR**1.398
+            tau_max_opt = tau_c*1.4
+        elif 1.0 <= deltaR <= 10:
+            tau_c = 1.026 * deltaR**1.255
+            tau_min_opt = tau_c*0.7
+            tau_max_opt = tau_c*1.3
+        else:
+            tau_c = 1.026 * deltaR**1.255
+            tau_min_opt = tau_c*0.7
+            tau_max_opt = tau_c*1.3
 
         depinning = DepinningPartial(tau_min=tau_min_opt, tau_max=tau_max_opt, points=points,
                     time=time, dt=timestep, seed=seed,
@@ -171,7 +188,23 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
     # Searching for better limits to find critical force
-    tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
+    #tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
+    if 0 < deltaR < 0.1:
+        tau_c = 1.392 * deltaR**1.736
+        tau_min_opt = 0
+        tau_max_opt = tau_c*1.5
+    elif 0.1 <= deltaR < 1.0:
+        tau_c =  0.677 * deltaR ** 1.374
+        tau_min_opt = 0
+        tau_max_opt = tau_c*1.5
+    elif 1.0 <= deltaR <= 10:
+        tau_c = 0.736 * deltaR ** 1.280
+        tau_min_opt = tau_c*0.7
+        tau_max_opt = tau_c*1.5
+    else:
+        tau_c = 0.736 * deltaR ** 1.280
+        tau_min_opt = tau_c*0.7
+        tau_max_opt = tau_c*1.5
 
     depinning = DepinningSingle(tau_min=tau_min_opt, tau_max=tau_max_opt, points=int(points),
                 time=float(time), dt=float(timestep), seed=seed, 
@@ -208,6 +241,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
         pass
 
+    # Save all the relaxed dislocaiton profiles at the end of simulation
     for y_i, params in zip(y_last, parameters):
         tauExt = params[10]
         deltaR_i = params[4]
