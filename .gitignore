@@ -187,3 +187,4 @@ test-run.sh
 debug-*
 kandiluonnoksia/*
 muistiinpanot/*
+process_noisedata.py

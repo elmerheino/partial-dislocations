@@ -3,6 +3,7 @@
 import math
 from pathlib import Path
 import json
+import time
 from plots import *
 import numpy as np
 from scipy import optimize
@@ -10,9 +11,23 @@ from scipy import stats
 from argparse import ArgumentParser
 import multiprocessing as mp
 from functools import partial
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 from roughnessPlots import *
 from velocityPlots import *
+
+mpl.rcParams.update({
+    "text.usetex": True,
+    "font.family": "Computer Modern Roman",  # Or 'sans-serif', 'Computer Modern Roman', etc.
+    "font.size": 12,         # Match LaTeX document font size
+    "axes.titlesize": 12,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "legend.fontsize": 12,
+    "figure.titlesize": 12
+})
 
 
 def makePartialNoisePlot(res_root : Path, save_path):
@@ -48,7 +63,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     noises = noises[sorted_args]
 
     
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(2.4, 2.4))
     plt.scatter(noises, tau_c_means, marker='x', label="data", color='red', linewidths=1, s=50)
     plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
     plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
@@ -72,7 +87,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     fit_y = fit_params[0]*fit_x**fit_params[1]
 
     plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linewidth=2)
-    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
     # Fit power law to second region of data
 
@@ -88,7 +103,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     fit_x = np.linspace(data_partial[region1_index,0], data_partial[region1_end,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
     plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle='--', linewidth=3.5)
-    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
     # Fit power law to third region of data
 
@@ -101,7 +116,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     fit_x = np.linspace(data_partial[region1_end,0], data_partial[-1,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
     plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=3.5)
-    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
 
     plt.xscale("log")
@@ -111,7 +126,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     plt.legend()
     plt.xlabel("$\\Delta R$")
     plt.ylabel("$ \\tau_c $")
-    plt.savefig(save_path, dpi=300)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
 
 def makePerfectNoisePlot(results_root : Path, save_path):
@@ -143,7 +158,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     tau_c_stds = tau_c_stds[sorted_args]
     noises = noises[sorted_args]
     
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(2.4, 2.4))
     plt.scatter(noises, tau_c_means, marker='x', label="data", color='blue', linewidths=0.5, s=50)
     plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
     plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
@@ -163,7 +178,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     fit_x = np.linspace(data_perfect[0,0], data_perfect[region1_index,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
     plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linewidth=2)
-    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
     # Fit power law to second region of data
     region1_end = np.where(data_perfect[:,0] > 1)[0][0]
@@ -175,7 +190,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     fit_x = np.linspace(data_perfect[region1_index,0], data_perfect[region1_end,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
     plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle='--', linewidth=3.5)
-    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
     # Fit power law to third region of data
     x = data_perfect[region1_end:,0]
@@ -186,7 +201,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     fit_x = np.linspace(data_perfect[region1_end,0], data_perfect[-1,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
     plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=3.5)
-    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f}")
+    print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
     
     plt.xscale("log")
@@ -196,7 +211,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     plt.xlabel("$\\Delta R$")
     plt.ylabel("$ \\tau_c $")
     plt.legend()
-    plt.savefig(save_path, dpi=300)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
 
 
@@ -233,7 +248,7 @@ def makeCommonNoisePlot(root_dir : Path):
     sorted_args = np.argsort(data_perfect[:,0])
     data_perfect = data_perfect[sorted_args]
 
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(2.4, 2.4))
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
@@ -245,20 +260,34 @@ def makeCommonNoisePlot(root_dir : Path):
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
     plt.legend()
-    plt.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.png"), dpi=300)
+    plt.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.png"), dpi=300, bbox_inches='tight')
     pass
 
 def makeDislocationPlots(folder):
     # First plot all perfect dislocations
     path = Path(folder).joinpath("single-dislocation/dislocations-last")
     dest_folder = Path(folder).joinpath("single-dislocation/dislocations-last-pictures")
-    for noise_path in path.iterdir():
+    print("Making perfect dislocation plots.")
+    for noise_path in [p for p in path.iterdir() if p.is_dir()]:
+        noise = noise_path.name.split("-")[1]
+        noise = float(noise)
+
+        if noise != 1:
+            continue
+
         for seed_path in noise_path.iterdir():
+            seed = seed_path.name.split("-")[1]
+            seed = int(seed)
+
+            if seed != 1:
+                continue
+
             for dislocation_file in seed_path.iterdir():
                 loaded = np.load(dislocation_file)
                 parameters = loaded['parameters']
 
                 bigN, length, time, dt, deltaR, bigB, smallB,  cLT1, mu, tauExt, d0, seed, tau_cutoff =  parameters
+                print(f"making plot for perfect dislocation seed {seed}, noise {noise}, tau_ext {tauExt:.4f}")
                 bigN = int(bigN)
                 length = int(length)
                 seed = int(seed)
@@ -272,7 +301,7 @@ def makeDislocationPlots(folder):
                 stressField = np.random.normal(0,deltaR,[bigN, 2*bigN])
 
                 plt.clf()
-                plt.figure(figsize=(8,8))
+                plt.figure(figsize=(2.4, 2.4))
 
                 min_y = int(math.floor(min(y)) - 1)
                 max_y = int(math.ceil(max(y)) + 1)
@@ -293,22 +322,36 @@ def makeDislocationPlots(folder):
 
                 dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/")
                 dest_file.mkdir(exist_ok=True, parents=True)
-                dest_file = dest_file.joinpath("dislocation.png")
+                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.png")
 
-                plt.savefig(dest_file, dpi=300)
+                plt.savefig(dest_file, dpi=600, bbox_inches='tight')
                 plt.close()
         pass
 
+    # Next plot all partial dislocations
     path = Path(folder).joinpath("partial-dislocation/dislocations-last")
     dest_folder = Path(folder).joinpath("partial-dislocation/dislocations-last-pictures")
-    # Next plot all partial dislocations
-    for noise_path in path.iterdir():
+    print("Making partial dislocation plots.")
+    for noise_path in [p for p in path.iterdir() if p.is_dir()]:
+        noise = noise_path.name.split("-")[1]
+
+        noise = float(noise)
+        if noise != 1:
+            continue
+
         for seed_folder in noise_path.iterdir():
+            seed = seed_folder.name.split("-")[1]
+            seed = int(seed)
+
+            if seed != 1:
+                continue
+
             for dislocation_file in seed_folder.iterdir():
                 loaded = np.load(dislocation_file)
                 parameters = loaded['parameters']
 
                 bigN, length, time, dt, deltaR, bigB, smallB, b_p,  cLT1, cLT2, mu, tauExt, c_gamma, d0, seed, tau_cutoff =  parameters
+                print(f"making plot for partial dislocation seed {seed}, noise {noise}, tau_ext {tauExt:.4f}")
                 bigN = int(bigN)
                 length = int(length)
                 seed = int(seed)
@@ -324,7 +367,7 @@ def makeDislocationPlots(folder):
                 stressField = np.random.normal(0,deltaR,[bigN, 2*bigN])
 
                 plt.clf()
-                plt.figure(figsize=(8,8))
+                plt.figure(figsize=(2.4, 2.4))
 
                 min_y = min([
                     int(math.floor(min(y1)) - 1), int(math.floor(min(y2)) - 1)
@@ -343,6 +386,8 @@ def makeDislocationPlots(folder):
                 plt.xlabel("$x$")
                 plt.ylabel("$y(x)$")
 
+                # plt.ylim(0,50)
+
                 plt.plot(x, y1, color='blue')
                 plt.plot(x, y2, color='red')
                 plt.plot(x, (y1 + y2)/2, color='yellow', linestyle='--')
@@ -350,9 +395,9 @@ def makeDislocationPlots(folder):
 
                 dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.3f}/")
                 dest_file.mkdir(exist_ok=True, parents=True)
-                dest_file = dest_file.joinpath("dislocation.png")
+                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.png")
 
-                plt.savefig(dest_file, dpi=300)
+                plt.savefig(dest_file, dpi=600, bbox_inches='tight')
                 plt.close()
             pass
         pass
@@ -402,7 +447,10 @@ if __name__ == "__main__":
 
     # Plots dislocations at the end of simulation
     if parsed.all or parsed.dislocations:
+        t0 = time.time()
         makeDislocationPlots(parsed.folder)
+        t1 = time.time()
+        print(f"Time taken to make dislocation plots: {t1-t0:.2f} seconds")
 
     # Make normalized depinning plots
     if parsed.all or parsed.np:
