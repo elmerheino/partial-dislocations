@@ -192,7 +192,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     if 0 < deltaR < 0.1:
         tau_c = 1.392 * deltaR**1.736
         tau_min_opt = 0
-        tau_max_opt = tau_c*1.5
+        tau_max_opt = tau_c*2
     elif 0.1 <= deltaR < 1.0:
         tau_c =  0.677 * deltaR ** 1.374
         tau_min_opt = 0
