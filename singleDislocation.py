@@ -24,15 +24,24 @@ class DislocationSimulation(Simulation):
 
     def timestep(self, dt, y):
         k1 = self.funktio(y)
-        k2 = self.funktio(y + dt*k1/2)
-        k3 = self.funktio(y + dt*k2/2)
-        k4 = self.funktio(y + dt*k3)
+        k2 = self.funktio(y + dt*k1/5)
+        k3 = self.funktio( y + dt*(k1*3/40 + k2*9/40) )
+        k4 = self.funktio( y + dt*(k1*44/45 - k2*56/15 + k3*32/9) )
+        k5 = self.funktio( y + dt*(k1*19372/6561 - k2*25360/2187 + k3*64448/6561 - k4*212/729) )
+        k6 = self.funktio( y + dt*(k1*9017/3168 - k2*355/33 + k3*46732/5247 + k4*49/176 - k5*5103/18656) )
+        k7 = self.funktio( y + dt*(k1*35/384 + k3*500/1113 + k4*125/192 - k5*2187/6784 + k6*11/84) ) # This has been evaluated at the same point as the k1 of the next step
+
         
-        newY = y + (dt/6)*(k1 + 2*k2 + 2*k3 + k4)
+        fifth_order = y + dt*(35/384*k1 + 500/1113*k3 + 125/192*k4 - 2187/6784*k5 + 11/84*k6)
+        fourth_order = y + dt*(5179/57600*k1 + 7571/16695*k3 + 393/640*k4 - 92097/339200*k5 + 187/2100*k6 + 1/40*k7)
+
+        error = np.abs(fifth_order - fourth_order) # Error of the 4th order solution
+
+        # TODO: update the time step size dt based on the error
 
         self.time_elapsed += dt    # Update how much time has elapsed by adding dt
 
-        return newY
+        return fourth_order
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
