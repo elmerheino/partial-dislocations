@@ -11,9 +11,10 @@ class DislocationSimulation(Simulation):
         self.d0 = d0
         
         # Pre-allocate memory here
-        self.y1 = np.empty((self.timesteps*10, self.bigN)) # Each timestep is one row, bigN is number of columns
-        self.errors = np.empty(self.timesteps*10)
-        self.used_timesteps = [self.dt]
+        #self.y1 = np.empty((self.timesteps*10, self.bigN)) # Each timestep is one row, bigN is number of columns
+        self.y1 = list() # List of arrays
+        self.errors = list()
+        self.used_timesteps = [self.dt] # it should be that len(y1) = len(used_timesteps)
 
         pass
     
@@ -41,8 +42,8 @@ class DislocationSimulation(Simulation):
         return fourth_order, fifth_order
 
     def run_simulation(self):
-        y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-        self.y1[0] = y10
+        y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+        self.y1.append( y0 )
 
         i = 0
         while self.time_elapsed <= self.time:
@@ -60,17 +61,16 @@ class DislocationSimulation(Simulation):
             error = sum([ (    (y5i - y4i)/( sc(n) ) )**2 for n, (y5i, y4i) in enumerate( zip(fifth_i, fourth_i) )])/len(fifth_i)
             error = np.sqrt(error)
 
-            h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
+            h_opt = 0.25 * self.dt * (1 / error )**(1/5) # Optimal step size
 
-            min_dt = 1e-5
+            min_dt = 1e-6
             max_dt = 5
 
-
-            if error < 1: # Accept the step and move to the next timestep and adjust the timestep
+            if error < 0.5: # Accept the step and move to the next timestep and adjust the timestep
                 i += 1
                 self.time_elapsed += self.dt
-                self.y1[i] = fourth_i
-                self.errors[i] = error              # Error of the 4th order solution
+                self.y1.append(fourth_i)
+                self.errors.append(error)              # Error of the 4th order solution
                 self.used_timesteps.append(self.dt)  # Store the optimal timestep for each step
                 print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
             else:   # Reject the step and only reduce the timestep
@@ -84,18 +84,22 @@ class DislocationSimulation(Simulation):
                 self.dt = max_dt
             else:
                 self.dt = h_opt
-            
+        
+        self.y1 = np.array(self.y1) # Convert to numpy array
         
         self.has_simulation_been_run = True
     
     def getLineProfiles(self, time_to_consider=None):
         start = 0
 
+        avg_dt = np.average(np.array(self.used_timesteps))
+        timesteps = len(self.y1)
+
         if time_to_consider != None:
-            steps_to_consider = round(time_to_consider / self.dt)
-            start = self.timesteps - steps_to_consider
+            steps_to_consider = round(time_to_consider / avg_dt)
+            start = timesteps - steps_to_consider
         if time_to_consider == self.time: # In this case only return the last state
-            start = self.timesteps - 1
+            start = timesteps - 1
 
         if self.has_simulation_been_run:
             return self.y1[start:]
@@ -127,9 +131,13 @@ class DislocationSimulation(Simulation):
         v1_CM = np.gradient(y1_CM)
 
         # Condisering only time_to_consider seconds from the end
-        start = round(self.timesteps - time_to_consider/self.dt)
+        dt_average = np.average(np.array(self.used_timesteps))
+        print(dt_average)
 
-        v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
+        start = round(len(self.used_timesteps) - time_to_consider/dt_average)
+        print(start)
+
+        v_relaxed_y1 = np.average(v1_CM[start:])
 
         return v_relaxed_y1
     
@@ -153,13 +161,15 @@ class DislocationSimulation(Simulation):
         return parameters
 
     def getAveragedRoughness(self, time_to_consider):
-        steps_to_consider = round(time_to_consider / self.dt)
-        start = self.timesteps - steps_to_consider
+        timesteps = len(self.used_timesteps)
+        avg_dt = np.average(np.array(self.used_timesteps))
+        steps_to_consider = round(time_to_consider / avg_dt)
+        start = len(self.used_timesteps) - steps_to_consider
 
         l_range, _ = self.roughnessW(self.y1[0], self.bigN)
 
         roughnesses = np.empty((steps_to_consider, self.bigN))
-        for i in range(start,self.timesteps):
+        for i in range(start,timesteps):
             _, rough = self.roughnessW(self.y1[i], self.bigN)
             roughnesses[i-start] = rough
         
@@ -169,5 +179,5 @@ class DislocationSimulation(Simulation):
     def getErrors(self):
         return self.errors
     
-    def getOptTimesteps(self):
+    def retrieveUsedTimesteps(self):
         return self.used_timesteps
