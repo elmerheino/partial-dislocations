@@ -14,9 +14,11 @@ class PartialDislocationsSimulation(Simulation):
         self.d0 = d0                            # Initial distance separating the partials
         self.b_p = b_p
 
-        # Pre-allocate memory here
-        self.y2 = np.empty((self.timesteps, self.bigN))
-        self.y1 = np.empty((self.timesteps, self.bigN))
+        self.y2 = list()
+        self.y1 = list()
+
+        self.used_timesteps = [self.dt] # List of the used timesteps
+        self.errors = list()         # List of the errors
         
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
@@ -86,29 +88,73 @@ class PartialDislocationsSimulation(Simulation):
         fifth_order_y1 = y1 + dt*(35/384*k1_y1 + 500/1113*k3_y1 + 125/192*k4_y1 - 2187/6784*k5_y1 + 11/84*k6_y1)
         fifth_order_y2 = y2 + dt*(35/384*k1_y2 + 500/1113*k3_y2 + 125/192*k4_y2 - 2187/6784*k5_y2 + 11/84*k6_y2)
 
-        error_y1 = np.abs(fifth_order_y1 - fourth_order_y1)
-        error_y2 = np.abs(fifth_order_y2 - fourth_order_y2)
-        
-        self.time_elapsed += dt    # Update how much time has elapsed by adding dt
-
-        return (fourth_order_y1, fourth_order_y2)
+        return (fourth_order_y1, fifth_order_y1, fourth_order_y2, fifth_order_y2)
 
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-        self.y1[0] = y10
+        self.y1.append(y10)
 
         y20 = np.zeros(self.bigN, dtype=float)
-        self.y2[0] = y20
+        self.y2.append(y20)
 
-        for i in range(1,self.timesteps):
+        abstol = 1
+        reltol = 1
+
+        time = 0
+        i = 0
+
+        while time <= self.time:
             y1_previous = self.y1[i-1]
             y2_previous = self.y2[i-1]
 
-            (y1_i, y2_i) = self.timestep(self.dt,y1_previous,y2_previous)
-            self.y1[i] = y1_i
-            self.y2[i] = y2_i
+            (y1_4th, y1_5th, y2_4th, y2_5th) = self.timestep(self.dt,y1_previous,y2_previous)
+
+            sc_y1 = lambda x : abstol + reltol*max(y1_4th[x], y1_previous[x])
+            sc_y2 = lambda x : abstol + reltol*max(y2_4th[x], y2_previous[x])
+
+            error_y1 = sum([ (    (y5i - y4i)/( sc_y1(n) ) )**2 for n, (y5i, y4i) in enumerate( zip(y1_5th, y1_4th) )])/len(y1_5th)
+            error_y1 = np.sqrt(error_y1)
+
+            error_y2 = sum([ (   (y5i - y4i)/( sc_y2(n) )   )**2 for n, (y5i, y4i) in enumerate( zip(y2_5th, y2_4th) )])/len(y2_5th)
+            error_y2 = np.sqrt(error_y2)
+
+            error = max(error_y1, error_y2)
+
+            h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
+
+            min_dt = 0.0001
+            max_dt = 5
+
+            if error < 1:
+                # Accept the step and move to the next timestep and adjust the timestep
+                self.time_elapsed += self.dt
+                self.y1.append(y1_4th)
+                self.y2.append(y2_4th)
+                self.errors.append(error)              # Error of the 4th order solution
+                self.used_timesteps.append(self.dt)
+                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: acceped")
+                i += 1
+                time += self.dt
+            else:
+                # Reject the step and only reduce the timestep
+                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: rejected")
+                # Sometimes the loop gets stuck in an inifite loop here.
+                max_dt = 1
+            pass
+
+            # Now adjust the timestep
+            if h_opt < min_dt:
+                self.dt = min_dt
+            elif h_opt > max_dt:
+                self.dt = max_dt
+            else:
+                self.dt = h_opt
         
+        self.y1 = np.array(self.y1) # Convert to numpy array
+        self.y2 = np.array(self.y2) # Convert to numpy array
+        self.timesteps = len(self.y1) # Update the number of timesteps
+
         self.has_simulation_been_run = True
     
     def run_further(self, new_time:int, new_dt:int = 0.05):
@@ -228,3 +274,15 @@ class PartialDislocationsSimulation(Simulation):
             "$ "+ i + " $" + "\n"*(1 - ((n+1)%wrap)) for n,i in enumerate(parameters) # Wrap text using modulo
         ])
         return plot_title
+    
+    def getErrors(self):
+        if len(self.errors) == 0:
+            raise Exception('simulation has probably not been run')
+        
+        return self.errors
+
+    def retrieveUsedTimesteps(self):
+        if len(self.used_timesteps) == 0:
+            raise Exception('simulation has probably not been run')
+        
+        return self.used_timesteps

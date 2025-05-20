@@ -61,22 +61,23 @@ class DislocationSimulation(Simulation):
             error = sum([ (    (y5i - y4i)/( sc(n) ) )**2 for n, (y5i, y4i) in enumerate( zip(fifth_i, fourth_i) )])/len(fifth_i)
             error = np.sqrt(error)
 
-            h_opt = 0.25 * self.dt * (1 / error )**(1/5) # Optimal step size
+            h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
 
-            min_dt = 1e-6
+            min_dt = 1e-4
             max_dt = 5
 
-            if error < 0.5: # Accept the step and move to the next timestep and adjust the timestep
+            if error < 1: # Accept the step and move to the next timestep and adjust the timestep
+                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: accepted")
                 i += 1
                 self.time_elapsed += self.dt
                 self.y1.append(fourth_i)
                 self.errors.append(error)              # Error of the 4th order solution
                 self.used_timesteps.append(self.dt)  # Store the optimal timestep for each step
-                print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
             else:   # Reject the step and only reduce the timestep
                 # Error is too big, so we need to reduce the timestep, thus continuing the loop
-                print(f"Adjusting Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
-                pass
+                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: rejected")
+                max_dt = 1
+            pass
 
             if h_opt < min_dt:
                 self.dt = min_dt
@@ -86,6 +87,7 @@ class DislocationSimulation(Simulation):
                 self.dt = h_opt
         
         self.y1 = np.array(self.y1) # Convert to numpy array
+        self.timesteps = len(self.y1)
         
         self.has_simulation_been_run = True
     
