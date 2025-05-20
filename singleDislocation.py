@@ -12,6 +12,9 @@ class DislocationSimulation(Simulation):
         
         # Pre-allocate memory here
         self.y1 = np.empty((self.timesteps, self.bigN)) # Each timestep is one row, bigN is number of columns
+        self.errors = np.empty(self.timesteps)
+        self.opt_timesteps = list()
+
         pass
     
     def funktio(self, y1):
@@ -35,13 +38,13 @@ class DislocationSimulation(Simulation):
         fifth_order = y + dt*(35/384*k1 + 500/1113*k3 + 125/192*k4 - 2187/6784*k5 + 11/84*k6)
         fourth_order = y + dt*(5179/57600*k1 + 7571/16695*k3 + 393/640*k4 - 92097/339200*k5 + 187/2100*k6 + 1/40*k7)
 
-        error = np.abs(fifth_order - fourth_order) # Error of the 4th order solution
+        avg_error = np.average(fifth_order - fourth_order) # Error of the 4th order solution
 
-        # TODO: update the time step size dt based on the error
+        error = np.abs(fifth_order - fourth_order) # Useful error for the next step
+        b = (35/384 - 5179/57600)*k1 + (500/1113 - 7571/16695)*k3 + (125/192 - 393/640)*k4 - (2187/6784 - 92097/339200)*k5 + (11/84 - 187/2100)*k6 + (1/40)*k7
+        mean_error = np.mean(error)
 
-        self.time_elapsed += dt    # Update how much time has elapsed by adding dt
-
-        return fourth_order
+        return fourth_order, fifth_order
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
@@ -50,8 +53,35 @@ class DislocationSimulation(Simulation):
         for i in range(1,self.timesteps):
             y1_previous = self.y1[i-1]
 
-            y1_i = self.timestep(self.dt,y1_previous)
-            self.y1[i] = y1_i
+            fourth_i, fifth_i = self.timestep(self.dt,y1_previous)
+            self.time_elapsed += self.dt    # Update how much time has elapsed by adding dt
+
+            abstol = 1e-6
+            reltol = 1e-6
+
+            # sc_i = abstol + reltol*max(np.linalg.norm(fourth_i), np.linalg.norm(y1_previous))
+            sc = lambda x : abstol + reltol*max(fourth_i[x], y1_previous[x])
+
+            error = sum([ (    (y5i - y4i)/( sc(n) ) )**2 for n, (y5i, y4i) in enumerate( zip(fifth_i, fourth_i) )])/len(fifth_i)
+            error = np.sqrt(error)
+
+            h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
+
+            min_dt = 0.00078
+            max_dt = 0.5
+
+            if h_opt < min_dt:
+                self.dt = min_dt
+            elif h_opt > max_dt:
+                self.dt = max_dt
+            else:
+                self.dt = h_opt
+            
+            # print(f"Step {i} of {self.timesteps}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
+
+            self.y1[i] = fourth_i
+            self.errors[i] = error # Error of the 4th order solutio
+            self.opt_timesteps.append(self.dt) # Store the optimal timestep for each step
         
         self.has_simulation_been_run = True
     
@@ -77,7 +107,7 @@ class DislocationSimulation(Simulation):
         return np.average(self.y1, axis=1)
     
     def getCM(self):
-        # Return the centres of mass of the two lines as functions of time
+        # Return the centre of mass of the line
         if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
 
@@ -85,7 +115,7 @@ class DislocationSimulation(Simulation):
 
         return y1_CM
     
-    def getRelaxedVelocity(self, time_to_consider=1000):
+    def getRelaxedVelocity(self, time_to_consider):
         if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
         
@@ -132,3 +162,9 @@ class DislocationSimulation(Simulation):
         
         avg = np.average(roughnesses, axis=0)
         return l_range, avg
+    
+    def getErrors(self):
+        return self.errors
+    
+    def getOptTimesteps(self):
+        return self.opt_timesteps
