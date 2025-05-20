@@ -1,6 +1,7 @@
 import numpy as np
 from scipy import fft
 from simulation import Simulation
+from scipy.integrate import solve_ivp
 
 class DislocationSimulation(Simulation):
 
@@ -24,69 +25,26 @@ class DislocationSimulation(Simulation):
             + self.smallB*(self.tau(y1) + self.tau_ext()*np.ones(self.bigN) )
         ) * ( self.bigB/self.smallB )
         return dy1
-
-
-    def timestep(self, dt, y):
-        k1 = self.funktio(y)
-        k2 = self.funktio(y + dt*k1/5)
-        k3 = self.funktio( y + dt*(k1*3/40 + k2*9/40) )
-        k4 = self.funktio( y + dt*(k1*44/45 - k2*56/15 + k3*32/9) )
-        k5 = self.funktio( y + dt*(k1*19372/6561 - k2*25360/2187 + k3*64448/6561 - k4*212/729) )
-        k6 = self.funktio( y + dt*(k1*9017/3168 - k2*355/33 + k3*46732/5247 + k4*49/176 - k5*5103/18656) )
-        k7 = self.funktio( y + dt*(k1*35/384 + k3*500/1113 + k4*125/192 - k5*2187/6784 + k6*11/84) ) # This has been evaluated at the same point as the k1 of the next step
-
+    
+    def rhs(self, t, u_flat : np.ndarray):
+        # Reshape the flat array back to its original shape
+        u = u_flat.reshape(self.bigN)
+                
+        # Compute the right-hand side using the function defined above
+        dudt = np.array(self.funktio(u))
         
-        fifth_order = y + dt*(35/384*k1 + 500/1113*k3 + 125/192*k4 - 2187/6784*k5 + 11/84*k6)
-        fourth_order = y + dt*(5179/57600*k1 + 7571/16695*k3 + 393/640*k4 - 92097/339200*k5 + 187/2100*k6 + 1/40*k7)
-
-        return fourth_order, fifth_order
+        # Flatten the result back to a 1D array
+        return dudt.flatten()
 
     def run_simulation(self):
         y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-        self.y1.append( y0 )
 
-        i = 0
-        while self.time_elapsed <= self.time:
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), vectorized=True, rtol=1e-6, atol=1e-6)
 
-            y1_previous = self.y1[i-1]
+        self.y1 = sol.y.T
 
-            fourth_i, fifth_i = self.timestep(self.dt,y1_previous)
+        self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
 
-            abstol = 1e-6
-            reltol = 1e-6
-
-            # sc_i = abstol + reltol*max(np.linalg.norm(fourth_i), np.linalg.norm(y1_previous))
-            sc = lambda x : abstol + reltol*max(fourth_i[x], y1_previous[x])
-
-            error = sum([ (    (y5i - y4i)/( sc(n) ) )**2 for n, (y5i, y4i) in enumerate( zip(fifth_i, fourth_i) )])/len(fifth_i)
-            error = np.sqrt(error)
-
-            h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
-
-            min_dt = 1e-4
-            max_dt = 5
-
-            if error < 1: # Accept the step and move to the next timestep and adjust the timestep
-                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: accepted")
-                i += 1
-                self.time_elapsed += self.dt
-                self.y1.append(fourth_i)
-                self.errors.append(error)              # Error of the 4th order solution
-                self.used_timesteps.append(self.dt)  # Store the optimal timestep for each step
-            else:   # Reject the step and only reduce the timestep
-                # Error is too big, so we need to reduce the timestep, thus continuing the loop
-                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: rejected")
-                max_dt = 1
-            pass
-
-            if h_opt < min_dt:
-                self.dt = min_dt
-            elif h_opt > max_dt:
-                self.dt = max_dt
-            else:
-                self.dt = h_opt
-        
-        self.y1 = np.array(self.y1) # Convert to numpy array
         self.timesteps = len(self.y1)
         
         self.has_simulation_been_run = True
@@ -94,14 +52,7 @@ class DislocationSimulation(Simulation):
     def getLineProfiles(self, time_to_consider=None):
         start = 0
 
-        avg_dt = np.average(np.array(self.used_timesteps))
-        timesteps = len(self.y1)
-
-        if time_to_consider != None:
-            steps_to_consider = round(time_to_consider / avg_dt)
-            start = timesteps - steps_to_consider
-        if time_to_consider == self.time: # In this case only return the last state
-            start = timesteps - 1
+        start = round(self.timesteps*(1 - 0.3)) # Consider only the last 30% of the simulation
 
         if self.has_simulation_been_run:
             return self.y1[start:]
@@ -133,11 +84,8 @@ class DislocationSimulation(Simulation):
         v1_CM = np.gradient(y1_CM)
 
         # Condisering only time_to_consider seconds from the end
-        dt_average = np.average(np.array(self.used_timesteps))
-        print(dt_average)
 
-        start = round(len(self.used_timesteps) - time_to_consider/dt_average)
-        print(start)
+        start = round(self.timesteps*(1 - 0.1)) # Consider only the last 10% of the simulation
 
         v_relaxed_y1 = np.average(v1_CM[start:])
 
