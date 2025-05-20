@@ -58,21 +58,40 @@ class PartialDislocationsSimulation(Simulation):
         k1_y1 = self.f1(y1, y2)
         k1_y2 = self.f2(y1, y2)
 
-        k2_y1 = self.f1(y1 + dt*k1_y1/2, y2 + dt*k1_y2/2)
-        k2_y2 = self.f2(y1 + dt*k1_y1/2, y2 + dt*k1_y2/2)
+        k2_y1 = self.f1(y1 + dt*k1_y1/5, y2 + dt*k1_y2/5)
+        k2_y2 = self.f2(y1 + dt*k1_y1/5, y2 + dt*k1_y2/5)
 
-        k3_y1 = self.f1(y1 + dt*k2_y1/2, y2 + dt*k2_y2/2)
-        k3_y2 = self.f2(y1 + dt*k2_y1/2, y2 + dt*k2_y2/2)
+        k3_y1 = self.f1( y1 + dt*(k1_y1*3/40 + k2_y1*9/40), y2 + dt*(k1_y2*3/40 + k2_y2*9/40) )
+        k3_y2 = self.f2( y1 + dt*(k1_y1*3/40 + k2_y1*9/40), y2 + dt*(k1_y2*3/40 + k2_y2*9/40) )
 
-        k4_y1 = self.f1(y1 + dt*k3_y1, y2 + dt*k3_y2)
-        k4_y2 = self.f2(y1 + dt*k3_y1, y2 + dt*k3_y2)
+        k4_y1 = self.f1( y1 + dt*(k1_y1*44/45 - k2_y1*56/15 + k3_y1*32/9), y2 + dt*(k1_y2*44/45 - k2_y2*56/15 + k3_y2*32/9) )
+        k4_y2 = self.f2( y1 + dt*(k1_y1*44/45 - k2_y1*56/15 + k3_y1*32/9), y2 + dt*(k1_y2*44/45 - k2_y2*56/15 + k3_y2*32/9) )
 
-        newY1 = y1 + (dt/6)*(k1_y1 + 2*k2_y1 + 2*k3_y1 + k4_y1)
-        newY2 = y2 + (dt/6)*(k1_y2 + 2*k2_y2 + 2*k3_y2 + k4_y2)
+        k5_y1 = self.f1( y1 + dt*(k1_y1*19372/6561 - k2_y1*25360/2187 + k3_y1*64448/6561 - k4_y1*212/729), y2 + dt*(k1_y2*19372/6561 - k2_y2*25360/2187 + k3_y2*64448/6561 - k4_y2*212/729) )
+        k5_y2 = self.f2( y1 + dt*(k1_y1*19372/6561 - k2_y1*25360/2187 + k3_y1*64448/6561 - k4_y1*212/729), y2 + dt*(k1_y2*19372/6561 - k2_y2*25360/2187 + k3_y2*64448/6561 - k4_y2*212/729) )
+
+        k6_y1 = self.f1(y1 + dt*(k1_y1*9017/3168 - k2_y1*355/33 + k3_y1*46732/5247 + k4_y1*49/176 - k5_y1*5103/18656), 
+                        y2 + dt*(k1_y2*9017/3168 - k2_y2*355/33 + k3_y2*46732/5247 + k4_y2*49/176 - k5_y2*5103/18656) )
+        k6_y2 = self.f2(y1 + dt*(k1_y1*9017/3168 - k2_y1*355/33 + k3_y1*46732/5247 + k4_y1*49/176 - k5_y1*5103/18656), 
+                y2 + dt*(k1_y2*9017/3168 - k2_y2*355/33 + k3_y2*46732/5247 + k4_y2*49/176 - k5_y2*5103/18656) )
+
+        k7_y1 = self.f1( y1 + dt*(k1_y1*35/384 + k3_y1*500/1113 + k4_y1*125/192 - k5_y1*2187/6784 + k6_y1*11/84),
+                        y2 + dt*(k1_y2*35/384 + k3_y2*500/1113 + k4_y2*125/192 - k5_y2*2187/6784 + k6_y2*11/84)) # This has been evaluated at the same point as the k1 of the next step
+        k7_y2 = self.f1( y1 + dt*(k1_y1*35/384 + k3_y1*500/1113 + k4_y1*125/192 - k5_y1*2187/6784 + k6_y1*11/84),
+                        y2 + dt*(k1_y2*35/384 + k3_y2*500/1113 + k4_y2*125/192 - k5_y2*2187/6784 + k6_y2*11/84)) # This has been evaluated at the same point as the k1 of the next step
+
+        fourth_order_y1 = y1 + dt*(5179/57600*k1_y1 + 7571/16695*k3_y1 + 393/640*k4_y1 - 92097/339200*k5_y1 + 187/2100*k6_y1 + 1/40*k7_y1)
+        fourth_order_y2 = y2 + dt*(5179/57600*k1_y2 + 7571/16695*k3_y2 + 393/640*k4_y2 - 92097/339200*k5_y2 + 187/2100*k6_y2 + 1/40*k7_y2)
+
+        fifth_order_y1 = y1 + dt*(35/384*k1_y1 + 500/1113*k3_y1 + 125/192*k4_y1 - 2187/6784*k5_y1 + 11/84*k6_y1)
+        fifth_order_y2 = y2 + dt*(35/384*k1_y2 + 500/1113*k3_y2 + 125/192*k4_y2 - 2187/6784*k5_y2 + 11/84*k6_y2)
+
+        error_y1 = np.abs(fifth_order_y1 - fourth_order_y1)
+        error_y2 = np.abs(fifth_order_y2 - fourth_order_y2)
         
         self.time_elapsed += dt    # Update how much time has elapsed by adding dt
 
-        return (newY1, newY2)
+        return (fourth_order_y1, fourth_order_y2)
 
 
     def run_simulation(self):
