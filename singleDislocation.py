@@ -11,9 +11,9 @@ class DislocationSimulation(Simulation):
         self.d0 = d0
         
         # Pre-allocate memory here
-        self.y1 = np.empty((self.timesteps, self.bigN)) # Each timestep is one row, bigN is number of columns
-        self.errors = np.empty(self.timesteps)
-        self.opt_timesteps = list()
+        self.y1 = np.empty((self.timesteps*10, self.bigN)) # Each timestep is one row, bigN is number of columns
+        self.errors = np.empty(self.timesteps*10)
+        self.used_timesteps = [self.dt]
 
         pass
     
@@ -38,23 +38,18 @@ class DislocationSimulation(Simulation):
         fifth_order = y + dt*(35/384*k1 + 500/1113*k3 + 125/192*k4 - 2187/6784*k5 + 11/84*k6)
         fourth_order = y + dt*(5179/57600*k1 + 7571/16695*k3 + 393/640*k4 - 92097/339200*k5 + 187/2100*k6 + 1/40*k7)
 
-        avg_error = np.average(fifth_order - fourth_order) # Error of the 4th order solution
-
-        error = np.abs(fifth_order - fourth_order) # Useful error for the next step
-        b = (35/384 - 5179/57600)*k1 + (500/1113 - 7571/16695)*k3 + (125/192 - 393/640)*k4 - (2187/6784 - 92097/339200)*k5 + (11/84 - 187/2100)*k6 + (1/40)*k7
-        mean_error = np.mean(error)
-
         return fourth_order, fifth_order
 
     def run_simulation(self):
         y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
         self.y1[0] = y10
 
-        for i in range(1,self.timesteps):
+        i = 0
+        while self.time_elapsed <= self.time:
+
             y1_previous = self.y1[i-1]
 
             fourth_i, fifth_i = self.timestep(self.dt,y1_previous)
-            self.time_elapsed += self.dt    # Update how much time has elapsed by adding dt
 
             abstol = 1e-6
             reltol = 1e-6
@@ -67,8 +62,21 @@ class DislocationSimulation(Simulation):
 
             h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
 
-            min_dt = 0.00078
-            max_dt = 0.5
+            min_dt = 1e-5
+            max_dt = 5
+
+
+            if error < 1: # Accept the step and move to the next timestep and adjust the timestep
+                i += 1
+                self.time_elapsed += self.dt
+                self.y1[i] = fourth_i
+                self.errors[i] = error              # Error of the 4th order solution
+                self.used_timesteps.append(self.dt)  # Store the optimal timestep for each step
+                print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
+            else:   # Reject the step and only reduce the timestep
+                # Error is too big, so we need to reduce the timestep, thus continuing the loop
+                print(f"Adjusting Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
+                pass
 
             if h_opt < min_dt:
                 self.dt = min_dt
@@ -77,11 +85,6 @@ class DislocationSimulation(Simulation):
             else:
                 self.dt = h_opt
             
-            # print(f"Step {i} of {self.timesteps}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}")
-
-            self.y1[i] = fourth_i
-            self.errors[i] = error # Error of the 4th order solutio
-            self.opt_timesteps.append(self.dt) # Store the optimal timestep for each step
         
         self.has_simulation_been_run = True
     
@@ -167,4 +170,4 @@ class DislocationSimulation(Simulation):
         return self.errors
     
     def getOptTimesteps(self):
-        return self.opt_timesteps
+        return self.used_timesteps
