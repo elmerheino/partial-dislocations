@@ -15,7 +15,7 @@ class DislocationSimulation(Simulation):
         #self.y1 = np.empty((self.timesteps*10, self.bigN)) # Each timestep is one row, bigN is number of columns
         self.y1 = list() # List of arrays
         self.errors = list()
-        self.used_timesteps = [self.dt] # it should be that len(y1) = len(used_timesteps)
+        self.used_timesteps = 0
 
         pass
     
@@ -39,7 +39,8 @@ class DislocationSimulation(Simulation):
     def run_simulation(self):
         y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), vectorized=True, rtol=1e-6, atol=1e-6)
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), vectorized=True, 
+                        rtol=1e-2, atol=1e-2)
 
         self.y1 = sol.y.T
 
