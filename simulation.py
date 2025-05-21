@@ -27,7 +27,7 @@ class Simulation(object):
         self.tauExt = tauExt
 
         self.time_elapsed = 0                   # The time elapsed since the beginning of simulation in seconds
-        self.tau_cutoff = self.time/3           # Time when tau is switched on in seconds
+        self.tau_cutoff = self.time/10          # Time when tau is switched on in seconds, (e.g. 10% of the simulation time)
 
         self.seed = seed
         if seed != None:
