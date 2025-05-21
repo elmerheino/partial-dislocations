@@ -1,6 +1,6 @@
 import numpy as np
 from simulation import Simulation
-
+from scipy.integrate import solve_ivp
 class PartialDislocationsSimulation(Simulation):
 
     def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, cLT2=2, d0=40, c_gamma=50, seed=None):
@@ -36,123 +36,53 @@ class PartialDislocationsSimulation(Simulation):
         numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
         return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
 
-    def f1(self, y1,y2):
+    def f1(self, y1,y2, t):
         dy = ( 
             self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
             + self.b_p*self.tau(y1) # The random stress term
             + self.force1(y1, y2) # Interaction force
-            + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) # The external stress term
+            + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
 
         return dy
 
-    def f2(self, y1,y2):
+    def f2(self, y1,y2,t):
         dy = ( 
             self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
             + self.b_p*self.tau(y2) 
             + self.force2(y1, y2)
-            + (self.smallB/2)*self.tau_ext()*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
+            + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
 
         return dy
-
-    def timestep(self, dt, y1,y2):
-
-        k1_y1 = self.f1(y1, y2)
-        k1_y2 = self.f2(y1, y2)
-
-        k2_y1 = self.f1(y1 + dt*k1_y1/5, y2 + dt*k1_y2/5)
-        k2_y2 = self.f2(y1 + dt*k1_y1/5, y2 + dt*k1_y2/5)
-
-        k3_y1 = self.f1( y1 + dt*(k1_y1*3/40 + k2_y1*9/40), y2 + dt*(k1_y2*3/40 + k2_y2*9/40) )
-        k3_y2 = self.f2( y1 + dt*(k1_y1*3/40 + k2_y1*9/40), y2 + dt*(k1_y2*3/40 + k2_y2*9/40) )
-
-        k4_y1 = self.f1( y1 + dt*(k1_y1*44/45 - k2_y1*56/15 + k3_y1*32/9), y2 + dt*(k1_y2*44/45 - k2_y2*56/15 + k3_y2*32/9) )
-        k4_y2 = self.f2( y1 + dt*(k1_y1*44/45 - k2_y1*56/15 + k3_y1*32/9), y2 + dt*(k1_y2*44/45 - k2_y2*56/15 + k3_y2*32/9) )
-
-        k5_y1 = self.f1( y1 + dt*(k1_y1*19372/6561 - k2_y1*25360/2187 + k3_y1*64448/6561 - k4_y1*212/729), y2 + dt*(k1_y2*19372/6561 - k2_y2*25360/2187 + k3_y2*64448/6561 - k4_y2*212/729) )
-        k5_y2 = self.f2( y1 + dt*(k1_y1*19372/6561 - k2_y1*25360/2187 + k3_y1*64448/6561 - k4_y1*212/729), y2 + dt*(k1_y2*19372/6561 - k2_y2*25360/2187 + k3_y2*64448/6561 - k4_y2*212/729) )
-
-        k6_y1 = self.f1(y1 + dt*(k1_y1*9017/3168 - k2_y1*355/33 + k3_y1*46732/5247 + k4_y1*49/176 - k5_y1*5103/18656), 
-                        y2 + dt*(k1_y2*9017/3168 - k2_y2*355/33 + k3_y2*46732/5247 + k4_y2*49/176 - k5_y2*5103/18656) )
-        k6_y2 = self.f2(y1 + dt*(k1_y1*9017/3168 - k2_y1*355/33 + k3_y1*46732/5247 + k4_y1*49/176 - k5_y1*5103/18656), 
-                y2 + dt*(k1_y2*9017/3168 - k2_y2*355/33 + k3_y2*46732/5247 + k4_y2*49/176 - k5_y2*5103/18656) )
-
-        k7_y1 = self.f1( y1 + dt*(k1_y1*35/384 + k3_y1*500/1113 + k4_y1*125/192 - k5_y1*2187/6784 + k6_y1*11/84),
-                        y2 + dt*(k1_y2*35/384 + k3_y2*500/1113 + k4_y2*125/192 - k5_y2*2187/6784 + k6_y2*11/84)) # This has been evaluated at the same point as the k1 of the next step
-        k7_y2 = self.f1( y1 + dt*(k1_y1*35/384 + k3_y1*500/1113 + k4_y1*125/192 - k5_y1*2187/6784 + k6_y1*11/84),
-                        y2 + dt*(k1_y2*35/384 + k3_y2*500/1113 + k4_y2*125/192 - k5_y2*2187/6784 + k6_y2*11/84)) # This has been evaluated at the same point as the k1 of the next step
-
-        fourth_order_y1 = y1 + dt*(5179/57600*k1_y1 + 7571/16695*k3_y1 + 393/640*k4_y1 - 92097/339200*k5_y1 + 187/2100*k6_y1 + 1/40*k7_y1)
-        fourth_order_y2 = y2 + dt*(5179/57600*k1_y2 + 7571/16695*k3_y2 + 393/640*k4_y2 - 92097/339200*k5_y2 + 187/2100*k6_y2 + 1/40*k7_y2)
-
-        fifth_order_y1 = y1 + dt*(35/384*k1_y1 + 500/1113*k3_y1 + 125/192*k4_y1 - 2187/6784*k5_y1 + 11/84*k6_y1)
-        fifth_order_y2 = y2 + dt*(35/384*k1_y2 + 500/1113*k3_y2 + 125/192*k4_y2 - 2187/6784*k5_y2 + 11/84*k6_y2)
-
-        return (fourth_order_y1, fifth_order_y1, fourth_order_y2, fifth_order_y2)
-
+    
+    def rhs(self, t, u_flat : np.ndarray):
+        u = u_flat.reshape(2, self.bigN)
+        
+        dudt = np.array([
+            self.f1(u[0], u[1], t), # y1
+            self.f2(u[0], u[1], t)  # y2
+        ])
+        
+        return dudt.flatten()
 
     def run_simulation(self):
-        y10 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-        self.y1.append(y10)
 
-        y20 = np.zeros(self.bigN, dtype=float)
-        self.y2.append(y20)
+        y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        abstol = 1
-        reltol = 1
+        time_evals = np.arange(0,self.time, self.dt)
 
-        time = 0
-        i = 0
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, vectorized=True, rtol=1e-6, atol=1e-6)
 
-        while time <= self.time:
-            y1_previous = self.y1[i-1]
-            y2_previous = self.y2[i-1]
+        sol.y = sol.y.reshape(2, self.bigN, -1) # Reshape the solution to have 2 lines
+        self.y1 = sol.y[0].T
+        self.y2 = sol.y[1].T
 
-            (y1_4th, y1_5th, y2_4th, y2_5th) = self.timestep(self.dt,y1_previous,y2_previous)
+        self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
 
-            sc_y1 = lambda x : abstol + reltol*max(y1_4th[x], y1_previous[x])
-            sc_y2 = lambda x : abstol + reltol*max(y2_4th[x], y2_previous[x])
+        # print(self.y1.shape, self.y2.shape, sol.y.shape)
 
-            error_y1 = sum([ (    (y5i - y4i)/( sc_y1(n) ) )**2 for n, (y5i, y4i) in enumerate( zip(y1_5th, y1_4th) )])/len(y1_5th)
-            error_y1 = np.sqrt(error_y1)
-
-            error_y2 = sum([ (   (y5i - y4i)/( sc_y2(n) )   )**2 for n, (y5i, y4i) in enumerate( zip(y2_5th, y2_4th) )])/len(y2_5th)
-            error_y2 = np.sqrt(error_y2)
-
-            error = max(error_y1, error_y2)
-
-            h_opt = 0.9 * self.dt * (1 / error )**(1/5) # Optimal step size
-
-            min_dt = 0.0001
-            max_dt = 5
-
-            if error < 1:
-                # Accept the step and move to the next timestep and adjust the timestep
-                self.time_elapsed += self.dt
-                self.y1.append(y1_4th)
-                self.y2.append(y2_4th)
-                self.errors.append(error)              # Error of the 4th order solution
-                self.used_timesteps.append(self.dt)
-                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: acceped")
-                i += 1
-                time += self.dt
-            else:
-                # Reject the step and only reduce the timestep
-                # print(f"Step {i}, \t dt = {self.dt:.5f}, \t error = {error:.5f}, \t h_opt = {h_opt:.5f}: rejected")
-                # Sometimes the loop gets stuck in an inifite loop here.
-                max_dt = 1
-            pass
-
-            # Now adjust the timestep
-            if h_opt < min_dt:
-                self.dt = min_dt
-            elif h_opt > max_dt:
-                self.dt = max_dt
-            else:
-                self.dt = h_opt
-        
-        self.y1 = np.array(self.y1) # Convert to numpy array
-        self.y2 = np.array(self.y2) # Convert to numpy array
+        self.y1 = np.array(self.y1)
+        self.y2 = np.array(self.y2)
         self.timesteps = len(self.y1) # Update the number of timesteps
 
         self.has_simulation_been_run = True
@@ -183,7 +113,7 @@ class PartialDislocationsSimulation(Simulation):
 
         if time_to_consider != None:
             steps_to_consider = round(time_to_consider / self.dt)
-            start = self.timesteps - steps_to_consider
+            start = round(self.timesteps*(1-0.1))
         if time_to_consider == self.time: # In this case only return the last state
             start = self.timesteps - 1
 
@@ -219,7 +149,7 @@ class PartialDislocationsSimulation(Simulation):
         vTot_CM = np.gradient(tot_CM)
 
         # Condisering only time_to_consider seconds from the end
-        start = round(self.timesteps - time_to_consider/self.dt)
+        start = round(self.timesteps*(1 - 0.1))
 
         v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
         v_relaxed_y2 = np.average(v2_CM[start:self.timesteps])
@@ -230,7 +160,7 @@ class PartialDislocationsSimulation(Simulation):
     def getAveragedRoughness(self, time_to_consider):
         # Returns the averaged roughness of the two lines from their centre of mass (assuming equal mass distribution)x
         steps_to_consider = round(time_to_consider / self.dt)
-        start = self.timesteps - steps_to_consider
+        start = round(self.timesteps*(1-0.1))
 
         l_range, _ = self.roughnessW((self.y1[0] + self.y2[0])/2, self.bigN)
 

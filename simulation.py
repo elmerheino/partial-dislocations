@@ -47,8 +47,8 @@ class Simulation(object):
 
         return fft.ifft(d_x_hat).real
     
-    def tau_ext(self):
-        if self.time_elapsed >= self.tau_cutoff:
+    def tau_ext(self, time):
+        if time >= self.tau_cutoff:
             return self.tauExt
         else:
             return 0

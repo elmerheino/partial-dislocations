@@ -19,10 +19,10 @@ class DislocationSimulation(Simulation):
 
         pass
     
-    def funktio(self, y1):
+    def funktio(self, y1, t):
         dy1 = (
             self.cLT1*self.mu*(self.smallB**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.smallB*(self.tau(y1) + self.tau_ext()*np.ones(self.bigN) )
+            + self.smallB*(self.tau(y1) + self.tau_ext(t)*np.ones(self.bigN) )
         ) * ( self.bigB/self.smallB )
         return dy1
     
@@ -31,7 +31,7 @@ class DislocationSimulation(Simulation):
         u = u_flat.reshape(self.bigN)
                 
         # Compute the right-hand side using the function defined above
-        dudt = np.array(self.funktio(u))
+        dudt = np.array(self.funktio(u, t))
         
         # Flatten the result back to a 1D array
         return dudt.flatten()
