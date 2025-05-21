@@ -135,7 +135,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
             tau_max_opt = tau_c*1.3
         else:
             tau_c = 1.026 * deltaR**1.255
-            tau_min_opt = tau_c*0.7
+            tau_min_opt = 0
             tau_max_opt = tau_c*1.3
 
         depinning = DepinningPartial(tau_min=tau_min_opt, tau_max=tau_max_opt, points=points,
@@ -203,7 +203,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         tau_max_opt = tau_c*1.5
     else:
         tau_c = 0.736 * deltaR ** 1.280
-        tau_min_opt = tau_c*0.7
+        tau_min_opt = 0
         tau_max_opt = tau_c*1.5
 
     depinning = DepinningSingle(tau_min=tau_min_opt, tau_max=tau_max_opt, points=int(points),
