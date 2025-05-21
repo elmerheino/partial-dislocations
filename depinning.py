@@ -87,6 +87,9 @@ class DepinningPartial(Depinning):
         v1_rel, v2_rel, v_cm, l_ranges, avg_w12s, y1_last, y2_last, params = zip(*self.results)
 
         return v1_rel, v2_rel, v_cm, l_ranges[0], avg_w12s, y1_last, y2_last, params
+    
+    def getStresses(self):
+        return self.stresses
 
 class DepinningSingle(Depinning):
 
@@ -135,3 +138,6 @@ class DepinningSingle(Depinning):
             self.d0, self.seed
         ])
         return parameters
+    
+    def getStresses(self):
+        return self.stresses
