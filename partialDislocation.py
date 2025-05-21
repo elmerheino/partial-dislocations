@@ -71,8 +71,7 @@ class PartialDislocationsSimulation(Simulation):
 
         time_evals = np.arange(0,self.time, self.dt)
 
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, vectorized=True, 
-                        rtol=1e-2, atol=1e-2)
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, vectorized=True)
 
         sol.y = sol.y.reshape(2, self.bigN, -1) # Reshape the solution to have 2 lines
         self.y1 = sol.y[0].T

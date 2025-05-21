@@ -39,8 +39,7 @@ class DislocationSimulation(Simulation):
     def run_simulation(self):
         y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), vectorized=True, 
-                        rtol=1e-2, atol=1e-2)
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), vectorized=True)
 
         self.y1 = sol.y.T
 
