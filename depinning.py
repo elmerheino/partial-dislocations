@@ -133,7 +133,7 @@ class DepinningSingle(Depinning):
     def getParameteters(self):
         parameters = np.array([
             self.bigN, self.length, self.time, self.dt,
-            self.deltaR, self.bigB, self.smallB, self.b_p,
+            self.deltaR, self.bigB, self.smallB,
             self.cLT1, self.mu,
             self.d0, self.seed
         ])
