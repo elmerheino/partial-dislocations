@@ -243,7 +243,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
     # Save all the relaxed dislocaiton profiles at the end of simulation
     for y_i, params in zip(y_last, parameters):
-        tauExt = params[10]
+        tauExt = params[9]
         deltaR_i = params[4]
         p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
         p.mkdir(exist_ok=True, parents=True)

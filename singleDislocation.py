@@ -5,7 +5,7 @@ from scipy.integrate import solve_ivp
 
 class DislocationSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, d0=40):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, d0=10):
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1}
@@ -105,9 +105,9 @@ class DislocationSimulation(Simulation):
     def getParameteters(self):
         parameters = np.array([
             self.bigN, self.length, self.time, self.dt,     # Index 0-3
-            self.deltaR, self.bigB, self.smallB,  # 4 - 7
-            self.cLT1, self.mu, self.tauExt,                # 8 - 10
-            self.d0, self.seed, self.tau_cutoff             # 11 - 13
+            self.deltaR, self.bigB, self.smallB,            # 4 - 6
+            self.cLT1, self.mu, self.tauExt,                # 7 - 9
+            self.d0, self.seed, self.tau_cutoff             # 10 - 12
         ])
         return parameters
 
