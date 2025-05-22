@@ -52,7 +52,13 @@ class DislocationSimulation(Simulation):
     def getLineProfiles(self, time_to_consider=None):
         start = 0
 
-        start = round(self.timesteps*(1 - 0.3)) # Consider only the last 30% of the simulation
+        if time_to_consider != None:
+            ratio = time_to_consider/self.time
+            start = round(self.timesteps*(1-0.1))
+        if time_to_consider == self.time: # In this case only return the last state
+            start = self.timesteps - 1
+        elif time_to_consider == None: # Also return the last state
+            start = self.timesteps - 1
 
         if self.has_simulation_been_run:
             return self.y1[start:]

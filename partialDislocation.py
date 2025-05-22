@@ -112,9 +112,11 @@ class PartialDislocationsSimulation(Simulation):
         start = 0
 
         if time_to_consider != None:
-            steps_to_consider = round(time_to_consider / self.dt)
+            ratio = time_to_consider/self.time
             start = round(self.timesteps*(1-0.1))
         if time_to_consider == self.time: # In this case only return the last state
+            start = self.timesteps - 1
+        elif time_to_consider == None: # Also return the last state
             start = self.timesteps - 1
 
         if self.has_simulation_been_run:
