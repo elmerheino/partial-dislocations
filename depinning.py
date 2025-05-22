@@ -36,7 +36,7 @@ class Depinning(object):
 
 class DepinningPartial(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float = 1.0,
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float,
                  seed=None, bigN=1024, length=1024, d0=39, sequential=False,
                         bigB=1,
                         b_p=0.5773499805, # b_p^2 = a^2 / 6 => b_p^2 = 0.3333333333 => b_p = 0.5773499805
@@ -93,7 +93,7 @@ class DepinningPartial(Depinning):
 
 class DepinningSingle(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float=1.0, seed=None, bigN=1024, length=1024, d0=39, sequential=False,
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float, seed=None, bigN=1024, length=1024, d0=39, sequential=False,
                         bigB=1,
                         smallB=1,    # b^2 = a^2 / 2 = 1
                         mu=1,
