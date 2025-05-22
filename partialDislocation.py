@@ -3,7 +3,7 @@ from simulation import Simulation
 from scipy.integrate import solve_ivp
 class PartialDislocationsSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, cLT2=2, d0=40, c_gamma=50, seed=None):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, cLT2=2, d0=40, c_gamma=50, seed=None, rtol=1e-6):
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} (tension of the two lines)
@@ -19,6 +19,8 @@ class PartialDislocationsSimulation(Simulation):
 
         self.used_timesteps = [self.dt] # List of the used timesteps
         self.errors = list()         # List of the errors
+
+        self.rtol = rtol
         
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
@@ -71,7 +73,7 @@ class PartialDislocationsSimulation(Simulation):
 
         time_evals = np.arange(0,self.time, self.dt)
 
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, vectorized=True)
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, rtol=self.rtol)
 
         sol.y = sol.y.reshape(2, self.bigN, -1) # Reshape the solution to have 2 lines
         self.y1 = sol.y[0].T

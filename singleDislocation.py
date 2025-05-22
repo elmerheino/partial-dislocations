@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from scipy import fft
 from simulation import Simulation
@@ -5,7 +6,7 @@ from scipy.integrate import solve_ivp
 
 class DislocationSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, d0=10):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, d0=10, rtol=1e-6):
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1}
@@ -16,6 +17,7 @@ class DislocationSimulation(Simulation):
         self.y1 = list() # List of arrays
         self.errors = list()
         self.used_timesteps = 0
+        self.rtol = rtol
 
         pass
     
@@ -36,10 +38,12 @@ class DislocationSimulation(Simulation):
         # Flatten the result back to a 1D array
         return dudt.flatten()
 
-    def run_simulation(self):
+    def run_simulation(self, timeit=False):
+        if timeit:
+            t0 = time.time()
         y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), vectorized=True)
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), rtol=self.rtol)
 
         self.y1 = sol.y.T
 
@@ -48,6 +52,10 @@ class DislocationSimulation(Simulation):
         self.timesteps = len(self.y1)
         
         self.has_simulation_been_run = True
+
+        if timeit:
+            t1 = time.time()
+            print(f"Time taken for simulation: {t1 - t0}")
     
     def getLineProfiles(self, time_to_consider=None):
         start = 0
@@ -61,7 +69,7 @@ class DislocationSimulation(Simulation):
             start = self.timesteps - 1
 
         if self.has_simulation_been_run:
-            return self.y1[start:]
+            return self.y1[start:].flatten()
         else:
             raise Exception("Simulation has not been run.")
         

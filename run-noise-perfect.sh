@@ -1,14 +1,17 @@
 #!/bin/bash
-#SBATCH --time=00:30:00
+#SBATCH --time=03:50:00
 #SBATCH --job-name=noise-plot-perfect
 #SBATCH --mem-per-cpu=20G
-#SBATCH --output=noise-plot-perfect.out
+#SBATCH --output=2025-05-22-noise-cm-ivp-perfect.out
 #SBATCH --array=1-1000
 #SBATCH --cpus-per-task=20
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=elmer.heino@aalto.fi
+
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
-NAME=2025-05-21-noise-cm
+NAME=2025-05-22-noise-cm-ivp
 
 CORES=20
 
