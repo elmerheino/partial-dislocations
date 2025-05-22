@@ -71,7 +71,7 @@ class PartialDislocationsSimulation(Simulation):
 
         y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        time_evals = np.arange(0,self.time, self.dt)
+        time_evals = np.arange(self.time*0.9,self.time, self.dt) # Evaluate the solution only from the last 10% of the time every dt
 
         sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, rtol=self.rtol)
 
@@ -89,37 +89,10 @@ class PartialDislocationsSimulation(Simulation):
 
         self.has_simulation_been_run = True
     
-    def run_further(self, new_time:int, new_dt:int = 0.05):
-        # Runs the simulation further in time with a new timestep if need be
-        # self.dt = new_dt
-        # TODO: Implement the possibility to change the timestep
-        raise Exception("Method does not work yet.")
-
-        self.time = self.time + new_time
-        new_timesteps = round(new_time/self.dt)
-
-        for i in range(self.timesteps,self.timesteps+new_timesteps):
-            y1_previous = self.y1[i-1]
-            y2_previous = self.y2[i-1]
-
-            y1_i = self.timestep(self.dt,y1_previous,y2_previous)
-            self.y1[i] = y1_i
-            self.y2[i] = y1_i
-        
-        self.timesteps += new_timesteps # Update the no. of timesteps so that getTValues will function properly
-
-        return 0
-        
-    def getLineProfiles(self, time_to_consider=None):
+    def getLineProfiles(self):
         start = 0
 
-        if time_to_consider != None:
-            ratio = time_to_consider/self.time
-            start = round(self.timesteps*(1-0.1))
-        if time_to_consider == self.time: # In this case only return the last state
-            start = self.timesteps - 1
-        elif time_to_consider == None: # Also return the last state
-            start = self.timesteps - 1
+        start = self.timesteps - 1
 
         if self.has_simulation_been_run:
             return (self.y1[start:], self.y2[start:])
@@ -131,7 +104,7 @@ class PartialDislocationsSimulation(Simulation):
         return np.average(self.y1, axis=1) - np.average(self.y2, axis=1)
     
     def getCM(self):
-        # Return the centres of mass of the two lines as functions of time
+        # Return the centres of mass of the two lines as functions of time (from the last 10% of simulation time)
         if len(self.y1) == 0 or len(self.y2) == 0:
             raise Exception('simulation has probably not been run')
 
@@ -142,7 +115,8 @@ class PartialDislocationsSimulation(Simulation):
 
         return (y1_CM,y2_CM,total_CM)
     
-    def getRelaxedVelocity(self, time_to_consider=1000):
+    def getRelaxedVelocity(self):
+        # Returns the relaxed velocity of the two lines and the total velocity from the last 10% of the simulation time
         if len(self.y1) == 0 or len(self.y2) == 0:
             raise Exception('simulation has probably not been run')
         
@@ -153,21 +127,23 @@ class PartialDislocationsSimulation(Simulation):
         vTot_CM = np.gradient(tot_CM)
 
         # Condisering only time_to_consider seconds from the end
-        start = round(self.timesteps*(1 - 0.1))
+        start = 0
 
-        v_relaxed_y1 = np.average(v1_CM[start:self.timesteps])
-        v_relaxed_y2 = np.average(v2_CM[start:self.timesteps])
-        v_relaxed_tot = np.average(vTot_CM[start:self.timesteps])
+        v_relaxed_y1 = np.mean(v1_CM[start:])
+        v_relaxed_y2 = np.mean(v2_CM[start:])
+        v_relaxed_tot = np.mean(vTot_CM[start:])
 
         return (v_relaxed_y1, v_relaxed_y2, v_relaxed_tot)
     
-    def getAveragedRoughness(self, time_to_consider):
+    def getAveragedRoughness(self):
         # Returns the averaged roughness of the two lines from their centre of mass (assuming equal mass distribution)x
-        start = round(self.timesteps*(1-0.1))
+        # Averages the roughness over the last 10% of the simulation time
+
+        start = 0
 
         l_range, _ = self.roughnessW((self.y1[0] + self.y2[0])/2, self.bigN)
 
-        roughnesses = np.empty((start, self.bigN))
+        roughnesses = np.empty((self.timesteps, self.bigN))
         for i in range(start,self.timesteps):
             centre_of_mass = (self.y1[i] + self.y2[i])/2
             _, rough = self.roughnessW(centre_of_mass, self.bigN)
@@ -183,7 +159,8 @@ class PartialDislocationsSimulation(Simulation):
             self.cLT1, self.cLT2, self.mu, self.tauExt, self.c_gamma,   # Index 8 - 12
             self.d0, self.seed, self.tau_cutoff                         # Index 13 - 15
         ])
-        return parameters    
+        return parameters
+    
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
         # according to Vaid et al. (12)

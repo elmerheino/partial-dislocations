@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=03:50:00
+#SBATCH --time=06:50:00
 #SBATCH --job-name=noise-plot-partial
 #SBATCH --mem-per-cpu=20G
 #SBATCH --output=2025-05-22-noise-cm-ivp-partial.out

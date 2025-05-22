@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=03:50:00
+#SBATCH --time=01:00:00
 #SBATCH --job-name=noise-plot-perfect
 #SBATCH --mem-per-cpu=20G
 #SBATCH --output=2025-05-22-noise-cm-ivp-perfect.out

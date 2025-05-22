@@ -63,10 +63,9 @@ class DepinningPartial(Depinning):
     
         simulation.run_simulation()
 
-        t_to_consider = self.time/10 # TODO: make time to consider a global parameter
-        rV1, rV2, totV2 = simulation.getRelaxedVelocity(time_to_consider=t_to_consider) # The velocities after relaxation
-        y1_last, y2_last = simulation.getLineProfiles(time_to_consider=simulation.time)
-        l_range, avg_w = simulation.getAveragedRoughness(t_to_consider) # Get averaged roughness from the same time as rel velocity
+        rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
+        y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
+        l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
 
         return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, simulation.getParameters())
     
