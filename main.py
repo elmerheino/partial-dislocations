@@ -124,19 +124,19 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         if 0 <= deltaR < 0.1: 
             tau_min_opt = 0
             tau_c = 5.244 * deltaR**2.166
-            tau_max_opt = tau_c*3
+            tau_max_opt = tau_c*4
         elif 0.1 <= deltaR < 1.0:
             tau_min_opt = 0
             tau_c = 0.946 * deltaR**1.381
-            tau_max_opt = tau_c*3
+            tau_max_opt = tau_c*4
         elif 1.0 <= deltaR <= 10:
             tau_c = 1.999 * deltaR**1.262
             tau_min_opt = 0
-            tau_max_opt = tau_c*3
+            tau_max_opt = tau_c*4
         else:
             tau_c = 1.999 * deltaR**1.262
             tau_min_opt = 0
-            tau_max_opt = tau_c*3
+            tau_max_opt = tau_c*4
 
         depinning = DepinningPartial(tau_min=tau_min_opt, tau_max=tau_max_opt, points=points,
                     time=time, dt=timestep, seed=seed,
@@ -192,19 +192,19 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     if 0 < deltaR < 0.1:
         tau_c = 1.113 * deltaR**1.595
         tau_min_opt = 0
-        tau_max_opt = tau_c*3
+        tau_max_opt = tau_c*4
     elif 0.1 <= deltaR < 1.0:
         tau_c =  0.688 * deltaR ** 1.374
         tau_min_opt = 0
-        tau_max_opt = tau_c*3
+        tau_max_opt = tau_c*4
     elif 1.0 <= deltaR <= 10:
         tau_c = 0.746 * deltaR ** 1.256
         tau_min_opt = 0
-        tau_max_opt = tau_c*3
+        tau_max_opt = tau_c*4
     else:
         tau_c = 0.746 * deltaR ** 1.256
         tau_min_opt = 0
-        tau_max_opt = tau_c*3
+        tau_max_opt = tau_c*4
 
     depinning = DepinningSingle(tau_min=tau_min_opt, tau_max=tau_max_opt, points=int(points),
                 time=float(time), dt=float(timestep), seed=seed, 
