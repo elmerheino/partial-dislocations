@@ -1,12 +1,14 @@
 #!/bin/bash
-#SBATCH --time=03:00:00
-#SBATCH --job-name=perfect-mini
+#SBATCH --time=01:30:00
+#SBATCH --job-name=partial-mini
 #SBATCH --mem-per-cpu=2G
 #SBATCH --output=2025-05-23-miniajo-partial.out
 #SBATCH --array=1-100
 #SBATCH --cpus-per-task=20
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=elmer.heino@aalto.fi
+
+# Kannattaa aloittaa ajaminen 30min ajalla, ja ne jotka timeouttaa niin sitten 1h 30 min menee läpi
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE

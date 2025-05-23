@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --time=00:30:00
 #SBATCH --job-name=perfect-mini
-#SBATCH --mem-per-cpu=20G
+#SBATCH --mem-per-cpu=3G
 #SBATCH --output=2025-05-23-miniajo-perfect.out
 #SBATCH --array=1-100
 #SBATCH --cpus-per-task=20
