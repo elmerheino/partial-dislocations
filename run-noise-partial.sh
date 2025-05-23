@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=01:30:00
+#SBATCH --time=03:00:00
 #SBATCH --job-name=partial-mini
 #SBATCH --mem-per-cpu=2G
 #SBATCH --output=2025-05-23-miniajo-partial.out
@@ -29,5 +29,5 @@ TIME=10000
 DT=0.1
 
 # Job step partial dislocation
-srun python3 main.py -p 20 -dt ${DT} -t ${TIME} --partial -f ${WRKDIR}/${NAME}/partial-dislocation -c ${CORES} \
+srun python3 main.py -p 40 -dt ${DT} -t ${TIME} --partial -f ${WRKDIR}/${NAME}/partial-dislocation -c ${CORES} \
     grid --array-task-id ${SLURM_ARRAY_TASK_ID} --rmin ${NOISE_MIN} --rmax ${NOISE_MAX} --array-length ${ARRAY_LEN} --seeds ${SEEDS}
