@@ -117,6 +117,7 @@ class DepinningSingle(Depinning):
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")
             error_log = Path(self.folder_name).joinpath("nans_or_infs.txt")
+            error_log.parent.mkdir(parents=True, exist_ok=True)
             
             if error_log.exists():
                 with open(error_log, 'a') as f:
