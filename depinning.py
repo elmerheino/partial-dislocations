@@ -96,16 +96,17 @@ class DepinningSingle(Depinning):
                         bigB=1,
                         smallB=1,    # b^2 = a^2 / 2 = 1
                         mu=1,
-                        cLT1=1
+                        cLT1=1, rtol=1e-6
                 ):
 
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
         self.cLT1 = cLT1
+        self.rtol = rtol
 
     def studyConstantStress(self, tauExt):
         sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
-                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed)
+                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
 
         sim.run_simulation()
         t_to_consider = self.time/10
