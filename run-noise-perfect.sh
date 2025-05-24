@@ -11,7 +11,7 @@
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
-NAME=2025-05-23-miniajo
+NAME=2025-05-25-miniajo
 
 CORES=20
 
@@ -19,7 +19,7 @@ CORES=20
 module load scicomp-python-env
 
 NOISE_MIN=-2
-NOISE_MAX=1
+NOISE_MAX=2
 
 ARRAY_LEN=100   # SEEDS*NOISES=ARRAY_LEN for a square grid
 SEEDS=1         # Seed count is array-max/noise points
