@@ -49,6 +49,7 @@ class DislocationSimulation(Simulation):
 
         self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
 
+        self.y1 = np.array(self.y1) # Convert to numpy array
         self.timesteps = len(self.y1)
         
         self.has_simulation_been_run = True

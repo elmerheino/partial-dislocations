@@ -96,22 +96,35 @@ class DepinningSingle(Depinning):
                         bigB=1,
                         smallB=1,    # b^2 = a^2 / 2 = 1
                         mu=1,
-                        cLT1=1
+                        cLT1=1, rtol=1e-6
                 ):
 
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
         self.cLT1 = cLT1
+        self.rtol = rtol
 
     def studyConstantStress(self, tauExt):
         sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
-                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed)
+                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
 
         sim.run_simulation()
         t_to_consider = self.time/10
         v_rel = sim.getRelaxedVelocity(time_to_consider=t_to_consider) # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles(sim.time)
         l_range, avg_w = sim.getAveragedRoughness(self.time/10) # Get averaged roughness from the last 10% of time
+
+        if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
+            print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")
+            error_log = Path(self.folder_name).joinpath("nans_or_infs.txt")
+            error_log.parent.mkdir(parents=True, exist_ok=True)
+            
+            if error_log.exists():
+                with open(error_log, 'a') as f:
+                    f.write(f"{tauExt}\t{self.deltaR} \n")
+            else:
+                with open(error_log, 'w') as f:
+                    f.write(f"{tauExt}\t{self.deltaR} \n")
 
         return v_rel, l_range, avg_w, y_last, sim.getParameteters()
 
