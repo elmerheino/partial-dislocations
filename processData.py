@@ -168,9 +168,10 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     noises = noises[sorted_args]
     
     plt.figure(figsize=(linewidth/2, linewidth/2))
-    plt.scatter(noises, tau_c_means, marker='x', label="data", color='blue', linewidths=0.5, s=50)
-    plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
-    plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
+    # plt.scatter(noises, tau_c_means, marker='x', label="data", color='blue', linewidths=0.5, s=50)
+    plt.scatter(noises, tau_c_means, marker='x', color='blue', linewidths=0.5, s=50)
+    # plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
+    # plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
 
     data_perfect = np.array(list(zip(noises, tau_c_means)))
     sorted_args = np.argsort(data_perfect[:,0])
@@ -194,7 +195,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
 
     # Fit power law to second region of data
     try:
-        region1_end = np.where(data_perfect[:,0] > 1)[0][0]
+        region1_end = np.where(data_perfect[:,0] > 10)[0][0]
         x = data_perfect[region1_index:region1_end,0]
         y = data_perfect[region1_index:region1_end,1]
         fit_params, pcov = optimize.curve_fit(
@@ -226,9 +227,11 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
-    plt.title(f"Noise magnitude and external force for perfect dislocation")
+
+    plt.title(f"Perfect dislocation")
     plt.xlabel("$\\Delta R$")
     plt.ylabel("$ \\tau_c $")
+
     plt.legend()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
@@ -478,32 +481,27 @@ if __name__ == "__main__":
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
 
-        partial_data = normalizedDepinnings(
-            results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
-            save_folder=results_root.joinpath("partial-dislocation/normalized-plots")
-        )
+        try:
+            partial_data = normalizedDepinnings(
+                results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
+                save_folder=results_root.joinpath("partial-dislocation/normalized-plots")
+            )
+        except FileNotFoundError:
+            print("No partial dislocation depinning dumps found. Skipping partial depinning normalization.")
+            partial_data = {}
         
-        non_partial_data = normalizedDepinnings(
-            results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
-            save_folder=results_root.joinpath("single-dislocation/normalized-plots")
-        )
+        try:
+            non_partial_data = normalizedDepinnings(
+                results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
+                save_folder=results_root.joinpath("single-dislocation/normalized-plots")
+            )
+        except FileNotFoundError:
+            print("No perfect dislocation depinning dumps found. Skipping perfect depinning normalization.")
+            non_partial_data = {}
 
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
             json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
         
-        # partial_data_opt = normalizedDepinnings(
-        #     results_root.joinpath("partial-dislocation").joinpath("optimal-depinning-dumps"),
-        #     save_folder=results_root.joinpath("partial-dislocation/normalized-plots-opt")
-        # )
-        
-        # non_partial_data_opt = normalizedDepinnings(
-        #     results_root.joinpath("single-dislocation").joinpath("optimal-depinning-dumps"),
-        #     save_folder=results_root.joinpath("single-dislocation/normalized-plots-opt")
-        # )
-
-        # with open(Path(results_root).joinpath("global_data_dump_opt.json"), "w") as fp:
-        #     json.dump({"perfect_data":non_partial_data_opt, "partial_data":partial_data_opt}, fp, indent=2)
-
     if parsed.all or parsed.binning:
         p = Path(results_root).joinpath("global_data_dump.json")
 
@@ -517,13 +515,23 @@ if __name__ == "__main__":
 
     if parsed.all or parsed.noise:
         Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
-        makePartialNoisePlot(Path(parsed.folder), 
-            Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png")
-        )
-        makePerfectNoisePlot(Path(parsed.folder), 
-            Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.png")
-        )
-        makeCommonNoisePlot(Path(parsed.folder))
+        try:
+            makePartialNoisePlot(Path(parsed.folder), 
+                Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png")
+            )
+        except FileNotFoundError:
+            print("No partial dislocation depinning dumps found. Skipping partial noise plot.")
+
+        try:
+            makePerfectNoisePlot(Path(parsed.folder), 
+                Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.png")
+            )
+        except FileNotFoundError:
+            print("No perfect dislocation depinning dumps found. Skipping perfect noise plot.")
+        try:    
+            makeCommonNoisePlot(Path(parsed.folder))
+        except FileNotFoundError:
+            print("No depinning dumps found. Skipping common noise plot.")
         
     if parsed.rearrange or parsed.all:
         rearrangeRoughnessDataByTau(parsed.folder)
