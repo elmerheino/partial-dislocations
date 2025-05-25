@@ -96,7 +96,7 @@ class DepinningSingle(Depinning):
                         bigB=1,
                         smallB=1,    # b^2 = a^2 / 2 = 1
                         mu=1,
-                        cLT1=1, rtol=1e-6
+                        cLT1=1, rtol=1e-8
                 ):
 
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)

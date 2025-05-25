@@ -3,7 +3,7 @@ from simulation import Simulation
 from scipy.integrate import solve_ivp
 class PartialDislocationsSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, cLT2=2, d0=40, c_gamma=50, seed=None, rtol=1e-6):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, cLT2=2, d0=40, c_gamma=50, seed=None, rtol=1e-8):
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} (tension of the two lines)
