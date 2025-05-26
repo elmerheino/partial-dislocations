@@ -1,6 +1,5 @@
 import time
 import numpy as np
-from scipy import fft
 from simulation import Simulation
 from scipy.integrate import solve_ivp
 
@@ -43,7 +42,9 @@ class DislocationSimulation(Simulation):
             t0 = time.time()
         y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=np.arange(0,self.time, self.dt), rtol=self.rtol, atol=1e-10) # Use a very small atol to avoid NaNs in the solution
+        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', 
+                        t_eval=np.arange(self.time*(1 - 0.1), self.time, self.dt),
+                        rtol=self.rtol, atol=1e-10) # Use a very small atol to avoid NaNs in the solution
 
         self.y1 = sol.y.T
 
@@ -58,16 +59,11 @@ class DislocationSimulation(Simulation):
             t1 = time.time()
             print(f"Time taken for simulation: {t1 - t0}")
     
-    def getLineProfiles(self, time_to_consider=None):
+    def getLineProfiles(self):
         start = 0
 
-        if time_to_consider != None:
-            ratio = time_to_consider/self.time
-            start = round(self.timesteps*(1-0.1))
-        if time_to_consider == self.time: # In this case only return the last state
-            start = self.timesteps - 1
-        elif time_to_consider == None: # Also return the last state
-            start = self.timesteps - 1
+        start = self.timesteps - 1
+        # Otherwise return the last 10% of the simulation
 
         if self.has_simulation_been_run:
             return self.y1[start:].flatten()
@@ -90,7 +86,7 @@ class DislocationSimulation(Simulation):
 
         return y1_CM
     
-    def getRelaxedVelocity(self, time_to_consider):
+    def getRelaxedVelocity(self):
         if len(self.y1) == 0:
             raise Exception('simulation has probably not been run')
         
@@ -100,7 +96,7 @@ class DislocationSimulation(Simulation):
 
         # Condisering only time_to_consider seconds from the end
 
-        start = round(self.timesteps*(1 - 0.1)) # Consider only the last 10% of the simulation
+        start = 0 # Consider only the last 10% of the simulation
 
         v_relaxed_y1 = np.average(v1_CM[start:])
 
@@ -125,12 +121,12 @@ class DislocationSimulation(Simulation):
         ])
         return parameters
 
-    def getAveragedRoughness(self, time_to_consider):
-        start = round(self.timesteps*(1 - 0.1)) # Consider only the last 10% of the simulation
+    def getAveragedRoughness(self):
+        start = 0 # Consider only the last 10% of the simulation
 
         l_range, _ = self.roughnessW(self.y1[0], self.bigN)
 
-        roughnesses = np.empty((start, self.bigN))
+        roughnesses = np.empty((self.timesteps, self.bigN))
         for i in range(start,self.timesteps):
             _, rough = self.roughnessW(self.y1[i], self.bigN)
             roughnesses[i-start] = rough

@@ -109,10 +109,9 @@ class DepinningSingle(Depinning):
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
 
         sim.run_simulation()
-        t_to_consider = self.time/10
-        v_rel = sim.getRelaxedVelocity(time_to_consider=t_to_consider) # Consider last 10% of time to get relaxed velocity.
-        y_last = sim.getLineProfiles(sim.time)
-        l_range, avg_w = sim.getAveragedRoughness(self.time/10) # Get averaged roughness from the last 10% of time
+        v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
+        y_last = sim.getLineProfiles()
+        l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
 
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")
