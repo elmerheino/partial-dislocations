@@ -161,9 +161,21 @@ def makeAvgRoughnessPlots(root_dir):
     # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
     # for partial dislocations
 
-    makePerfectRoughnessPlots(root_dir)
-    makePartialRoughnessPlots(root_dir)
-    analyzeRoughnessFitParamteters(root_dir)
+    try:
+    
+        makePerfectRoughnessPlots(root_dir)
+    except FileNotFoundError:
+        print("No perfect roughness data skipping.")
+
+    try:
+        makePartialRoughnessPlots(root_dir)
+    except FileNotFoundError:
+        print("No partial roighness data skipping.")
+
+    try:
+        analyzeRoughnessFitParamteters(root_dir)
+    except FileNotFoundError:
+        print("No roughness fit parameters data skipping.")
     
     pass
 
@@ -178,7 +190,7 @@ def loadRoughnessDataPerfect(f1, root_dir):
     save_path = Path(root_dir)
     save_path = save_path.joinpath("roughness-non-partial").joinpath(f"noise-{deltaR:.4f}/seed-{seed}")
     save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+    save_path = save_path.joinpath(f"avg-roughness-tau-{tauExt}.png")
 
     tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlotPerfect(l_range, avg_w, params, save_path)
 
