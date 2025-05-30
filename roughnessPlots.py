@@ -8,6 +8,9 @@ from scipy import optimize, stats
 from functools import partial
 from numba import jit
 import math
+from sklearn.linear_model import LinearRegression
+
+linewidth = 5.59164
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
@@ -173,31 +176,46 @@ def find_fit_interval(l_range, avg_w, l_0_range, save_path : Path, tauExt):
 def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-    # Make a piecewise fit on all data
-    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
-                                                                            1.1, # zeta
-                                                                            4.1 ], maxfev=1600) # cutoff
-    c, zeta_piecewise, cutoff_piecewise = fit_params
-    k = c*(cutoff_piecewise**zeta_piecewise)
 
-    ynew = roughness_fit(l_range, *fit_params)
+    if np.isnan(avg_w).any() or np.isinf(avg_w).any():
+        print("avg_w contains NaN or Inf values. Skipping this plot.")
+        return (tauExt, seed, np.nan, np.nan, np.nan, np.nan)
 
-    # Make an exponential plot to only part of data.
+    if np.isnan(l_range).any() or np.isinf(l_range).any():
+        print("l_range contains NaN or Inf values. Skipping this plot.")
+        return (tauExt, seed, np.nan, np.nan, np.nan, np.nan)
+
+    # Make an exponential plot to only the first decade of data.
 
     l_0_range = np.linspace(np.exp(1),np.exp(4), 50) # not logarithmic here! from log(1) to log(4) This is the range where different fits are tried.
     n_selected, last_exp, zeta, c = find_fit_interval(l_range, avg_w, l_0_range, save_path, tauExt)
 
-    # Now make the actual plot with suitable fit
     plt.clf()
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(linewidth/2,linewidth/2))
 
     plt.scatter(l_range, avg_w, label="$W$", marker="x") # Plot the data as is
-    # plt.plot(l_range, ynew, label="piecewise fit", color="blue") # Plot the piecewise fit
 
-    exp_l = l_range[:last_exp]
-    ynew_exp = exp_beheavior(exp_l, c, zeta)
+    # Make exponential plot to first 10% of data.
 
-    plt.plot(exp_l, ynew_exp, label=f"$ \\log (L) \\leq {np.log(l_0_range[n_selected]):.2f} $  fit with $\\zeta = $ {zeta:.3f}", color="red")
+    start = 1
+    end = 10
+    end = round(end)
+
+    dekadi_l = l_range[start:end]
+    dekadi_w = avg_w[start:end]
+
+    x = np.log(dekadi_l)
+    y = np.log(dekadi_w)
+
+    # Use scipy.stats.linregress for linear regression
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+    c = np.exp(intercept)
+    zeta = slope
+
+    y_pred = x*slope + intercept
+
+    plt.plot(dekadi_l, np.exp(y_pred), label="linear regression", color="green")
 
     # Now find out the constant behavior from N/4 < L < 3N/4
 
@@ -212,18 +230,6 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     new_c = np.ones(len(const_l))*fit_c_range
 
     plt.plot(const_l, new_c, label=f"N/4 < L < 3N/4", color="orange")
-
-    # Take the constant from the piecewise cutoff
-    start = int(round(cutoff_piecewise))
-
-    const_l = l_range[start:]
-    const_w = avg_w[start:]
-
-    fit_c_piecewise, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5], maxfev=1600)
-    
-    new_c = np.ones(len(const_l))*fit_c_piecewise
-
-    # plt.plot(const_l, new_c, label=f"log(L) > {np.log(start):.3f}", color="magenta")
 
     # Next find out the transition point between power law and constant behavior
 
@@ -240,7 +246,7 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     dahsed_y = np.ones(10)*fit_c_range
     plt.plot(dashed_x, dahsed_y, linestyle="dashed", color="grey")
 
-    dashed_x = np.linspace(last_exp, change_p, 10)
+    dashed_x = np.linspace(10, change_p, 10)
     dahsed_y = exp_beheavior(dashed_x, c, zeta)
     plt.plot(dashed_x, dahsed_y, linestyle="dashed", color="grey")
 
@@ -251,7 +257,7 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
     plt.ylabel("$\\log(W_(L))$")
-    plt.legend()
+    # plt.legend()
 
     plt.savefig(save_path, dpi=300)
     plt.close()
@@ -275,7 +281,7 @@ def loadRoughnessDataPerfect(f1, root_dir):
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
-def makePerfectRoughnessPlots(root_dir, test=True):
+def makePerfectRoughnessPlots(root_dir, test=False):
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
 
     roughnesses_perfect = dict()
