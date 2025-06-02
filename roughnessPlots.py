@@ -42,8 +42,12 @@ def analyzeRoughnessFitParamteters(root_dir):
     # TODO: also analyze the partial dislocation fit parameters
     with open(Path(root_dir).joinpath("roughness_perfect.json"), "r") as fp:
         roughnesses_np = json.load(fp)
-    with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
-        roughnesses_partial = json.load(fp)
+    
+    try:
+        with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
+            roughnesses_partial = json.load(fp)
+    except:
+        print(f"No partial data")
     
     for noise in roughnesses_np.keys():
         plt.clf()
@@ -343,42 +347,32 @@ def extractRoughnessExponent(l_range, avg_w, params):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     # Make a piecewise fit on all data
-    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w, p0=[1.1, # C
-                                                                            1.1, # zeta
-                                                                            4.1 ]) # cutoff
-    c, zeta_piecewise, cutoff_piecewise = fit_params
-    k = c*(cutoff_piecewise**zeta_piecewise)
+    # Make exponential plot to first 10% of data.
 
-    ynew = roughness_fit(l_range, *fit_params)
+    dekadi_l = l_range[1:10]
+    dekadi_w = avg_w[1:10]
 
-    # Make an exponential fit to only part of data.
-    l_0_range = np.linspace(np.exp(1),np.exp(4), 50) # not logarithmic here! from log(1) to log(4)
-    zetas = np.empty(50)
-    c_values = np.empty(50)
+    x = np.log(dekadi_l)
+    y = np.log(dekadi_w)
 
-    for n, l_i in enumerate(l_0_range):
-        last = np.argmax(l_range > l_i)
-        # print(f"n : {n} l_i : {l_i} last : {last}")
+    # Use scipy.stats.linregress for linear regression
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
 
-        exp_l_i = l_range[:last]
-        exp_w_i = avg_w[:last]
+    c = np.exp(intercept)
+    zeta = slope
 
-        exp_fit_p, pcov = optimize.curve_fit(exp_beheavior, exp_l_i, exp_w_i, p0 = [1.1, 1.1], maxfev=1600)
-        c, zeta = exp_fit_p
-        ynew_exp = exp_beheavior(exp_l_i, *exp_fit_p)
+    # Find out constant behavior and the transition point
 
-        zetas[n] = zeta
-        c_values[n] = c
-    
-    # Select zeta that is 10% at most smaller than initial zeta
-    target_zeta = zetas[0]*(1-0.10)  # TODO: check this more closely, there might be something wrong.
-    n_selected = np.argmax(zetas < target_zeta)
+    start = int(round(len(l_range)/4))
+    end = int(round(3*len(l_range)/4 ))
 
-    last_exp = np.argmax(l_range > l_0_range[n_selected])
-    exp_l = l_range[:last_exp]
+    const_l = l_range[start:end]
+    const_w = avg_w[start:end]
 
-    c, zeta = c_values[n_selected], zetas[n_selected]
-    ynew_exp = exp_beheavior(exp_l, c, zeta)
+    fit_c_range, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+
+
+    change_p = (fit_c_range / c)**(1/zeta)
 
     return c, zeta
 

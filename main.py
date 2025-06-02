@@ -8,6 +8,44 @@ from processData import velocity_fit
 
 save_plots = False      # Don't save any images of figures. Still saves all data as dumps.
 
+# Lin reg estimate of computation time Slope: 1.4898538219363706, Intercept: 12.094264464286042, R-squared: 0.8882330544771728
+# time = 12.094264464286042 + 1.4898538219363706*noise
+
+def time_est(noise):
+    """
+    Estimate the time it takes to run a simulation based on the noise value.
+    Returns the esimated time in minutes.
+    """
+    slope = 2.0401
+    intercept = 7.4381
+    return intercept + slope * noise
+
+def time_est_partial(noise):
+    """
+    Returns a time estimate for a run at this noise with 20 cores and 4G per core in minutes.
+    
+    """
+    return 22.08 * np.log(noise + 0.03) + 124.33 + 20 # +20 just to be safe
+
+def map_id_to_grid(array_task_id, seeds, array_length):
+    task_id = array_task_id
+    cols = seeds
+    arr_max = array_length
+
+    no_of_rows = arr_max // cols
+
+    row = task_id // cols   # Let this be noise
+    col = task_id % cols    # Let this be the seed
+
+    seed = col
+
+    print(f"seed : {seed} row : {row} col : {col} no of rows : {no_of_rows}")
+
+    interval = np.logspace(-3,3, no_of_rows) # Number of points is determined from seed count and array len
+    deltaR = interval[row - 1] # Map the passed slurm index to a value
+
+    return deltaR
+
 def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int,
                 time : int, timestep : float, points, cores : int, partial : bool,
                 folder, sequential = False):
