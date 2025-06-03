@@ -5,6 +5,7 @@ from depinning import *
 import json
 from scipy import optimize
 from processData import velocity_fit
+import hashlib
 
 save_plots = False      # Don't save any images of figures. Still saves all data as dumps.
 
@@ -288,6 +289,29 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt}-R-{deltaR}.npz")
         np.savez(p0, y=y_i, parameters=params)
 
+def run_single_partial_dislocation(tau_ext, noise, time, dt, save_folder : Path):
+    print(f"Running dislocation with parameters tau_ext={tau_ext}, noise={noise}, time={time}, dt={dt}, save_folder={save_folder}")
+    dislocation = PartialDislocationsSimulation(
+    1024, 1024, time, dt, noise, 1, 1, 0.5773499805, 1, tau_ext,
+    cLT1=1, cLT2=1, d0=10, c_gamma=1, seed=1, rtol=1e-9
+    )
+    dislocation.run_simulation(evaluate_from=1)
+
+    # Use the getParameters() method to obtain the parameters for hashing
+    params_list = dislocation.getParameters()
+    params_tuple = tuple(params_list)
+
+    # Convert the tuple to a string and encode it
+    params_str = repr(params_tuple).encode('utf-8')
+    # Create a SHA256 hash
+    unique_hash = hashlib.sha256(params_str).hexdigest()
+    print(f"Unique hash for dislocation parameters: {unique_hash}")
+
+    save_pahth = Path(save_folder).joinpath(f"dislocation-{unique_hash}.npz")
+    save_pahth.parent.mkdir(exist_ok=True, parents=True)
+    np.savez(save_pahth, y1=dislocation.y1, y2=dislocation.y2, parameters=params_list)
+    pass
+
 if __name__ == "__main__":
     parser = ArgumentParser(prog="Dislocation simulation")
     subparsers = parser.add_subparsers(help="Do a grid search on noise or just a single depinning.", dest="command")
@@ -320,6 +344,11 @@ if __name__ == "__main__":
     pinning_parser.add_argument('-s', '--seed', help='Specify seed for the individual depinning study. If not specified, seed will be randomized between stresses.', required=True, type=int)
     pinning_parser.add_argument("-R", "--delta-r", help='Index of random noise from triton.', default=1.0, type=float)
 
+    single_parser = subparsers.add_parser("single")
+
+    single_parser.add_argument("-R", "--noise", help="External noise of the simulation", type=float)
+    single_parser.add_argument("-m", "--tau-ext", help="External force on the dislocation", type=float)
+
     parsed = parser.parse_args()
     
     if parsed.command == "grid":
@@ -340,5 +369,7 @@ if __name__ == "__main__":
             perfect_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
                                           parsed.folder, parsed.seq)
         pass
+    elif parsed.command == "single":
+        run_single_partial_dislocation(parsed.tau_ext, parsed.noise, parsed.time, parsed.timestep, parsed.folder)
 
     pass

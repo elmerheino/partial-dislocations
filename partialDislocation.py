@@ -67,11 +67,11 @@ class PartialDislocationsSimulation(Simulation):
         
         return dudt.flatten()
 
-    def run_simulation(self):
+    def run_simulation(self, evaluate_from=0.1):                                # By default only evaluate from the last 10 % of simulation time
 
         y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
-        time_evals = np.arange(self.time*0.9,self.time, self.dt) # Evaluate the solution only from the last 10% of the time every dt
+        time_evals = np.arange(self.time*(1 - evaluate_from),self.time, self.dt) # Evaluate the solution only from the last 10% of the time every dt
 
         sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, rtol=self.rtol)
 
