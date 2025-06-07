@@ -481,22 +481,26 @@ if __name__ == "__main__":
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
 
-        try:
-            partial_data = normalizedDepinnings(
-                results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
-                save_folder=results_root.joinpath("partial-dislocation/normalized-plots")
-            )
-        except FileNotFoundError:
-            print("No partial dislocation depinning dumps found. Skipping partial depinning normalization.")
-            partial_data = {}
+        # try:
+        partial_data = normalizedDepinnings(
+            results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
+            plot_save_folder=results_root.joinpath("partial-dislocation/normalized-plots"),
+            data_save_path=results_root.joinpath("noise-data/partial-noises.csv")
+        )
+        # except Exception as e:
+            # print("No partial dislocation depinning dumps found. Skipping partial depinning normalization.")
+            # print(e)
+            # partial_data = {}
         
         try:
             non_partial_data = normalizedDepinnings(
                 results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
-                save_folder=results_root.joinpath("single-dislocation/normalized-plots")
+                plot_save_folder=results_root.joinpath("single-dislocation/normalized-plots"),
+                data_save_path=results_root.joinpath("noise-data/perfect-noises.csv")
             )
-        except FileNotFoundError:
+        except Exception as e:
             print("No perfect dislocation depinning dumps found. Skipping perfect depinning normalization.")
+            print(e)
             non_partial_data = {}
 
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
@@ -516,11 +520,12 @@ if __name__ == "__main__":
     if parsed.all or parsed.noise:
         Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
         try:
-            makePartialNoisePlot(Path(parsed.folder), 
+            makePartialNoisePlot(Path(parsed.folder),
                 Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png")
             )
-        except FileNotFoundError:
+        except Exception as e:
             print("No partial dislocation depinning dumps found. Skipping partial noise plot.")
+            print(e)
 
         try:
             makePerfectNoisePlot(Path(parsed.folder), 

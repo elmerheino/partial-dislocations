@@ -4,17 +4,18 @@ import json
 from pathlib import Path
 from scipy import stats, optimize
 from functools import partial
+import csv
 
 def velocity_fit(tau_ext, tau_crit, beta, a):
     v_res = np.empty(len(tau_ext))
     for n,tau in enumerate(tau_ext):
         if tau > tau_crit:
             v_res[n] = a*(tau - tau_crit)**beta
-        else:
+        elif tau < tau_crit:
             v_res[n] = 0
     return v_res
 
-def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=False):
+def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_save_path : Path, optimized=False, seed_count = 10):
     """
     Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
     save the tau_c values for each noise in a json file. The veclocities are normalized
@@ -26,42 +27,53 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
     # Collect all values of tau_c
 
     tau_c = dict()
+    fit_errors = dict()
 
     # Collect all datapoints for binning
 
     data_perfect = dict()
+
+    tau_c_csv = list()
 
     for noise_path in depinning_path.iterdir():
         if not noise_path.is_dir():
             continue
         noise = noise_path.name.split("-")[1]
 
-        tau_c[noise] = list()
+        truncated_key = str(f"{float(noise):.6f}") # Using 6 decimal places, minimum to distinguish values from np.logspace(-3,3,100)
 
-        data_perfect[noise] = list()
+        if truncated_key not in tau_c:
+            tau_c[truncated_key] = list()
+        if truncated_key not in fit_errors:
+            fit_errors[truncated_key] = list()
+        if truncated_key not in data_perfect:
+            data_perfect[truncated_key] = list()
 
         for fpath in noise_path.iterdir():
-            with open(fpath, "r") as fp:
-                depinning = json.load(fp)
-            
+            try:
+                with open(fpath, "r") as fp:
+                    depinning = json.load(fp)
+            except Exception as e:
+                print(f"Failed to load file {fpath} with exception {e}")
             tauExt = depinning["stresses"]
             vCm = depinning["v_rel"]
             seed = depinning["seed"]
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
 
-            try:
-                fit_params, pcov = optimize.curve_fit(velocity_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
-                                                                            0.9,          # beta
-                                                                            0.9           # a
-                                                                            ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=1600)
-            except:
-                print(f"Could not find fit w/ perfect dislocation noise : {noise} seed : {seed}")
-                continue
+            fit_params, pcov = optimize.curve_fit(velocity_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
+                                                                        0.7,          # beta
+                                                                        0.9           # A
+                                                                        ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=1600)
+            # Calculate mean squared error for the fit
+            v_fit = velocity_fit(tauExt, *fit_params)
+            mse = np.mean((vCm - v_fit)**2)
 
             tauCrit, beta, a = fit_params
 
-            tau_c[noise].append(tauCrit)
+            tau_c[truncated_key].append(tauCrit)
+
+            fit_errors[truncated_key].append(mse)
 
             xnew = np.linspace(min(tauExt), max(tauExt), 100)
             ynew = velocity_fit(xnew, *fit_params)
@@ -73,7 +85,7 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
             # Scale the fit x-axis as well
             xnew = (xnew - tauCrit)/tauCrit
 
-            data_perfect[noise] += zip(x,y)
+            data_perfect[truncated_key] += zip(x,y)
 
             plt.clf()
             plt.figure(figsize=(8,8))
@@ -84,13 +96,42 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
             plt.ylabel("$v_{{cm}}$")
             plt.legend()
 
-            p = save_folder.joinpath(f"noise-{noise}")
+            p = plot_save_folder.joinpath(f"noise-{truncated_key}")
             p.mkdir(exist_ok=True, parents=True)
             plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
             plt.close()
     
-    with open(save_folder.joinpath("tau_c.json"), "w") as fp:
-        json.dump(tau_c, fp)
+    k = 10  # This should equal the no of realizations of noise in the data
+
+    tau_c_csv.clear()
+
+    for truncated_key in tau_c.keys():
+        current_tau_crits = list(tau_c.get(truncated_key, []))
+        current_fit_errors = list(fit_errors.get(truncated_key, []))
+
+        if len(current_tau_crits) < k:
+            current_tau_crits.extend([None] * (k - len(current_tau_crits)))
+        elif len(current_tau_crits) > k:
+            current_tau_crits = current_tau_crits[:k]
+
+        if len(current_fit_errors) < k:
+            current_fit_errors.extend([None] * (k - len(current_fit_errors)))
+        elif len(current_fit_errors) > k:
+            current_fit_errors = current_fit_errors[:k]
+
+        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors
+        tau_c_csv.append(compiled_row)
+
+    tau_c_csv.sort(key=lambda row: float(row[0]))
+
+    data_save_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(data_save_path, "w") as fp:
+        writer = csv.writer(fp)
+        # Write header
+        header = ["noise"] + [f"tau_c_{i+1}" for i in range(k)] + [f"mse_{i+1}" for i in range(k)]
+        writer.writerow(header)
+        # Write data rows
+        writer.writerows(tau_c_csv)
 
     return data_perfect
 
