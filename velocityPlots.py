@@ -15,7 +15,7 @@ def velocity_fit(tau_ext, tau_crit, beta, a):
             v_res[n] = 0
     return v_res
 
-def normalizedDepinnings(depinning_path : Path, save_folder : Path, h5root="debug-dict/partial-dislocation/",optimized=False):
+def normalizedDepinnings(depinning_path : Path, save_folder : Path, h5path="debug-dict/partial-dislocation/partial-dislocation.h5",optimized=False):
     """
     Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
     save the tau_c values for each noise in a json file. The veclocities are normalized
@@ -25,8 +25,6 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, h5root="debu
 
     # Make such plots for a single dislocation first
     # Collect all values of tau_c
-
-    h5path = Path(h5root).joinpath("testfile.h5")
 
     tau_c = dict()
 

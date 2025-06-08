@@ -50,7 +50,7 @@ def map_id_to_grid(array_task_id, seeds, array_length):
 
 def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int,
                 time : int, timestep : float, points, cores : int, partial : bool,
-                folder, h5path, sequential = False):
+                folder, sequential = False):
     # k = time.time()
 
     # estimate = (time/timestep)*1024*2*4*1e-6
@@ -85,8 +85,26 @@ def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int
         cores = cores
 
     if partial:
+        h5path = Path(folder).joinpath("partial-dislocation.h5")
+        h5path.parent.mkdir(exist_ok=True, parents=True)
+        if not h5path.exists():
+            with h5py.File(h5path, 'w') as f:
+
+                f.require_group("depinnings")
+                f.require_group("roughnesses")
+                f.require_group("dislocations-at-end")
+
         partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, h5path, sequential)
     elif not partial:
+        h5path = Path(folder).joinpath("perfect-dislocation.h5")
+        h5path.parent.mkdir(exist_ok=True, parents=True)
+        if not h5path.exists():
+            with h5py.File(h5path, 'w') as f:
+
+                f.require_group("depinnings")
+                f.require_group("roughnesses")
+                f.require_group("dislocations-at-end")
+
         perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, h5path, sequential)
     else:
         raise Exception("Not specified which type of dislocation must be simulated.")
@@ -260,43 +278,49 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     
     vcm, l_range, roughnesses, y_last, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
 
-    # Save the results to a .json file
-    depining_path = Path(folder)
-    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR}")
-    depining_path.mkdir(exist_ok=True, parents=True)
-
     tau_min_ = min(depinning.stresses.tolist())
     tau_max_ = max(depinning.stresses.tolist())
     points = len(depinning.stresses.tolist())
-    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR}.json")
-    with open(str(depining_path), 'w') as fp:
-        json.dump({
-            "stresses":depinning.stresses.tolist(),
-            "v_rel":vcm,
-            "seed":depinning.seed,
-            "time":depinning.time,
-            "dt":depinning.dt
-        },fp)
+
+    with h5py.File(h5path, 'a') as f:
+        group = f"depinnings/noise-{deltaR}/seed-{seed}"
+        f.require_group(group)
+        f[group].create_dataset('stresses', data=depinning.stresses)
+        f[group].create_dataset('v_rel', data=vcm)
+        f[group].attrs['seed'] = depinning.seed
+        f[group].attrs['time'] = depinning.time
+        f[group].attrs['dt'] = depinning.dt
+        f[group].attrs['points'] = points
+        f[group].attrs['tau-min'] = tau_min_
+        f[group].attrs['tau-max'] = tau_max_
+        f[group].attrs['delta-R'] = deltaR
+        pass
 
     # Save all the roughnesses
     for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
+        tauExt_i = params[9]
         deltaR_i = params[4]
-        p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
-        p.mkdir(exist_ok=True, parents=True)
-        p = p.joinpath(f"roughness-tau-{tau}-R-{deltaR_i}.npz")
-        
-        np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
 
-        pass
+        with h5py.File(h5path, 'a') as f:
+            group = f"roughnesses/noise-{deltaR}/seed-{depinning.seed}"
+            f.require_group(group)
+            f[group].create_dataset(f'tau-{tauExt_i}', data=avg_w)
+            f[group][f'tau-{tauExt_i}'].attrs['deltaR'] = deltaR_i
+            f[group][f'tau-{tauExt_i}'].attrs['parameters'] = params
+            pass
 
     # Save all the relaxed dislocaiton profiles at the end of simulation
     for y_i, params in zip(y_last, parameters):
-        tauExt = params[9]
+        tauExt_i = params[9]
         deltaR_i = params[4]
-        p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
-        p.mkdir(exist_ok=True, parents=True)
-        p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt}-R-{deltaR}.npz")
-        np.savez(p0, y=y_i, parameters=params)
+
+        with h5py.File(h5path, 'a') as f:
+            group = f"dislocations-at-end/noise-{deltaR}/seed-{depinning.seed}"
+            f.require_group(group)
+            f[group].create_dataset(f'tau-{tauExt_i}', data=y_i)
+            f[group][f'tau-{tauExt_i}'].attrs['deltaR'] = deltaR_i
+            f[group][f'tau-{tauExt_i}'].attrs['parameters'] = params
+            pass
 
 def run_single_partial_dislocation(tau_ext, noise, time, dt, save_folder : Path):
     print(f"Running dislocation with parameters tau_ext={tau_ext}, noise={noise}, time={time}, dt={dt}, save_folder={save_folder}")
@@ -360,17 +384,6 @@ if __name__ == "__main__":
 
     parsed = parser.parse_args()
 
-    h5path = Path(parsed.folder)
-    h5path.mkdir(exist_ok=True, parents=True)
-    h5path = h5path.joinpath("testfile.h5")
-
-    if not h5path.exists():
-        with h5py.File(h5path, 'w') as f:
-
-            f.require_group("depinnings")
-            f.require_group("roughnesses")
-            f.require_group("dislocations-at-end")
-    
     if parsed.command == "grid":
         partial_ = None
 
@@ -379,15 +392,15 @@ if __name__ == "__main__":
         elif parsed.single:
             partial_ = False
 
-        grid_search(parsed.rmin, parsed.rmax, parsed.array_task_id, parsed.seeds, parsed.array_length, parsed.time, parsed.timestep, parsed.points, parsed.cores, partial_, parsed.folder, h5path,
+        grid_search(parsed.rmin, parsed.rmax, parsed.array_task_id, parsed.seeds, parsed.array_length, parsed.time, parsed.timestep, parsed.points, parsed.cores, partial_, parsed.folder,
                     parsed.seq)
     elif parsed.command == "pinning":
         if parsed.partial:
             partial_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
-                                          parsed.folder, parsed.seq)
+                                          parsed.folder, Path(parsed.folder).joinpath("perfect-dislocation/partial.h5"), parsed.seq)
         if parsed.single:
             perfect_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
-                                          parsed.folder, parsed.seq)
+                                          parsed.folder, Path(parsed.folder).joinpath("perfect-dislocation/perfect.h5"), parsed.seq)
         pass
     elif parsed.command == "single":
         run_single_partial_dislocation(parsed.tau_ext, parsed.noise, parsed.time, parsed.timestep, parsed.folder)

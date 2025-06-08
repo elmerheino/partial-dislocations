@@ -484,7 +484,8 @@ if __name__ == "__main__":
         try:
             partial_data = normalizedDepinnings(
                 results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
-                save_folder=results_root.joinpath("partial-dislocation/normalized-plots")
+                save_folder=results_root.joinpath("partial-dislocation/normalized-plots"),
+                h5path=results_root.joinpath("partial-dislocation/partial-dislocation.h5")
             )
         except FileNotFoundError:
             print("No partial dislocation depinning dumps found. Skipping partial depinning normalization.")
@@ -493,7 +494,8 @@ if __name__ == "__main__":
         try:
             non_partial_data = normalizedDepinnings(
                 results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
-                save_folder=results_root.joinpath("single-dislocation/normalized-plots")
+                save_folder=results_root.joinpath("single-dislocation/normalized-plots"),
+                h5path=results_root.joinpath("single-dislocation/perfect-dislocation.h5")
             )
         except FileNotFoundError:
             print("No perfect dislocation depinning dumps found. Skipping perfect depinning normalization.")

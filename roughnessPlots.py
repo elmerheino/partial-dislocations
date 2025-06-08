@@ -13,6 +13,33 @@ import h5py
 
 linewidth = 5.59164
 
+def makeAvgRoughnessPlots(root_dir):
+    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
+    # for partial dislocations
+
+    try:
+        makePerfectRoughnessPlots(
+            Path(root_dir).joinpath("single-dislocation/perfect-dislocation.h5"),
+            Path(root_dir).joinpath("single-dislocation/roughness-plots")
+        )
+    except FileNotFoundError:
+        print("No perfect roughness data skipping.")
+
+    try:
+        makePartialRoughnessPlots(
+            Path(root_dir).joinpath("partial-dislocation/partial-dislocation.h5"),
+            Path(root_dir).joinpath("partial-dislocation/roughness-plots")
+            )
+    except FileNotFoundError:
+        print("No partial roighness data skipping.")
+
+    try:
+        analyzeRoughnessFitParamteters(root_dir)
+    except FileNotFoundError:
+        print("No roughness fit parameters data skipping.")
+    
+    pass
+
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
         p = Path(root_dir).joinpath(dislocation_dir)
@@ -93,13 +120,11 @@ def analyzeRoughnessFitParamteters(root_dir):
         plt.close()
 
 
-def makePartialRoughnessPlots(root_dir):
-    root_path = Path(root_dir)
-    file_path = root_path.joinpath("partial-dislocation/testfile.h5")
+def makePartialRoughnessPlots(h5path, root_dir):
 
     roughnesses_partial = dict()
 
-    with h5py.File(file_path, 'r') as hf:
+    with h5py.File(h5path, 'r') as hf:
         roughness_group = hf["roughnesses"]
         for noise_key in roughness_group.keys():
             noise_group = roughness_group[noise_key]
@@ -125,7 +150,7 @@ def makePartialRoughnessPlots(root_dir):
                     params = tau_group.attrs["parameters"]
                     
                     p = Path(root_dir)
-                    p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
+                    p = p.joinpath(f"seed-{seed}")
                     p.mkdir(parents=True, exist_ok=True)
                     p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
 
@@ -300,63 +325,52 @@ def loadRoughnessDataPerfect(f1, root_dir):
 
     return (tauExt, seed, c, zeta, cutoff, k)
 
-def makePerfectRoughnessPlots(root_dir, test=False):
-    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
-
+def makePerfectRoughnessPlots(h5path, root_dir):
     roughnesses_perfect = dict()
 
-    for n,noise_folder in enumerate([s for s in p.iterdir() if s.is_dir()]):
-        noise_val = noise_folder.name.split("-")[1]
+    with h5py.File(h5path, 'r') as hf:
+        roughness_group = hf["roughnesses"]
+        for noise_key in roughness_group.keys():
+            noise_group = roughness_group[noise_key]
+            noise_val = noise_key.split("-")[1]
 
-        roughnesses_np_noise = {
-            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-            "cutoff" : list(), "k":list()
-        }
+            roughnesses_np_noise = {
+                "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+                "cutoff" : list(), "k":list()
+            }
 
-        if not n % 10 == 0 and test:
-            continue
+            for seed_key in noise_group.keys():
+                seed_group = noise_group[seed_key]
+                seed = int(seed_key.split("-")[1])
+                
+                print(f"Making roughness plots for noise {noise_val} seed {seed}")
 
-        for seed_folder in noise_folder.iterdir():
-            seed = int(seed_folder.stem.split("-")[1])
-            if seed != 0 and test:
-                continue
-            print(f"Making roughness plots for noise {noise_val} seed {seed}")
+                for tau_key in seed_group.keys():
+                    tau_group = seed_group[tau_key]
+                    tauExt = float(tau_key.split("-")[1])
 
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(loadRoughnessDataPerfect, root_dir=root_dir), seed_folder.iterdir())
-                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-                roughnesses_np_noise["tauExt"] += tauExt
-                roughnesses_np_noise["seed"] += seed_r
-                roughnesses_np_noise["c"] += c
-                roughnesses_np_noise["zeta"] += zeta
-                roughnesses_np_noise["cutoff"] += cutoff
-                roughnesses_np_noise["k"] += k
-        
-        roughnesses_perfect[noise_val] = roughnesses_np_noise
+                    avg_w = tau_group[:]
+                    l_range = np.arange(len(avg_w))
+                    params = tau_group.attrs["parameters"]
+                    
+                    p = Path(root_dir)
+                    p = p.joinpath(f"seed-{seed}")
+                    p.mkdir(parents=True, exist_ok=True)
+                    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+
+                    tauExt_r, seed_r, c, zeta, cutoff, k = makeRoughnessPlotPerfect(l_range, avg_w, params, p)
+
+                    roughnesses_np_noise["tauExt"].append(tauExt_r)
+                    roughnesses_np_noise["seed"].append(seed_r)
+                    roughnesses_np_noise["c"].append(c)
+                    roughnesses_np_noise["zeta"].append(zeta)
+                    roughnesses_np_noise["cutoff"].append(cutoff)
+                    roughnesses_np_noise["k"].append(k)
+            
+            roughnesses_perfect[noise_val] = roughnesses_np_noise
         
     with open(Path(root_dir).joinpath("roughness_perfect.json"), "w") as fp:
         json.dump(roughnesses_perfect, fp)
-
-def makeAvgRoughnessPlots(root_dir):
-    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
-    # for partial dislocations
-
-    try:
-        makePerfectRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No perfect roughness data skipping.")
-
-    try:
-        makePartialRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No partial roighness data skipping.")
-
-    try:
-        analyzeRoughnessFitParamteters(root_dir)
-    except FileNotFoundError:
-        print("No roughness fit parameters data skipping.")
-    
-    pass
 
 def extractRoughnessExponent(l_range, avg_w, params):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
@@ -403,14 +417,14 @@ def multiprocessing_helper(f1, root_dir):
     return  (deltaR, tauExt, seed, c, zeta)
 
 
-def makeRoughnessExponentDataset(root_dir, h5root="debug-dict/partial-dislocation/"):
+def makeRoughnessExponentDataset(root_dir, h5root="debug-dict/single-dislocation/"):
     # Make a dataset of roughness exponents for all noise levels
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
     data = list() # List of tuples (noise, tau_ext, seed, c, zeta)
 
     progess = 0
 
-    h5_path = Path(h5root).joinpath("testfile.h5")
+    h5_path = Path(h5root).joinpath("perfect-dislocation.h5")
 
     with h5py.File(h5_path, "r") as hf:
         roughness_group = hf["roughnesses"]
@@ -432,7 +446,7 @@ def makeRoughnessExponentDataset(root_dir, h5root="debug-dict/partial-dislocatio
 
                     c, zeta, change_p = extractRoughnessExponent(l_range, avg_w, params)
                     # TODO: resolve error mismatch in params array length when using for partial dislocation data
-                    data.append((noise, tauExt, seed, c, zeta, change_p))
+                    data.append([np.float64(noise), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(change_p)])
                     progess += 1
                     print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
         
@@ -671,11 +685,4 @@ def extractRoughnessFromLast(root_dir):
     pass
 
 if __name__ == "__main__":
-    # root_dir = Path("/home/niklas/Projects/Dislocation-Depinning-Model/roughness-data")
-    # makeAvgRoughnessPlots(root_dir)
-    # makeRoughnessExponentDataset(root_dir)
-    # averageRoughnessBySeed(root_dir)
-    # makeRoughnessExponentDataset("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # processExponentData("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # extractRoughnessFromLast("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
     pass
