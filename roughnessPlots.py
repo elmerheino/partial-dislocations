@@ -9,6 +9,7 @@ from functools import partial
 from numba import jit
 import math
 from sklearn.linear_model import LinearRegression
+import h5py
 
 linewidth = 5.59164
 
@@ -93,38 +94,52 @@ def analyzeRoughnessFitParamteters(root_dir):
 
 
 def makePartialRoughnessPlots(root_dir):
-    p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
+    root_path = Path(root_dir)
+    file_path = root_path.joinpath("partial-dislocation/testfile.h5")
 
     roughnesses_partial = dict()
 
-    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
+    with h5py.File(file_path, 'r') as hf:
+        roughness_group = hf["roughnesses"]
+        for noise_key in roughness_group.keys():
+            noise_group = roughness_group[noise_key]
+            noise_val = noise_key.split("-")[1]
 
-        noise_val = noise_folder.name.split("-")[1]
+            roughnesses_partial_noise = {
+                "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+                "cutoff" : list(), "k":list()
+            }
 
-        roughnesses_partial_noise = {
-            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-            "cutoff" : list(), "k":list()
-        }
+            for seed_key in noise_group.keys():
+                seed_group = noise_group[seed_key]
+                seed = int(seed_key.split("-")[1])
+                
+                print(f"Making roughness plots for noise {noise_val} seed {seed}")
 
-        for seed_folder in noise_folder.iterdir():
-            seed = int(seed_folder.stem.split("-")[1])
-            # if seed != 0:
-            #     continue
-            print(f"Making roughness plots for noise {noise_val} seed {seed}")
+                for tau_key in seed_group.keys():
+                    tau_group = seed_group[tau_key]
+                    tauExt = float(tau_key.split("-")[1])
 
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(loadRoughnessData_partial, root_dir=root_dir), seed_folder.iterdir())
-                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-                roughnesses_partial_noise["tauExt"] += tauExt
-                roughnesses_partial_noise["seed"] += seed_r
-                roughnesses_partial_noise["c"] += c
-                roughnesses_partial_noise["zeta"] += zeta
-                roughnesses_partial_noise["cutoff"] += cutoff
-                roughnesses_partial_noise["k"] += k
-        
-        roughnesses_partial[noise_val] = roughnesses_partial_noise
+                    avg_w12 = tau_group[:]
+                    l_range = np.arange(len(avg_w12))
+                    params = tau_group.attrs["parameters"]
+                    
+                    p = Path(root_dir)
+                    p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
+                    p.mkdir(parents=True, exist_ok=True)
+                    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
 
-    
+                    tauExt_r, seed_r, c, zeta, cutoff, k = makeRoughnessPlot_partial(l_range, avg_w12, params, p)
+
+                    roughnesses_partial_noise["tauExt"].append(tauExt_r)
+                    roughnesses_partial_noise["seed"].append(seed_r)
+                    roughnesses_partial_noise["c"].append(c)
+                    roughnesses_partial_noise["zeta"].append(zeta)
+                    roughnesses_partial_noise["cutoff"].append(cutoff)
+                    roughnesses_partial_noise["k"].append(k)
+            
+            roughnesses_partial[noise_val] = roughnesses_partial_noise
+
     with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
         json.dump(roughnesses_partial, fp)
 
@@ -374,7 +389,7 @@ def extractRoughnessExponent(l_range, avg_w, params):
 
     change_p = (fit_c_range / c)**(1/zeta)
 
-    return c, zeta
+    return c, zeta, change_p
 
 def multiprocessing_helper(f1, root_dir):
     loaded = np.load(f1)
@@ -388,43 +403,46 @@ def multiprocessing_helper(f1, root_dir):
     return  (deltaR, tauExt, seed, c, zeta)
 
 
-def makeRoughnessExponentDataset(root_dir):
+def makeRoughnessExponentDataset(root_dir, h5root="debug-dict/partial-dislocation/"):
     # Make a dataset of roughness exponents for all noise levels
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
     data = list() # List of tuples (noise, tau_ext, seed, c, zeta)
 
     progess = 0
 
-    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
-        noise = noise_folder.name.split("-")[1]
+    h5_path = Path(h5root).joinpath("testfile.h5")
 
-        for seed_folder in noise_folder.iterdir():
-            seed = int(seed_folder.stem.split("-")[1])
-            print(f"Extracting params from data with noise {noise} and seed {seed}")
+    with h5py.File(h5_path, "r") as hf:
+        roughness_group = hf["roughnesses"]
+        for noise_key in roughness_group.keys():
+            noise = float(noise_key.split("-")[1])
+            noise_group = roughness_group[noise_key]
 
-            # Sequential loading
+            for seed_key in noise_group.keys():
+                seed = int(seed_key.split("-")[1])
+                seed_group = noise_group[seed_key]
 
-            # for file_path in seed_folder.iterdir():
-            #     loaded = np.load(file_path)
-            #     params = loaded["parameters"]
-            #     avg_w = loaded["avg_w"]
-            #     l_range = loaded["l_range"]
-            #     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+                for tau_key in seed_group.keys():
+                    tauExt = float(tau_key.split("-")[1])
+                    tau_group = seed_group[tau_key]
 
-            #     c, zeta = extractRoughnessExponent(l_range, avg_w, params)
-            #     data.append((noise, tauExt, seed, c, zeta))
-            #     progess += 1
-            #     print(f"Progress: {progess}/1000*100")
+                    avg_w = tau_group[:]
+                    l_range = np.arange(len(avg_w))
+                    params = tau_group.attrs["parameters"]
 
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(multiprocessing_helper, root_dir=root_dir), seed_folder.iterdir())
-                data += results
-                progess += len(results)
-                print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
-    
+                    c, zeta, change_p = extractRoughnessExponent(l_range, avg_w, params)
+                    # TODO: resolve error mismatch in params array length when using for partial dislocation data
+                    data.append((noise, tauExt, seed, c, zeta, change_p))
+                    progess += 1
+                    print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
+        
     # Save the data to a file
     data = np.array(data)
-    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta"])
+    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "transition-point"])
+
+    # Save the data to a csv file
+    header = "noise;tau-ext;seed;c;zeta;transition-point\n"
+    np.savetxt(Path(root_dir).joinpath("roughness_exponents.csv"), data, delimiter=";", header=header, fmt='%s', comments='')
 
 def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt

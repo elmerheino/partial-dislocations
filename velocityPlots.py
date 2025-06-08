@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from scipy import stats, optimize
 from functools import partial
+import h5py
 
 def velocity_fit(tau_ext, tau_crit, beta, a):
     v_res = np.empty(len(tau_ext))
@@ -14,7 +15,7 @@ def velocity_fit(tau_ext, tau_crit, beta, a):
             v_res[n] = 0
     return v_res
 
-def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=False):
+def normalizedDepinnings(depinning_path : Path, save_folder : Path, h5root="debug-dict/partial-dislocation/",optimized=False):
     """
     Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
     save the tau_c values for each noise in a json file. The veclocities are normalized
@@ -25,28 +26,29 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
     # Make such plots for a single dislocation first
     # Collect all values of tau_c
 
+    h5path = Path(h5root).joinpath("testfile.h5")
+
     tau_c = dict()
 
     # Collect all datapoints for binning
 
     data_perfect = dict()
 
-    for noise_path in depinning_path.iterdir():
-        if not noise_path.is_dir():
-            continue
-        noise = noise_path.name.split("-")[1]
+    h5_file = h5py.File(h5path, "r")
+
+    for noise_group in h5_file["depinnings"].keys():
+        noise = noise_group.split("-")[1]
 
         tau_c[noise] = list()
 
         data_perfect[noise] = list()
 
-        for fpath in noise_path.iterdir():
-            with open(fpath, "r") as fp:
-                depinning = json.load(fp)
+        for seed_group in h5_file["depinnings"][noise_group].keys():
+            depinning = h5_file["depinnings"][noise_group][seed_group]
             
-            tauExt = depinning["stresses"]
+            tauExt = depinning["stresses"][:]
             vCm = depinning["v_rel"]
-            seed = depinning["seed"]
+            seed = depinning.attrs["seed"]
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
 
@@ -187,26 +189,22 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
     partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/depinning-dumps")
     perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/depinning-dumps")
 
-    if opt:
-        partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/optimal-depinning-dumps")
-        perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/optimal-depinning-dumps")
+    # First load the data from the h5 file
+    
+    h5_file_partial = h5py.File(Path(dir_path).joinpath("partial-dislocation/testfile.h5"), "r")
 
-    for noise_dir in partial_depinning_path.iterdir():
-        if not noise_dir.is_dir():
-            continue
-        noise = noise_dir.name.split("-")[1]
-        velocities = list()
+    # Partial dislocations
+    for noise_group in h5_file_partial["depinnings"].keys():
+        velocities = []
         stresses = None
-        seed = None
-        for depining_file in noise_dir.iterdir():
-            with open(depining_file, "r") as fp:
-                loaded = json.load(fp)
-                stresses = loaded["stresses"]
-                velocities.append(loaded["v_rel"])
-            pass
+        for seed_group in h5_file_partial["depinnings"][noise_group].keys():
+            velocities.append(h5_file_partial["depinnings"][noise_group][seed_group]["v_rel"][:])
+            stresses = h5_file_partial["depinnings"][noise_group][seed_group]["stresses"][:]
 
         x = np.array(stresses)
         y = np.average(np.array(velocities), axis=0)
+
+        noise = noise_group.split("-")[1]
 
         plt.clf()
         plt.figure(figsize=(8,8))
@@ -218,42 +216,6 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         plt.ylabel("$v_{CM}$")
 
         dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/noise-{noise}")
-        dest.mkdir(parents=True, exist_ok=True)
-        if opt:
-            plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
-        else:
-            plt.savefig(dest.joinpath(f"depinning-noise.png"))
-        pass
-        plt.close()
-
-    for noise_dir in perfect_depinning_path.iterdir():
-        if not noise_dir.is_dir():
-            continue
-
-        noise = noise_dir.name.split("-")[1]
-        velocities = list()
-        stresses = None
-        seed = None
-        for depining_file in noise_dir.iterdir():
-            with open(depining_file, "r") as fp:
-                loaded = json.load(fp)
-                stresses = loaded["stresses"]
-                velocities.append(loaded["v_rel"])
-            pass
-
-        x = np.array(stresses)
-        y = np.average(np.array(velocities), axis=0)
-
-        plt.clf()
-        plt.figure(figsize=(8,8))
-
-        plt.scatter(x,y, marker="x")
-
-        plt.title(f"Depinning noise = {noise}")
-        plt.xlabel("$\\tau_{ext}$")
-        plt.ylabel("$v_{CM}$")
-
-        dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
         dest.mkdir(parents=True, exist_ok=True)
         if opt:
             plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
