@@ -9,8 +9,30 @@ from functools import partial
 from numba import jit
 import math
 from sklearn.linear_model import LinearRegression
+import csv
 
 linewidth = 5.59164
+
+def makeAvgRoughnessPlots(root_dir):
+    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
+    # for partial dislocations
+
+    try:
+        makePerfectRoughnessPlots(root_dir)
+    except FileNotFoundError:
+        print("No perfect roughness data skipping.")
+
+    try:
+        makePartialRoughnessPlots(root_dir)
+    except FileNotFoundError:
+        print("No partial roighness data skipping.")
+
+    try:
+        analyzeRoughnessFitParamteters(root_dir)
+    except FileNotFoundError:
+        print("No roughness fit parameters data skipping.")
+    
+    pass
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
@@ -322,27 +344,6 @@ def makePerfectRoughnessPlots(root_dir, test=False):
     with open(Path(root_dir).joinpath("roughness_perfect.json"), "w") as fp:
         json.dump(roughnesses_perfect, fp)
 
-def makeAvgRoughnessPlots(root_dir):
-    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
-    # for partial dislocations
-
-    try:
-        makePerfectRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No perfect roughness data skipping.")
-
-    try:
-        makePartialRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No partial roighness data skipping.")
-
-    try:
-        analyzeRoughnessFitParamteters(root_dir)
-    except FileNotFoundError:
-        print("No roughness fit parameters data skipping.")
-    
-    pass
-
 def extractRoughnessExponent(l_range, avg_w, params):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
@@ -374,7 +375,7 @@ def extractRoughnessExponent(l_range, avg_w, params):
 
     change_p = (fit_c_range / c)**(1/zeta)
 
-    return c, zeta
+    return c, zeta, change_p
 
 def multiprocessing_helper(f1, root_dir):
     loaded = np.load(f1)
@@ -383,9 +384,9 @@ def multiprocessing_helper(f1, root_dir):
     l_range = loaded["l_range"]
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-    c, zeta = extractRoughnessExponent(l_range, avg_w, params)
+    c, zeta, transition = extractRoughnessExponent(l_range, avg_w, params)
 
-    return  (deltaR, tauExt, seed, c, zeta)
+    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition))
 
 
 def makeRoughnessExponentDataset(root_dir):
@@ -424,7 +425,12 @@ def makeRoughnessExponentDataset(root_dir):
     
     # Save the data to a file
     data = np.array(data)
-    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta"])
+    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions"])
+
+    with open(Path(root_dir).joinpath("roughness_exponents.csv"), 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=';')
+        writer.writerow(["noise", "tauExt", "seed", "c", "zeta", "transitions"])
+        writer.writerows(data)
 
 def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt
@@ -482,7 +488,7 @@ def processExponentData(root_dir):
     seed = data[:,2]
     c = data[:,3]
     zeta = data[:,4]
-
+  
     print(f"Noise: {min(noise)} - {max(noise)} count {len(set(noise))}")
     print(f"tauExt: {min(tauExt)} - {max(tauExt)}")
     print(f"Seed: {min(seed)} - {max(seed)}")
@@ -652,12 +658,11 @@ def extractRoughnessFromLast(root_dir):
                 makeRoughnessPlotPerfect(l_range, roughness, new_params, save_path)
     pass
 
+def makeTranitionPointPlots():
+    pass
+
 if __name__ == "__main__":
-    # root_dir = Path("/home/niklas/Projects/Dislocation-Depinning-Model/roughness-data")
-    # makeAvgRoughnessPlots(root_dir)
-    # makeRoughnessExponentDataset(root_dir)
-    # averageRoughnessBySeed(root_dir)
-    # makeRoughnessExponentDataset("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # processExponentData("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # extractRoughnessFromLast("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
+    root_dir = Path("/Volumes/contenttii/2025-06-06-merged-final")
+    makeRoughnessExponentDataset(root_dir)
+    processExponentData(root_dir)
     pass
