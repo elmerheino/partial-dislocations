@@ -12,6 +12,27 @@ from sklearn.linear_model import LinearRegression
 
 linewidth = 5.59164
 
+def makeAvgRoughnessPlots(root_dir):
+    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
+    # for partial dislocations
+
+    try:
+        makePerfectRoughnessPlots(root_dir)
+    except FileNotFoundError:
+        print("No perfect roughness data skipping.")
+
+    try:
+        makePartialRoughnessPlots(root_dir)
+    except FileNotFoundError:
+        print("No partial roighness data skipping.")
+
+    try:
+        analyzeRoughnessFitParamteters(root_dir)
+    except FileNotFoundError:
+        print("No roughness fit parameters data skipping.")
+    
+    pass
+
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
         p = Path(root_dir).joinpath(dislocation_dir)
@@ -321,27 +342,6 @@ def makePerfectRoughnessPlots(root_dir, test=False):
     with open(Path(root_dir).joinpath("roughness_perfect.json"), "w") as fp:
         json.dump(roughnesses_perfect, fp)
 
-def makeAvgRoughnessPlots(root_dir):
-    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
-    # for partial dislocations
-
-    try:
-        makePerfectRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No perfect roughness data skipping.")
-
-    try:
-        makePartialRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No partial roighness data skipping.")
-
-    try:
-        analyzeRoughnessFitParamteters(root_dir)
-    except FileNotFoundError:
-        print("No roughness fit parameters data skipping.")
-    
-    pass
-
 def extractRoughnessExponent(l_range, avg_w, params):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
@@ -401,7 +401,7 @@ def makeRoughnessExponentDataset(root_dir):
             seed = int(seed_folder.stem.split("-")[1])
             print(f"Extracting params from data with noise {noise} and seed {seed}")
 
-            # Sequential loading
+            # Sequential processing
 
             # for file_path in seed_folder.iterdir():
             #     loaded = np.load(file_path)
@@ -423,7 +423,8 @@ def makeRoughnessExponentDataset(root_dir):
     
     # Save the data to a file
     data = np.array(data)
-    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "correlation"])
+    np.savez(Path(root_dir).joinpath("roughness_parameters.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "correlation"])
+    np.savetxt(Path(root_dir).joinpath("roughness_parameters.csv"), data, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
 
 def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt
@@ -469,7 +470,44 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     plt.savefig(save_path, dpi=300)
     plt.close()
 
-def makeCorrelationPlot(noise, epsilon):
+def makeCorrelationPlot(data, chosen_noise, root_dir):
+    noise = data[:,0]
+    tau_ext = data[:,1]
+    correlation = data[:,5]
+    seed = data[:,2]
+
+    mask = np.round(noise, 5) == chosen_noise
+
+    noise = noise[mask]
+    cor = correlation[mask]
+
+    # print(noise, cor)
+    # print(noise.shape, cor.shape)
+
+    bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="mean", bins=100)
+    stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="std", bins=100)
+
+    plt.figure(figsize=(8,8))
+
+    plt.scatter(tau_ext[mask], cor, label="correlation", marker="x", color="lightgrey", alpha=0.5)
+
+    plt.scatter(bin_edges[:-1], bin_means, label="mean", marker="o", color="blue")
+
+    plt.scatter(bin_edges[:-1], bin_means+stds, label="std", marker="_", color="blue")
+    plt.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
+
+    plt.xlabel("$\\tau_{{ext}}$")
+    plt.ylabel("Correlation")
+    plt.title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
+    plt.legend()
+    plt.grid(True)
+
+    save_path = Path(root_dir)
+    save_path = save_path.joinpath("correlation-plots")
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_path = save_path.joinpath(f"correlation-{chosen_noise}.png")
+    plt.savefig(save_path, dpi=300)
+    plt.close()
     pass
 
 def processExponentData(root_dir):
@@ -483,6 +521,7 @@ def processExponentData(root_dir):
     seed = data[:,2]
     c = data[:,3]
     zeta = data[:,4]
+    correlation = data[:,5]
 
     print(f"Noise: {min(noise)} - {max(noise)} count {len(set(noise))}")
     print(f"tauExt: {min(tauExt)} - {max(tauExt)}")
@@ -494,6 +533,7 @@ def processExponentData(root_dir):
 
     for unique_noise in unique_noises:
         makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
+        makeCorrelationPlot(data, np.round(unique_noise, 5), root_dir)
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
