@@ -191,19 +191,15 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
 
     # Make an exponential plot to only the first decade of data.
 
-    l_0_range = np.linspace(np.exp(1),np.exp(4), 50) # not logarithmic here! from log(1) to log(4) This is the range where different fits are tried.
-    n_selected, last_exp, zeta, c = find_fit_interval(l_range, avg_w, l_0_range, save_path, tauExt)
-
     plt.clf()
     plt.figure(figsize=(linewidth/2,linewidth/2))
 
-    plt.scatter(l_range, avg_w, label="$W$", marker="x") # Plot the data as is
+    plt.scatter(l_range, avg_w, label="$W$", marker="o") # Plot the data as is
 
     # Make exponential plot to first 10% of data.
 
     start = 1
     end = 10
-    end = round(end)
 
     dekadi_l = l_range[start:end]
     dekadi_w = avg_w[start:end]
@@ -229,25 +225,25 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     const_l = l_range[start:end]
     const_w = avg_w[start:end]
 
-    fit_c_range, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+    fit_constant_params, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
     
-    new_c = np.ones(len(const_l))*fit_c_range
+    new_c = np.ones(len(const_l))*fit_constant_params
 
     plt.plot(const_l, new_c, label=f"N/4 < L < 3N/4", color="orange")
 
     # Next find out the transition point between power law and constant behavior
 
-    fit_c_range = fit_c_range[0]    # This is the constant of constant behavior y = c
+    fit_constant_params = fit_constant_params[0]    # This is the constant of constant behavior y = c
     zeta = zeta                     # This is the exponent of power law y = c*l^zeta
     c = c                           # This is the factor in power law y=c*l^zeta
 
-    change_p = (fit_c_range / c)**(1/zeta)  # This is the points l=change_p where is changes from power to constant.
+    change_p = (fit_constant_params / c)**(1/zeta)  # This is the points l=change_p where is changes from power to constant.
 
-    plt.scatter([change_p], [fit_c_range], label="Tansition point")
+    plt.scatter([change_p], [fit_constant_params], label="Tansition point")
 
     # Plot dashed lines to illustrate the intersection
     dashed_x = np.linspace(change_p, max(l_range)/4, 10)
-    dahsed_y = np.ones(10)*fit_c_range
+    dahsed_y = np.ones(10)*fit_constant_params
     plt.plot(dashed_x, dahsed_y, linestyle="dashed", color="grey")
 
     dashed_x = np.linspace(10, change_p, 10)
@@ -261,12 +257,11 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
     plt.xlabel("log(L)")
     plt.ylabel("$\\log(W_(L))$")
-    # plt.legend()
 
     plt.savefig(save_path, dpi=300)
     plt.close()
 
-    return (tauExt, seed, c, zeta, change_p, fit_c_range)
+    return (tauExt, seed, c, zeta, change_p, fit_constant_params)
 
 def loadRoughnessDataPerfect(f1, root_dir):
     # Helper function to enable use of multiprocessing when making plots
@@ -277,13 +272,17 @@ def loadRoughnessDataPerfect(f1, root_dir):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     save_path = Path(root_dir)
-    save_path = save_path.joinpath("roughness-non-partial").joinpath(f"noise-{deltaR:.4f}/seed-{seed}")
+    save_path = save_path.joinpath("roughness-non-partial").joinpath(f"noise-{deltaR:.5f}/seed-{seed}")
     save_path.mkdir(parents=True, exist_ok=True)
     save_path = save_path.joinpath(f"avg-roughness-tau-{tauExt}.png")
 
-    tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlotPerfect(l_range, avg_w, params, save_path)
+    try:
+        tauExt, seed, c, zeta, correlation_len, constant_val = makeRoughnessPlotPerfect(l_range, avg_w, params, save_path)
+    except Exception as e:
+        print(f1)
+        print(e)
 
-    return (tauExt, seed, c, zeta, cutoff, k)
+    return (tauExt, seed, c, zeta, correlation_len, constant_val)
 
 def makePerfectRoughnessPlots(root_dir, test=False):
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
@@ -374,7 +373,7 @@ def extractRoughnessExponent(l_range, avg_w, params):
 
     change_p = (fit_c_range / c)**(1/zeta)
 
-    return c, zeta
+    return c, zeta, change_p
 
 def multiprocessing_helper(f1, root_dir):
     loaded = np.load(f1)
@@ -383,9 +382,9 @@ def multiprocessing_helper(f1, root_dir):
     l_range = loaded["l_range"]
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-    c, zeta = extractRoughnessExponent(l_range, avg_w, params)
+    c, zeta, transition = extractRoughnessExponent(l_range, avg_w, params)
 
-    return  (deltaR, tauExt, seed, c, zeta)
+    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition))
 
 
 def makeRoughnessExponentDataset(root_dir):
@@ -424,7 +423,7 @@ def makeRoughnessExponentDataset(root_dir):
     
     # Save the data to a file
     data = np.array(data)
-    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta"])
+    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "correlation"])
 
 def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt
@@ -470,6 +469,8 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     plt.savefig(save_path, dpi=300)
     plt.close()
 
+def makeCorrelationPlot(noise, epsilon):
+    pass
 
 def processExponentData(root_dir):
     path = Path(root_dir).joinpath("roughness_exponents.npz")
@@ -653,11 +654,4 @@ def extractRoughnessFromLast(root_dir):
     pass
 
 if __name__ == "__main__":
-    # root_dir = Path("/home/niklas/Projects/Dislocation-Depinning-Model/roughness-data")
-    # makeAvgRoughnessPlots(root_dir)
-    # makeRoughnessExponentDataset(root_dir)
-    # averageRoughnessBySeed(root_dir)
-    # makeRoughnessExponentDataset("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # processExponentData("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # extractRoughnessFromLast("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
     pass

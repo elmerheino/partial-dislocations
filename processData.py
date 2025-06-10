@@ -43,7 +43,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
     tau_c_stds = np.nanstd(loaded[:,1:10], axis=1)
 
     plt.figure(figsize=(linewidth/2, linewidth/2))
-    plt.errorbar(noises, tau_c_means, yerr=tau_c_stds, fmt='o', markersize=2, capsize=2, label="data", color='red', linewidth=0.5)
+    plt.errorbar(noises, tau_c_means, yerr=tau_c_stds, fmt='o', markersize=2, capsize=2, color='red', linewidth=0.5, zorder=0)
 
     data_partial = np.array(list(zip(noises, tau_c_means)))
     sorted_args = np.argsort(data_partial[:,0])
@@ -52,23 +52,28 @@ def makePartialNoisePlot(res_root : Path, save_path):
     # Mask away nan values
     mask = ~np.isnan(data_partial[:,1])
     data_partial = data_partial[mask]
+
+    point_0 = 10**(-1.2)
+    point_1 = 10**(0.25)
+    point_2 = 10**(1.45)
     
     # Fit power law to first region of data
     try:
-        region1_index = np.where(data_partial[:,0] > 10**(-1))[0][0]
+        region1_index = np.where(data_partial[:,0] > point_1)[0][0]
+        region0_index = np.where(data_partial[:,0] > point_0)[0][0]
 
-        x = data_partial[0:region1_index,0]
-        y = data_partial[0:region1_index,1]
+        x = data_partial[region0_index:region1_index,0]
+        y = data_partial[region0_index:region1_index,1]
 
         print(region1_index, x.shape, y.shape)
         fit_params, pcov = optimize.curve_fit(
             lambda x, a, b: a*x**b, 
             x, y)
         
-        fit_x = np.linspace(data_partial[0,0], data_partial[region1_index,0], 100)
+        fit_x = np.linspace(data_partial[region0_index,0], data_partial[region1_index,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
 
-        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linewidth=2)
+        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linewidth=2, zorder=1)
         print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in first region of data.")
@@ -76,18 +81,18 @@ def makePartialNoisePlot(res_root : Path, save_path):
 
     # Fit power law to second region of data
     try:
-        region1_end = np.where(data_partial[:,0] > 10)[0][0]
+        region1_end = np.where(data_partial[:,0] > point_2)[0][0]
 
         x = data_partial[region1_index:region1_end,0]
         y = data_partial[region1_index:region1_end,1]
 
         fit_params, pcov = optimize.curve_fit(
             lambda x, a, b: a*x**b,
-            x, y)
+            x, y, maxfev=3000)
         
         fit_x = np.linspace(data_partial[region1_index,0], data_partial[region1_end,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle='--', linewidth=3.5)
+        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='black', linestyle='--', linewidth=2, zorder=1)
         print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in second region of data.")
@@ -101,14 +106,15 @@ def makePartialNoisePlot(res_root : Path, save_path):
         x, y)
     fit_x = np.linspace(data_partial[region1_end,0], data_partial[-1,0], 100)
     fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=3.5)
+    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=2, zorder=1)
     print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
 
 
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
-    plt.title(f"Noise magnitude and external force for partial dislocation")
+    plt.title(f"Partial dislocation")
+    # plt.xticks([point_0, point_1, point_2], labels=["$10^{-1.2}$", "$10^{0.0}$", "$10^{1.7}$"])
     plt.legend()
     plt.xlabel("$\\Delta R$")
     plt.ylabel("$ \\tau_c $")
@@ -126,18 +132,20 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     tau_c_means = np.mean(loaded[:,1:10], axis=1)
 
     plt.figure(figsize=(linewidth/2, linewidth/2))
-    # plt.scatter(noises, tau_c_means, marker='x', label="data", color='blue', linewidths=0.5, s=50)
-    plt.scatter(noises, tau_c_means, marker='x', color='blue', linewidths=0.5, s=50)
-    # plt.plot(noises, tau_c_means + tau_c_stds, color='black', linewidth=0.5, label="$\\sigma$")
-    # plt.plot(noises, tau_c_means - tau_c_stds, color='black', linewidth=0.5)
+    tau_c_stds = np.std(loaded[:,1:10], axis=1)
+
+    plt.errorbar(noises, tau_c_means, yerr=tau_c_stds, fmt='s', markersize=2, capsize=2, color='blue', linewidth=0.5, zorder=0)
 
     data_perfect = np.array(list(zip(noises, tau_c_means)))
     sorted_args = np.argsort(data_perfect[:,0])
     data_perfect = data_perfect[sorted_args]
 
     # Fit power law to first region of data
+    point_1 = 10**(-0)
+    point_2 = 10**1.4
+
     try:
-        region1_index = np.where(data_perfect[:,0] > 0.1)[0][0]
+        region1_index = np.where(data_perfect[:,0] > point_1)[0][0]
         x = data_perfect[0:region1_index,0]
         y = data_perfect[0:region1_index,1]
         print(region1_index, x.shape, y.shape)
@@ -153,7 +161,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
 
     # Fit power law to second region of data
     try:
-        region1_end = np.where(data_perfect[:,0] > 10)[0][0]
+        region1_end = np.where(data_perfect[:,0] > point_2)[0][0]
         x = data_perfect[region1_index:region1_end,0]
         y = data_perfect[region1_index:region1_end,1]
         fit_params, pcov = optimize.curve_fit(
@@ -161,7 +169,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
             x, y)
         fit_x = np.linspace(data_perfect[region1_index,0], data_perfect[region1_end,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle='--', linewidth=3.5)
+        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='black', linestyle='--', linewidth=2)
         print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in second region of data.")
@@ -176,7 +184,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
             x, y)
         fit_x = np.linspace(data_perfect[region1_end,0], data_perfect[-1,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=3.5)
+        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=2)
         print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in third region of data.")
@@ -222,9 +230,9 @@ def makeCommonNoisePlot(root_dir : Path):
     plt.yscale("log")
     plt.grid(True)
 
-    plt.scatter(data_partial[:,0], data_partial[:,1], marker='x', label="Partial", color='red', linewidths=0.5, s=50)
-    plt.scatter(data_perfect[:,0], data_perfect[:,1], marker='x', label="Perfect", color="blue", linewidths=0.5, s=50)
-
+    plt.errorbar(data_partial[:,0], data_partial[:,1], fmt='o', markersize=2, capsize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
+    plt.errorbar(data_perfect[:,0], data_perfect[:,1], fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+        
     plt.title("Noise magnitude and external force")
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
