@@ -10,7 +10,6 @@ class Simulation(object):
         self.x_indices = np.arange(self.bigN)
 
         self.length = length
-        self.x = np.linspace(0, length, self.bigN, endpoint=False)
         self.deltaL = self.length/self.bigN     # The dx value in x direction
 
         self.time = time                        # Time in seconds

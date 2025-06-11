@@ -4,17 +4,97 @@ import json
 from pathlib import Path
 from scipy import stats, optimize
 from functools import partial
+import csv
+
+linewidth = 5.59164
 
 def velocity_fit(tau_ext, tau_crit, beta, a):
     v_res = np.empty(len(tau_ext))
     for n,tau in enumerate(tau_ext):
         if tau > tau_crit:
             v_res[n] = a*(tau - tau_crit)**beta
-        else:
+        elif tau < tau_crit:
             v_res[n] = 0
     return v_res
 
-def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=False):
+
+def getWindow(tauExt_np, vCm_np, initial_t_c_arvaus, window_width=10):
+    """
+    Performs a window search on tauExt and vCm to find the critical force.
+    """
+    refined_t_c = initial_t_c_arvaus
+    window_bounds = None  # Will store (tau_window[0], tau_window[-1]) if a window is found
+    array_bounds = None
+
+    if len(tauExt_np) >= window_width and np.any(vCm_np > 1e-9): # 1e-9 is a small number to check for non-zero velocity
+        max_v = np.max(vCm_np)
+        if max_v <= 1e-9:
+            transition_threshold = 1e-6 # Default absolute minimum
+        else:
+            transition_threshold = max(1e-6, 0.001 * max_v)
+
+        found_suitable_window = False
+        for i in range(len(tauExt_np) - window_width + 1):
+            tau_window = tauExt_np[i : i + window_width]
+            v_window = vCm_np[i : i + window_width]
+
+            if v_window[0] < transition_threshold and v_window[-1] > transition_threshold:
+                for k_in_window in range(window_width):
+                    if v_window[k_in_window] > transition_threshold:
+                        refined_t_c = tau_window[k_in_window]
+                        window_bounds = (tau_window[0], tau_window[-1])
+                        array_bounds = (i, i + window_width)
+                        found_suitable_window = True
+                        break 
+                if found_suitable_window:
+                    break
+            
+    return refined_t_c, window_bounds, array_bounds
+
+def make_a_closeup_plot(x_closeup, y_closeup, save_path : Path, truncated_key, refined_t_c, seed):
+
+    # if truncated_key == "4.328761":
+    #     print("saatana vittusaatana")
+    
+    fit_params, pcov = optimize.curve_fit(velocity_fit, x_closeup, y_closeup, p0=[refined_t_c*1.02,   # tau_c
+                                                            0.5,          # beta
+                                                            0.9           # A
+                                                            ], bounds=(
+                                                                [0, 0.3, 0],
+                                                                [max(x_closeup), 0.6, np.inf]
+                                                            ), maxfev=3000)
+    t_c, beta, a = fit_params
+    
+    # Calculate mean squared error for the fit
+    v_fit = velocity_fit(x_closeup, *fit_params)
+    mse = np.mean((y_closeup - v_fit)**2)
+
+    xnew_closeup = np.linspace(min(x_closeup), max(x_closeup), 100)
+    ynew_closeup = velocity_fit(xnew_closeup, *fit_params)
+
+    xnew_closeup = (xnew_closeup - t_c)/t_c
+    x_closeup = (x_closeup - t_c)/t_c
+
+    plt.clf()
+    plt.figure(figsize=(linewidth/2,linewidth/2))
+
+    plt.scatter(x_closeup,y_closeup, marker='o', s=10, facecolors='none', edgecolors='red', label="Data")
+    plt.plot(xnew_closeup, ynew_closeup)
+
+    plt.title(f"Depinning $\\tau_{{c}} = $ {t_c:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+    plt.ylabel("$v_{{cm}}$")
+    plt.legend()
+
+    p = save_path.parent.joinpath(f"closeups/noise-{truncated_key}")
+    p.mkdir(exist_ok=True, parents=True)
+    plt.savefig(p.joinpath(f"normalized-depinning-closeup-{seed}.png"))
+    plt.tight_layout()
+    plt.close()
+
+    return fit_params
+
+def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_save_path : Path, json_save_path : Path, optimized=False, seed_count = 10):
     """
     Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
     save the tau_c values for each noise in a json file. The veclocities are normalized
@@ -26,70 +106,160 @@ def normalizedDepinnings(depinning_path : Path, save_folder : Path, optimized=Fa
     # Collect all values of tau_c
 
     tau_c = dict()
+    fit_errors = dict()
 
     # Collect all datapoints for binning
 
     data_perfect = dict()
 
-    for noise_path in depinning_path.iterdir():
+    tau_c_csv = list()
+
+    for n,noise_path in enumerate(depinning_path.iterdir()):
         if not noise_path.is_dir():
             continue
+
+        # if not n % 10 == 0:
+        #     continue
+        
         noise = noise_path.name.split("-")[1]
 
-        tau_c[noise] = list()
+        truncated_key = str(f"{float(noise):.6f}") # Using 6 decimal places, minimum to distinguish values from np.logspace(-3,3,100)
 
-        data_perfect[noise] = list()
+        if truncated_key not in tau_c:
+            tau_c[truncated_key] = list()
+        if truncated_key not in fit_errors:
+            fit_errors[truncated_key] = list()
+        if truncated_key not in data_perfect:
+            data_perfect[truncated_key] = list()
 
         for fpath in noise_path.iterdir():
-            with open(fpath, "r") as fp:
-                depinning = json.load(fp)
-            
+            try:
+                with open(fpath, "r") as fp:
+                    depinning = json.load(fp)
+            except Exception as e:
+                print(f"Failed to load file {fpath} with exception {e}")
             tauExt = depinning["stresses"]
             vCm = depinning["v_rel"]
             seed = depinning["seed"]
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
 
-            try:
+            bounds = None
+            tauCrit, beta, a = None, None, None
+
+            xnew_closeup = np.array([])
+            ynew_closeup = np.array([])
+            
+            xnew_all = np.array([])
+            ynew_all = np.array([])
+
+            if float(noise) > 0.5:
+                bounds = None
+                tauCrit, beta, a = None, None, None
+
+                refined_t_c, _, bounds = getWindow(np.array(tauExt), np.array(vCm), t_c_arvaus)
+                print(f"bounds {bounds} and refined_t_c = {refined_t_c}")
+
+                start_ = bounds[0] + 4
+                end_ = bounds[1] + 6
+
+                x_closeup = tauExt[start_:end_]
+                y_closeup = vCm[start_:end_]
+
+                tauCrit, beta, a = make_a_closeup_plot(x_closeup, y_closeup, plot_save_folder, truncated_key, refined_t_c, seed)
+
+                xnew_closeup = np.linspace(min(x_closeup), max(x_closeup), 100)
+                ynew_closeup = velocity_fit(xnew_closeup, tauCrit, beta, a)
+
+                xnew_closeup = (xnew_closeup - tauCrit)/tauCrit
+
+                # Calculate mean squared error for the fit
+                v_fit =velocity_fit(x_closeup, tauCrit, beta, a)
+                mse = np.mean((v_fit - y_closeup)**2)
+            else:
+                bounds = None
+                tauCrit, beta, a = None, None, None
+
                 fit_params, pcov = optimize.curve_fit(velocity_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
-                                                                            0.9,          # beta
-                                                                            0.9           # a
-                                                                            ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=1600)
-            except:
-                print(f"Could not find fit w/ perfect dislocation noise : {noise} seed : {seed}")
-                continue
+                                                                            0.7,          # beta
+                                                                            0.9           # A
+                                                                            ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=10000)
+                # Calculate mean squared error for the fit
+                v_fit = velocity_fit(tauExt, *fit_params)
+                mse = np.mean((vCm - v_fit)**2)
 
-            tauCrit, beta, a = fit_params
+                xnew_all = np.linspace(min(tauExt), max(tauExt), 100)
+                ynew_all = velocity_fit(xnew_all, *fit_params)
 
-            tau_c[noise].append(tauCrit)
+                tauCrit, beta, a = fit_params
+                xnew_all = (xnew_all - tauCrit)/tauCrit
 
-            xnew = np.linspace(min(tauExt), max(tauExt), 100)
-            ynew = velocity_fit(xnew, *fit_params)
+            x_all = (tauExt - tauCrit)/tauCrit
+            y_all = vCm
+
+            # Save the critical force and mse to dicts for later use
+            tau_c[truncated_key].append(tauCrit)
+            fit_errors[truncated_key].append(mse)
 
             # Scale the original data
-            x = (tauExt - tauCrit)/tauCrit
-            y = vCm
-
-            # Scale the fit x-axis as well
-            xnew = (xnew - tauCrit)/tauCrit
-
-            data_perfect[noise] += zip(x,y)
+            data_perfect[truncated_key] += zip(x_all,y_all)
 
             plt.clf()
-            plt.figure(figsize=(8,8))
-            plt.scatter(x,y, marker='x', color="red", label="Depinning")
-            plt.plot(xnew, ynew, color="blue", label="fit")
-            plt.title(f"Depinning $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+            plt.figure(figsize=(linewidth/2,linewidth/2))
+
+            plt.scatter(x_all,y_all, marker='o', s=10, facecolors='none', edgecolors='red', label="Data")
+
+            if xnew_closeup.size != 0:
+                plt.plot(xnew_closeup, ynew_closeup)
+            
+            if xnew_all.size != 0:
+                plt.plot(xnew_all, ynew_all)
+
+            # plt.title(f"Depinning $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
             plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
             plt.ylabel("$v_{{cm}}$")
-            plt.legend()
+            # plt.legend()
+            plt.tight_layout()
 
-            p = save_folder.joinpath(f"noise-{noise}")
+            p = plot_save_folder.joinpath(f"noise-{truncated_key}")
             p.mkdir(exist_ok=True, parents=True)
-            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.pdf"))
             plt.close()
     
-    with open(save_folder.joinpath("tau_c.json"), "w") as fp:
+    k = 10  # This should equal the no of realizations of noise in the data
+
+    tau_c_csv.clear()
+
+    for truncated_key in tau_c.keys():
+        current_tau_crits = list(tau_c.get(truncated_key, []))
+        current_fit_errors = list(fit_errors.get(truncated_key, []))
+
+        if len(current_tau_crits) < k:
+            current_tau_crits.extend([None] * (k - len(current_tau_crits)))
+        elif len(current_tau_crits) > k:
+            current_tau_crits = current_tau_crits[:k]
+
+        if len(current_fit_errors) < k:
+            current_fit_errors.extend([None] * (k - len(current_fit_errors)))
+        elif len(current_fit_errors) > k:
+            current_fit_errors = current_fit_errors[:k]
+
+        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors
+        tau_c_csv.append(compiled_row)
+
+    tau_c_csv.sort(key=lambda row: float(row[0]))
+
+    data_save_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(data_save_path, "w") as fp:
+        writer = csv.writer(fp)
+        # Write header
+        header = ["noise"] + [f"tau_c_{i+1}" for i in range(k)] + [f"mse_{i+1}" for i in range(k)]
+        writer.writerow(header)
+        # Write data rows
+        writer.writerows(tau_c_csv)
+    
+    json_save_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(json_save_path, "w") as fp:
         json.dump(tau_c, fp)
 
     return data_perfect
@@ -108,78 +278,66 @@ def confidence_interval_upper(l, c_level):
     c = stats.norm.interval(c_level, loc=m, scale=s)
     return c[1]
 
-def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
-    # TODO: do this for each noise
+def makeOneBinnedPlot(x,y,tau_c, save_path : Path, bins=100, conf_level=0.9):
+    bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
 
+    lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
+    upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=bins)
+
+    bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=bins)
+
+    # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
+
+    plt.clf()
+    plt.close('all')
+    plt.figure(figsize=(linewidth/2,linewidth/2))
+    
+    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+    plt.ylabel("$v_{{cm}}$")
+
+    bin_width = (bin_edges[1] - bin_edges[0])
+    bin_centers = bin_edges[1:] - bin_width/2
+
+    plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
+    plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
+    plt.plot(bin_centers, upper_confidence, color="blue")
+
+    plt.scatter(bin_centers, bin_means, color="red", marker="x",
+        label='Binned depinning data')    
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=600)
+    pass
+
+def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
     Make binned depinning plots from the data. The data is binned and the mean and confidence intervals are calculated.
 
     Here dict is a dictionary containing all the normalized data for each noise level.
     """
 
-    with open(res_dir.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+    with open(res_dir.joinpath("binning-data/tau_c_perfect.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
     
     first_key = next(iter(data_tau_perfect.keys()))
-    
 
-    with open(res_dir.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+    with open(res_dir.joinpath("binning-data/tau_c_partial.json"), "r") as fp:
         data_tau_partial = json.load(fp)
-    
 
-    
     for perfect_partial in data.keys():
         for noise in data[perfect_partial].keys():
             d = data[perfect_partial]
             x,y = zip(*d[noise])
-
-            tau_c_perfect = sum(data_tau_perfect[str(noise)])/len(data_tau_perfect[str(noise)])
-            tau_c_partial = sum(data_tau_partial[str(noise)])/len(data_tau_partial[str(noise)])
-
-            bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
-
-            lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
-            upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=bins)
-
-            bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=bins)
-
-            # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
-
-            plt.clf()
-            plt.close('all')
-            plt.figure(figsize=(8,8))
-
+                        
             if perfect_partial == "perfect_data":
-                plt.title(f"$ \\langle \\tau_c \\rangle = {tau_c_perfect:.4f} $")
+                tau_c_perfect = sum(data_tau_perfect[noise])/len(data_tau_perfect[noise])
+                p = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                makeOneBinnedPlot(x,y,tau_c_perfect, p)
             elif perfect_partial == "partial_data":
-                plt.title(f"$ \\langle \\tau_c \\rangle = {tau_c_partial:.4f} $")
-            
-            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-            plt.ylabel("$v_{{cm}}$")
+                tau_c_partial = sum(data_tau_partial[noise])/len(data_tau_partial[noise])
+                p = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                makeOneBinnedPlot(x,y, tau_c_partial, p)
 
-            bin_width = (bin_edges[1] - bin_edges[0])
-            bin_centers = bin_edges[1:] - bin_width/2
-
-            plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
-            plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
-            plt.plot(bin_centers, upper_confidence, color="blue")
-
-            plt.scatter(bin_centers, bin_means, color="red", marker="x",
-                label='Binned depinning data')
-            plt.legend()
-            
-            # Save to a different directory depending on whether its a partial or perfect dislocation
-            p = Path(res_dir)
-            if perfect_partial == "perfect_data":
-                p = p.joinpath("binned-depinnings-perfect")
-            elif perfect_partial == "partial_data":
-                p = p.joinpath("binned-depinnings-partial")
-            else:
-                raise Exception("Data is saved wrong.")
-            
-            p.mkdir(parents=True, exist_ok=True)
-            p = p.joinpath(f"binned-depinning-noise-{noise}-conf-{conf_level}.png")
-            plt.savefig(p, dpi=600)
     pass
 
 def makeAveragedDepnningPlots(dir_path, opt=False):
@@ -209,7 +367,7 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         y = np.average(np.array(velocities), axis=0)
 
         plt.clf()
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(linewidth/2,linewidth/2))
 
         plt.scatter(x,y, marker="x")
 
