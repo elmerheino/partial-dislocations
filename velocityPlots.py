@@ -6,6 +6,8 @@ from scipy import stats, optimize
 from functools import partial
 import csv
 
+linewidth = 5.59164
+
 def velocity_fit(tau_ext, tau_crit, beta, a):
     v_res = np.empty(len(tau_ext))
     for n,tau in enumerate(tau_ext):
@@ -74,7 +76,7 @@ def make_a_closeup_plot(x_closeup, y_closeup, save_path : Path, truncated_key, r
     x_closeup = (x_closeup - t_c)/t_c
 
     plt.clf()
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(linewidth/2,linewidth/2))
 
     plt.scatter(x_closeup,y_closeup, marker='o', s=10, facecolors='none', edgecolors='red', label="Data")
     plt.plot(xnew_closeup, ynew_closeup)
@@ -87,11 +89,12 @@ def make_a_closeup_plot(x_closeup, y_closeup, save_path : Path, truncated_key, r
     p = save_path.parent.joinpath(f"closeups/noise-{truncated_key}")
     p.mkdir(exist_ok=True, parents=True)
     plt.savefig(p.joinpath(f"normalized-depinning-closeup-{seed}.png"))
+    plt.tight_layout()
     plt.close()
 
     return fit_params
 
-def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_save_path : Path, optimized=False, seed_count = 10):
+def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_save_path : Path, json_save_path : Path, optimized=False, seed_count = 10):
     """
     Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
     save the tau_c values for each noise in a json file. The veclocities are normalized
@@ -202,7 +205,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             data_perfect[truncated_key] += zip(x_all,y_all)
 
             plt.clf()
-            plt.figure(figsize=(8,8))
+            plt.figure(figsize=(linewidth/2,linewidth/2))
 
             plt.scatter(x_all,y_all, marker='o', s=10, facecolors='none', edgecolors='red', label="Data")
 
@@ -212,14 +215,15 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             if xnew_all.size != 0:
                 plt.plot(xnew_all, ynew_all)
 
-            plt.title(f"Depinning $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
+            # plt.title(f"Depinning $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
             plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
             plt.ylabel("$v_{{cm}}$")
-            plt.legend()
+            # plt.legend()
+            plt.tight_layout()
 
             p = plot_save_folder.joinpath(f"noise-{truncated_key}")
             p.mkdir(exist_ok=True, parents=True)
-            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.png"))
+            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.pdf"))
             plt.close()
     
     k = 10  # This should equal the no of realizations of noise in the data
@@ -253,6 +257,10 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
         writer.writerow(header)
         # Write data rows
         writer.writerows(tau_c_csv)
+    
+    json_save_path.parent.mkdir(exist_ok=True, parents=True)
+    with open(json_save_path, "w") as fp:
+        json.dump(tau_c, fp)
 
     return data_perfect
 
@@ -270,78 +278,66 @@ def confidence_interval_upper(l, c_level):
     c = stats.norm.interval(c_level, loc=m, scale=s)
     return c[1]
 
-def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
-    # TODO: do this for each noise
+def makeOneBinnedPlot(x,y,tau_c, save_path : Path, bins=100, conf_level=0.9):
+    bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
 
+    lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
+    upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=bins)
+
+    bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=bins)
+
+    # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
+
+    plt.clf()
+    plt.close('all')
+    plt.figure(figsize=(linewidth/2,linewidth/2))
+    
+    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+    plt.ylabel("$v_{{cm}}$")
+
+    bin_width = (bin_edges[1] - bin_edges[0])
+    bin_centers = bin_edges[1:] - bin_width/2
+
+    plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
+    plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
+    plt.plot(bin_centers, upper_confidence, color="blue")
+
+    plt.scatter(bin_centers, bin_means, color="red", marker="x",
+        label='Binned depinning data')    
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=600)
+    pass
+
+def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
     Make binned depinning plots from the data. The data is binned and the mean and confidence intervals are calculated.
 
     Here dict is a dictionary containing all the normalized data for each noise level.
     """
 
-    with open(res_dir.joinpath("single-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+    with open(res_dir.joinpath("binning-data/tau_c_perfect.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
     
     first_key = next(iter(data_tau_perfect.keys()))
-    
 
-    with open(res_dir.joinpath("partial-dislocation/normalized-plots/tau_c.json"), "r") as fp:
+    with open(res_dir.joinpath("binning-data/tau_c_partial.json"), "r") as fp:
         data_tau_partial = json.load(fp)
-    
 
-    
     for perfect_partial in data.keys():
         for noise in data[perfect_partial].keys():
             d = data[perfect_partial]
             x,y = zip(*d[noise])
-
-            tau_c_perfect = sum(data_tau_perfect[str(noise)])/len(data_tau_perfect[str(noise)])
-            tau_c_partial = sum(data_tau_partial[str(noise)])/len(data_tau_partial[str(noise)])
-
-            bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
-
-            lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
-            upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=conf_level), bins=bins)
-
-            bin_counts, _, _ = stats.binned_statistic(x,y,statistic="count", bins=bins)
-
-            # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
-
-            plt.clf()
-            plt.close('all')
-            plt.figure(figsize=(8,8))
-
+                        
             if perfect_partial == "perfect_data":
-                plt.title(f"$ \\langle \\tau_c \\rangle = {tau_c_perfect:.4f} $")
+                tau_c_perfect = sum(data_tau_perfect[noise])/len(data_tau_perfect[noise])
+                p = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                makeOneBinnedPlot(x,y,tau_c_perfect, p)
             elif perfect_partial == "partial_data":
-                plt.title(f"$ \\langle \\tau_c \\rangle = {tau_c_partial:.4f} $")
-            
-            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-            plt.ylabel("$v_{{cm}}$")
+                tau_c_partial = sum(data_tau_partial[noise])/len(data_tau_partial[noise])
+                p = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                makeOneBinnedPlot(x,y, tau_c_partial, p)
 
-            bin_width = (bin_edges[1] - bin_edges[0])
-            bin_centers = bin_edges[1:] - bin_width/2
-
-            plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
-            plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
-            plt.plot(bin_centers, upper_confidence, color="blue")
-
-            plt.scatter(bin_centers, bin_means, color="red", marker="x",
-                label='Binned depinning data')
-            plt.legend()
-            
-            # Save to a different directory depending on whether its a partial or perfect dislocation
-            p = Path(res_dir)
-            if perfect_partial == "perfect_data":
-                p = p.joinpath("binned-depinnings-perfect")
-            elif perfect_partial == "partial_data":
-                p = p.joinpath("binned-depinnings-partial")
-            else:
-                raise Exception("Data is saved wrong.")
-            
-            p.mkdir(parents=True, exist_ok=True)
-            p = p.joinpath(f"binned-depinning-noise-{noise}-conf-{conf_level}.png")
-            plt.savefig(p, dpi=600)
     pass
 
 def makeAveragedDepnningPlots(dir_path, opt=False):
@@ -371,7 +367,7 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         y = np.average(np.array(velocities), axis=0)
 
         plt.clf()
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(linewidth/2,linewidth/2))
 
         plt.scatter(x,y, marker="x")
 

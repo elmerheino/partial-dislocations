@@ -440,7 +440,8 @@ if __name__ == "__main__":
         partial_data = normalizedDepinnings(
             results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
             plot_save_folder=results_root.joinpath("partial-dislocation/normalized-plots"),
-            data_save_path=results_root.joinpath("noise-data/partial-noises.csv")
+            data_save_path=results_root.joinpath("noise-data/partial-noises.csv"),
+            json_save_path=results_root.joinpath("binning-data/tau_c_partial.json")
         )
         # except Exception as e:
             # print("No partial dislocation depinning dumps found. Skipping partial depinning normalization.")
@@ -451,7 +452,8 @@ if __name__ == "__main__":
             non_partial_data = normalizedDepinnings(
                 results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
                 plot_save_folder=results_root.joinpath("single-dislocation/normalized-plots"),
-                data_save_path=results_root.joinpath("noise-data/perfect-noises.csv")
+                data_save_path=results_root.joinpath("noise-data/perfect-noises.csv"),
+                json_save_path=results_root.joinpath("binning-data/tau_c_perfect.json")
             )
         except Exception as e:
             print("No perfect dislocation depinning dumps found. Skipping perfect depinning normalization.")
