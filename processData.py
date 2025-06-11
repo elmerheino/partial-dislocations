@@ -413,7 +413,7 @@ if __name__ == "__main__":
         makeAvgRoughnessPlots(parsed.folder)
     
     if parsed.all or parsed.analyze_hurst_exponent:
-        path = Path(parsed.folder).joinpath("roughness_exponents.npz")
+        path = Path(parsed.folder).joinpath("roughness_exponents_perfect.npz")
         if not path.exists():
             makeRoughnessExponentDataset(parsed.folder)
             print("Making roughness dataset.")
