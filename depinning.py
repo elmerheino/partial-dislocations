@@ -4,6 +4,7 @@ from functools import partial
 from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import DislocationSimulation
 from pathlib import Path
+import hashlib
 
 class Depinning(object):
 
@@ -107,8 +108,16 @@ class DepinningSingle(Depinning):
         sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
+        
+        # Get simulation parameters and hash them
+        params = sim.getParameteters()
+        params_str = np.array2string(params)  # Convert array to string
+        hash_object = hashlib.sha256(params_str.encode())
+        hex_dig = hash_object.hexdigest()
 
-        sim.run_simulation()
+        backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{hex_dig}")
+
+        sim.run_in_chucks(backup_file=backup_file, chunk_size=self.time/10)
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time

@@ -67,7 +67,7 @@ class DislocationSimulation(Simulation):
 
         total_time_so_far = 0
         last_y0 = y0
-        
+
         backup_file = Path(backup_file)
         backup_file.parent.mkdir(exist_ok=True, parents=True)
 
@@ -84,7 +84,7 @@ class DislocationSimulation(Simulation):
                             rtol=self.rtol)
             y_i = sol_i.y.T
             last_y0 = y_i[-1]
-            np.savez(backup_file, last_y0)
+            np.savez(backup_file, y_last=last_y0, params=self.getParameteters())
             total_time_so_far += chunk_size
         
         sol = solve_ivp(self.rhs, [self.time*(1 - 0.1), self.time], last_y0.flatten(), method='RK45', 
