@@ -425,8 +425,8 @@ def extractRoughnessExponent(l_range, avg_w, params):
     return c, zeta, change_p
 
 def find_tau_c(noise, root_dir):
-    tau_c_partial = None
-    tau_c_perfect = None
+
+    noise = np.round(noise, 6)
 
     noise_partial_path = Path(root_dir).joinpath(f"noise-data/partial-noises.csv")
     noise_perfect_path = Path(root_dir).joinpath(f"noise-data/perfect-noises.csv")
@@ -438,17 +438,16 @@ def find_tau_c(noise, root_dir):
         print(f"No noise data")
     
     column1_perfect = np.round(tau_c_perfect[:,0],6)
-    mask_perfect = np.abs( column1_perfect - noise ) < 1e-9
+    mask_perfect = np.abs( column1_perfect - noise ) < 1e-5
 
     column1_partial = np.round(tau_c_partial[:,0],6)
-    mask_partial = np.abs( column1_partial - noise ) < 1e-9
+    mask_partial = np.abs( column1_partial - noise ) < 1e-5
 
     row_perfect = tau_c_perfect[mask_perfect]
     row_partial = tau_c_partial[mask_partial]
 
-    tau_c_mean_perfect = np.mean(row_perfect[:,1:11])
-    tau_c_mean_partial = np.mean(row_perfect[:,1:11])
-
+    tau_c_mean_perfect = np.nanmean(row_perfect[:,1:11])
+    tau_c_mean_partial = np.nanmean(row_partial[:,1:11])
 
     return tau_c_mean_perfect, tau_c_mean_partial
 
@@ -523,6 +522,12 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     taus = chosen_data[:,1]
     zetas = chosen_data[:,4]
 
+    tau_c_perfect, tau_c_partial = find_tau_c(chosen_noise, root_dir)
+
+    if (tau_c_perfect == np.nan) or (tau_c_partial == np.nan):
+        print(noise)
+        pass
+
     # Create a binned plot of the data
 
     bin_means, bin_edges, bin_counts = stats.binned_statistic(taus, zetas, statistic="mean", bins=100)
@@ -549,7 +554,7 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     plt.savefig(save_path)
     plt.close()
 
-def makeCorrelationPlot(data, chosen_noise):
+def makeCorrelationPlot(data, chosen_noise, root_dir):
     noise = data[:,0]
     tau_ext = data[:,1]
     correlation = data[:,5]
@@ -560,6 +565,12 @@ def makeCorrelationPlot(data, chosen_noise):
     noise = noise[mask]
     cor = correlation[mask]
 
+    tau_c_perfect, tau_c_partial = find_tau_c(chosen_noise, root_dir)
+
+    if np.isnan(tau_c_perfect) or np.isnan(tau_c_partial):
+        print(chosen_noise)
+        pass
+
     bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="mean", bins=100)
     stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="std", bins=100)
 
@@ -567,16 +578,31 @@ def makeCorrelationPlot(data, chosen_noise):
 
     ax.set_ylim(0, 300)
 
-    ax.scatter(tau_ext[mask], cor, label="correlation", marker="x", color="lightgrey", alpha=0.5)
+    x = tau_ext[mask]
+    y = cor
 
-    ax.scatter(bin_edges[:-1], bin_means, label="mean", marker="o", color="blue")
+    if not np.isnan(tau_c_perfect): # Normalize data
+        x = (x - tau_c_perfect)/tau_c_perfect
 
-    ax.scatter(bin_edges[:-1], bin_means+stds, label="std", marker="_", color="blue")
-    ax.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
+    ax.scatter(x, y, marker="x", color="lightgrey", alpha=0.5)
 
-    ax.set_xlabel("$\\tau_{{ext}}$")
-    ax.set_ylabel("Correlation")
-    ax.set_title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
+    x = bin_edges[:-1]
+    y = bin_means
+
+    if not np.isnan(tau_c_perfect): # Normalize data
+        x = (x - tau_c_perfect)/tau_c_perfect
+        ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+    else:
+        ax.set_xlabel("$\\tau_{{ext}}$")
+
+    ax.scatter(x, y, label="$\\vec{\\xi}$", marker="o", color="blue")
+
+    ax.scatter(x, y+stds, label="$\\sigma$", marker="_", color="blue")
+    ax.scatter(x, y-stds, marker="_", color="blue")
+
+    ax.set_ylabel("$\\xi$")
+    # ax.set_title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
+    fig.tight_layout()
     ax.legend()
     ax.grid(True)
 
@@ -607,7 +633,7 @@ def processExponentData(root_dir):
         makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
 
         chosen_noise = np.round(unique_noise, 5)
-        fig, ax = makeCorrelationPlot(data, chosen_noise)
+        fig, ax = makeCorrelationPlot(data, chosen_noise, root_dir)
 
         save_path = Path(root_dir)
         save_path = save_path.joinpath("correlation-plots")
