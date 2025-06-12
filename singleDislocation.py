@@ -2,7 +2,7 @@ import time
 import numpy as np
 from simulation import Simulation
 from scipy.integrate import solve_ivp
-
+from pathlib import Path
 class DislocationSimulation(Simulation):
 
     def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, d0=10, rtol=1e-6):
@@ -58,6 +58,52 @@ class DislocationSimulation(Simulation):
         if timeit:
             t1 = time.time()
             print(f"Time taken for simulation: {t1 - t0}")
+    
+    def run_in_chucks(self, backup_file, chunk_size = 100, timeit=False):
+        if timeit:
+            t0 = time.time()
+
+        y0 = np.ones(self.bigN, dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+
+        total_time_so_far = 0
+        last_y0 = y0
+        
+        backup_file = Path(backup_file)
+        backup_file.parent.mkdir(exist_ok=True, parents=True)
+
+        if self.time % chunk_size != 0:
+            print(chunk_size % self.time)
+            raise Exception("invalid chunk size")
+        
+        while total_time_so_far < self.time*(1 - 0.1):
+            start_i = total_time_so_far
+            end_i = total_time_so_far + chunk_size
+
+            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
+                            t_eval=[end_i],
+                            rtol=self.rtol)
+            y_i = sol_i.y.T
+            last_y0 = y_i[-1]
+            np.savez(backup_file, last_y0)
+            total_time_so_far += chunk_size
+        
+        sol = solve_ivp(self.rhs, [self.time*(1 - 0.1), self.time], last_y0.flatten(), method='RK45', 
+                            t_eval=np.arange(self.time*(1 - 0.1), self.time, self.dt),
+                            rtol=self.rtol)
+
+        self.y1 = sol.y.T
+
+        self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
+
+        self.y1 = np.array(self.y1) # Convert to numpy array
+        self.timesteps = len(self.y1)
+        
+        self.has_simulation_been_run = True
+
+        if timeit:
+            t1 = time.time()
+            print(f"Time taken for simulation: {t1 - t0}")
+        pass
     
     def getLineProfiles(self):
         start = 0
