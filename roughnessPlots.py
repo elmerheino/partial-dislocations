@@ -424,6 +424,34 @@ def extractRoughnessExponent(l_range, avg_w, params):
 
     return c, zeta, change_p
 
+def find_tau_c(noise, root_dir):
+    tau_c_partial = None
+    tau_c_perfect = None
+
+    noise_partial_path = Path(root_dir).joinpath(f"noise-data/partial-noises.csv")
+    noise_perfect_path = Path(root_dir).joinpath(f"noise-data/perfect-noises.csv")
+
+    try:
+        tau_c_partial = np.genfromtxt(noise_partial_path, delimiter=",", skip_header=1)
+        tau_c_perfect = np.genfromtxt(noise_perfect_path, delimiter=",", skip_header=1)
+    except:
+        print(f"No noise data")
+    
+    column1_perfect = np.round(tau_c_perfect[:,0],6)
+    mask_perfect = np.abs( column1_perfect - noise ) < 1e-9
+
+    column1_partial = np.round(tau_c_partial[:,0],6)
+    mask_partial = np.abs( column1_partial - noise ) < 1e-9
+
+    row_perfect = tau_c_perfect[mask_perfect]
+    row_partial = tau_c_partial[mask_partial]
+
+    tau_c_mean_perfect = np.mean(row_perfect[:,1:11])
+    tau_c_mean_partial = np.mean(row_perfect[:,1:11])
+
+
+    return tau_c_mean_perfect, tau_c_mean_partial
+
 def multiprocessing_helper(f1, root_dir):
     loaded = np.load(f1)
     params = loaded["parameters"]
@@ -458,8 +486,8 @@ def makeRoughnessExponentDataset(root_dir, seq=False):
                     l_range = loaded["l_range"]
                     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-                    c, zeta = extractRoughnessExponent(l_range, avg_w, params)
-                    data.append((noise, tauExt, seed, c, zeta))
+                    c, zeta, correlation_len = extractRoughnessExponent(l_range, avg_w, params)
+                    data.append((noise, tauExt, seed, c, zeta, correlation_len))
                     progess += 1
                     print(f"Progress: {progess}/{1000*100}")
             else:
@@ -491,7 +519,6 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     # Get the data for the chosen noise and tauExt
     noise_rounded = np.round(noise, 4)
     chosen_data = data[ noise_rounded == chosen_noise]
-    print(f"Chosen data: {chosen_data.shape}")
 
     taus = chosen_data[:,1]
     zetas = chosen_data[:,4]
@@ -517,12 +544,12 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     plt.grid(True)
 
     save_path = Path(root_dir)
-    save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{chosen_noise}.eps")
+    save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{chosen_noise}.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(save_path)
     plt.close()
 
-def makeCorrelationPlot(data, chosen_noise, root_dir):
+def makeCorrelationPlot(data, chosen_noise):
     noise = data[:,0]
     tau_ext = data[:,1]
     correlation = data[:,5]
@@ -533,34 +560,27 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
     noise = noise[mask]
     cor = correlation[mask]
 
-    # print(noise, cor)
-    # print(noise.shape, cor.shape)
-
     bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="mean", bins=100)
     stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="std", bins=100)
 
-    plt.figure(figsize=(linewidth/2,linewidth/2))
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
 
-    plt.scatter(tau_ext[mask], cor, label="correlation", marker="x", color="lightgrey", alpha=0.5)
+    ax.set_ylim(0, 300)
 
-    plt.scatter(bin_edges[:-1], bin_means, label="mean", marker="o", color="blue")
+    ax.scatter(tau_ext[mask], cor, label="correlation", marker="x", color="lightgrey", alpha=0.5)
 
-    plt.scatter(bin_edges[:-1], bin_means+stds, label="std", marker="_", color="blue")
-    plt.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
+    ax.scatter(bin_edges[:-1], bin_means, label="mean", marker="o", color="blue")
 
-    plt.xlabel("$\\tau_{{ext}}$")
-    plt.ylabel("Correlation")
-    plt.title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
-    plt.legend()
-    plt.grid(True)
+    ax.scatter(bin_edges[:-1], bin_means+stds, label="std", marker="_", color="blue")
+    ax.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
 
-    save_path = Path(root_dir)
-    save_path = save_path.joinpath("correlation-plots")
-    save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath(f"correlation-{chosen_noise}.eps")
-    plt.savefig(save_path)
-    plt.close()
-    pass
+    ax.set_xlabel("$\\tau_{{ext}}$")
+    ax.set_ylabel("Correlation")
+    ax.set_title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
+    ax.legend()
+    ax.grid(True)
+
+    return fig, ax
 
 def processExponentData(root_dir):
     path = Path(root_dir).joinpath("roughness_exponents.npz")
@@ -585,7 +605,17 @@ def processExponentData(root_dir):
 
     for unique_noise in unique_noises:
         makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
-        makeCorrelationPlot(data, np.round(unique_noise, 5), root_dir)
+
+        chosen_noise = np.round(unique_noise, 5)
+        fig, ax = makeCorrelationPlot(data, chosen_noise)
+
+        save_path = Path(root_dir)
+        save_path = save_path.joinpath("correlation-plots")
+        save_path.mkdir(parents=True, exist_ok=True)
+        save_path = save_path.joinpath(f"correlation-{chosen_noise}.pdf")
+        fig.savefig(save_path)
+        plt.close()
+
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -701,4 +731,5 @@ def makeTranitionPointPlots():
     pass
 
 if __name__ == "__main__":
+    print(find_tau_c(10.0, "/Volumes/contenttii/2025-06-08-merged-final"))
     pass

@@ -351,7 +351,6 @@ if __name__ == "__main__":
     parser.add_argument('--confidence', help='Confidence level for depinning, must be called with --binning.', type=float, default=0.95)
     parser.add_argument('--noise', help="Analyse critical force as function of noise amplitude", action="store_true")
     parser.add_argument('--rearrange', help="Rearrange roughness data by tau instead of seed.", action="store_true")
-    parser.add_argument('--analyse-roughness', help="Analyse roughness fit parameters.", action="store_true")
     parser.add_argument('--analyze-hurst-exponent', help="Compute roughness exponents and store them separately, them plot them (only perfect dislocation)", action="store_true")
 
     parsed = parser.parse_args()
@@ -368,14 +367,11 @@ if __name__ == "__main__":
         makeAvgRoughnessPlots(parsed.folder)
     
     if parsed.all or parsed.analyze_hurst_exponent:
-        path = Path(parsed.folder).joinpath("roughness_exponents_perfect.npz")
+        path = Path(parsed.folder).joinpath("roughness_parameters_perfect.npz")
         if not path.exists():
             makeRoughnessExponentDataset(parsed.folder)
             print("Making roughness dataset.")
         processExponentData(Path(parsed.folder))
-    
-    if parsed.all or parsed.analyse_roughness:
-        analyzeRoughnessFitParamteters(parsed.folder)
 
     if parsed.all or parsed.avg_roughness:
         averageRoughnessBySeed(parsed.folder)
