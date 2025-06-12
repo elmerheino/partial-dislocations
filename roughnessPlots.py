@@ -357,7 +357,7 @@ def loadRoughnessDataPerfect(f1, root_dir):
 
     return (tauExt, seed, c, zeta, correlation_len, constant_val)
 
-def makePerfectRoughnessPlots(root_dir, test=False):
+def makePerfectRoughnessPlots(root_dir):
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
 
     roughnesses_perfect = dict()
@@ -370,13 +370,9 @@ def makePerfectRoughnessPlots(root_dir, test=False):
             "cutoff" : list(), "k":list()
         }
 
-        if not n % 10 == 0 and test:
-            continue
-
-        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder.iterdir()):
+        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder.iterdir()): # Only make roughness plots for seed = 1
             seed = int(seed_folder.stem.split("-")[1])
-            if seed != 0 and test:
-                continue
+
             print(f"Making roughness plots for noise {noise_val} seed {seed}")
 
             with mp.Pool(8) as pool:

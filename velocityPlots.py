@@ -64,6 +64,8 @@ def make_a_closeup_plot(x_closeup, y_closeup, save_path : Path, truncated_key, r
                                                                 [max(x_closeup), 0.6, np.inf]
                                                             ), maxfev=3000)
     t_c, beta, a = fit_params
+
+    deltaTau = (max(x_closeup) - min(x_closeup))/len(x_closeup)
     
     # Calculate mean squared error for the fit
     v_fit = velocity_fit(x_closeup, *fit_params)
@@ -86,9 +88,9 @@ def make_a_closeup_plot(x_closeup, y_closeup, save_path : Path, truncated_key, r
     plt.ylabel("$v_{{cm}}$")
     plt.legend()
 
-    p = save_path.parent.joinpath(f"closeups/noise-{truncated_key}")
-    p.mkdir(exist_ok=True, parents=True)
-    plt.savefig(p.joinpath(f"normalized-depinning-closeup-{seed}.png"))
+    closeup_save_path_ = save_path.parent.joinpath(f"closeups/noise-{truncated_key}/normalized-depinning-closeup-{seed}.png")
+    closeup_save_path_.parent.mkdir(exist_ok=True, parents=True)
+    plt.savefig(closeup_save_path_)
     plt.tight_layout()
     plt.close()
 
@@ -107,6 +109,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
 
     tau_c = dict()
     fit_errors = dict()
+    delta_tau_values = dict()
 
     # Collect all datapoints for binning
 
@@ -131,6 +134,8 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             fit_errors[truncated_key] = list()
         if truncated_key not in data_perfect:
             data_perfect[truncated_key] = list()
+        if truncated_key not in delta_tau_values:
+            delta_tau_values[truncated_key] = list()
 
         for fpath in noise_path.iterdir():
             try:
@@ -139,10 +144,11 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             except Exception as e:
                 print(f"Failed to load file {fpath} with exception {e}")
             tauExt = depinning["stresses"]
-            vCm = depinning["v_rel"]
+            vCm = np.array(depinning["v_rel"])*10
             seed = depinning["seed"]
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
+            deltaTau = (max(tauExt) - min(tauExt)) / len(tauExt)
 
             bounds = None
             tauCrit, beta, a = None, None, None
@@ -197,9 +203,10 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             x_all = (tauExt - tauCrit)/tauCrit
             y_all = vCm
 
-            # Save the critical force and mse to dicts for later use
+            # Save the critical force, mse and delta tau to dicts for later use
             tau_c[truncated_key].append(tauCrit)
             fit_errors[truncated_key].append(mse)
+            delta_tau_values[truncated_key].append(deltaTau)
 
             # Scale the original data
             data_perfect[truncated_key] += zip(x_all,y_all)
@@ -233,6 +240,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
     for truncated_key in tau_c.keys():
         current_tau_crits = list(tau_c.get(truncated_key, []))
         current_fit_errors = list(fit_errors.get(truncated_key, []))
+        current_delta_taus = list(delta_tau_values.get(truncated_key, []))
 
         if len(current_tau_crits) < k:
             current_tau_crits.extend([None] * (k - len(current_tau_crits)))
@@ -243,8 +251,13 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             current_fit_errors.extend([None] * (k - len(current_fit_errors)))
         elif len(current_fit_errors) > k:
             current_fit_errors = current_fit_errors[:k]
+        
+        if len(current_delta_taus) < k:
+            current_delta_taus.extend([None] * (k - len(current_delta_taus)))
+        elif len(current_delta_taus) > k:
+            current_delta_taus = current_delta_taus[:k]
 
-        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors
+        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors + current_delta_taus
         tau_c_csv.append(compiled_row)
 
     tau_c_csv.sort(key=lambda row: float(row[0]))
