@@ -27,7 +27,7 @@ SEEDS=1         # Seed count is array-max/noise points
 TIME=250000
 DT=0.1
 
-TAU_POINTS=40   # How many external forces are tried per noise level to find the critical force
+TAU_POINTS=20   # How many external forces are tried per noise level to find the critical force
 
 # Job step partial dislocation
 srun python3 main.py -p ${TAU_POINTS} -dt ${DT} -t ${TIME} --partial -f ${WRKDIR}/${NAME}/partial-dislocation -c ${CORES} \
