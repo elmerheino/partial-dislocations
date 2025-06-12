@@ -122,9 +122,12 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
     for noise_group in h5_file["depinnings"].keys():
         noise = noise_group.split("-")[1]
 
-        tau_c[noise] = list()
+        truncated_key = str(f"{float(noise):.6f}")
 
-        data_perfect[noise] = list()
+        tau_c[truncated_key] = list()
+        data_perfect[truncated_key] = list()
+        fit_errors[truncated_key] = list()
+        delta_tau_values[truncated_key] = list()
 
         for seed_group in h5_file["depinnings"][noise_group].keys():
             depinning = h5_file["depinnings"][noise_group][seed_group]
@@ -152,8 +155,12 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
                 refined_t_c, _, bounds = getWindow(np.array(tauExt), np.array(vCm), t_c_arvaus)
                 print(f"bounds {bounds} and refined_t_c = {refined_t_c}")
 
-                start_ = bounds[0] + 4
-                end_ = bounds[1] + 6
+                if bounds == None:
+                    start_ = 0
+                    end_ = len(tauExt)
+                else:
+                    start_ = bounds[0] + 4
+                    end_ = bounds[1] + 6
 
                 x_closeup = tauExt[start_:end_]
                 y_closeup = vCm[start_:end_]
