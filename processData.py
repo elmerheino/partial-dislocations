@@ -188,7 +188,7 @@ def makeCommonNoisePlot(root_dir : Path):
     plt.errorbar(data_partial[:,0], data_partial[:,1], fmt='o', markersize=2, capsize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
     plt.errorbar(data_perfect[:,0], data_perfect[:,1], fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
         
-    plt.title("Noise magnitude and external force")
+    # plt.title("Noise magnitude and external force")
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
     plt.legend()
@@ -257,7 +257,7 @@ def makeDislocationPlots(folder):
 
                 dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/")
                 dest_file.mkdir(exist_ok=True, parents=True)
-                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.png")
+                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.pdf")
 
                 plt.savefig(dest_file, dpi=600, bbox_inches='tight')
                 plt.close()
@@ -330,7 +330,7 @@ def makeDislocationPlots(folder):
 
                 dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.3f}/")
                 dest_file.mkdir(exist_ok=True, parents=True)
-                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.png")
+                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.pdf")
 
                 plt.savefig(dest_file, dpi=600, bbox_inches='tight')
                 plt.close()
