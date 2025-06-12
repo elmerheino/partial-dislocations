@@ -61,8 +61,16 @@ class DepinningPartial(Depinning):
                                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                                    dt=self.dt, time=self.time, d0=self.d0, c_gamma=self.c_gamma,
                                                    cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
-    
-        simulation.run_simulation()
+        params = simulation.getParameteters()
+        params_str = np.array2string(params)  # Convert array to string
+        hash_object = hashlib.sha256(params_str.encode())
+        hex_dig = hash_object.hexdigest()
+
+        backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{hex_dig}")
+
+        chunk_size = self.time/10
+
+        simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
 
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
         y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
@@ -117,7 +125,9 @@ class DepinningSingle(Depinning):
 
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{hex_dig}")
 
-        sim.run_in_chucks(backup_file=backup_file, chunk_size=self.time/10)
+        chunk_size = self.time/10
+
+        sim.run_in_chucks(backup_file=backup_file, chunk_size=chunk_size)
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
