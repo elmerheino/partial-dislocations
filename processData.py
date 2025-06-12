@@ -54,7 +54,8 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
             x, y)
         fit_x = np.linspace(data[0,0], data[region1_index,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color=fit_color, linewidth=2)
+        ax.plot(fit_x, fit_y, color=fit_color, linewidth=2)
+        ax.text(fit_x[1], fit_y[1], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='left', va='top')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in first region of data.")
@@ -70,9 +71,9 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         fit_x = np.linspace(data[region1_index,0], data[region1_end,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
         ax.plot(fit_x, fit_y,
-                label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", 
                 color='black', linestyle='--', linewidth=2
                 )
+        ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in second region of data.")
@@ -87,7 +88,8 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
             x, y)
         fit_x = np.linspace(data[region1_end,0], data[-1,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color=fit_color, linestyle=':', linewidth=2)
+        ax.plot(fit_x, fit_y, color=fit_color, linestyle=':', linewidth=2)
+        ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
         print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in third region of data.")
@@ -121,7 +123,6 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     ax.set_xlabel("$\\Delta R$")
     ax.set_ylabel("$ \\tau_c $")
 
-    fig.legend()
     fig.tight_layout()
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
@@ -149,7 +150,6 @@ def makePartialNoisePlot(res_root : Path, save_path):
     ax.set_yscale("log")
     ax.grid(True)
     # ax.set_title(f"Partial dislocation")
-    ax.legend()
     ax.set_xlabel("$\\Delta R$")
     ax.set_ylabel("$ \\tau_c $")
 
