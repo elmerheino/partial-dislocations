@@ -9,8 +9,37 @@ from functools import partial
 from numba import jit
 import math
 from sklearn.linear_model import LinearRegression
+import h5py
+import csv
 
 linewidth = 5.59164
+
+def makeAvgRoughnessPlots(root_dir):
+    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
+    # for partial dislocations
+
+    try:
+        makePerfectRoughnessPlots(
+            Path(root_dir).joinpath("single-dislocation/perfect-dislocation.h5"),
+            Path(root_dir).joinpath("single-dislocation/roughness-plots")
+        )
+    except FileNotFoundError:
+        print("No perfect roughness data skipping.")
+
+    try:
+        makePartialRoughnessPlots(
+            Path(root_dir).joinpath("partial-dislocation/partial-dislocation.h5"),
+            Path(root_dir).joinpath("partial-dislocation/roughness-plots")
+            )
+    except FileNotFoundError:
+        print("No partial roighness data skipping.")
+
+    try:
+        analyzeRoughnessFitParamteters(root_dir)
+    except FileNotFoundError:
+        print("No roughness fit parameters data skipping.")
+    
+    pass
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
@@ -92,41 +121,100 @@ def analyzeRoughnessFitParamteters(root_dir):
         plt.close()
 
 
-def makePartialRoughnessPlots(root_dir):
-    p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
+def makePartialRoughnessPlots(h5path, root_dir):
 
     roughnesses_partial = dict()
 
-    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
+    with h5py.File(h5path, 'r') as hf:
+        roughness_group = hf["roughnesses"]
+        for noise_key in roughness_group.keys():
+            noise_group = roughness_group[noise_key]
+            noise_val = noise_key.split("-")[1]
 
-        noise_val = noise_folder.name.split("-")[1]
+            roughnesses_partial_noise = {
+                "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+                "cutoff" : list(), "k":list()
+            }
 
-        roughnesses_partial_noise = {
-            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-            "cutoff" : list(), "k":list()
-        }
+            for seed_key in noise_group.keys():
+                seed_group = noise_group[seed_key]
+                seed = int(seed_key.split("-")[1])
+                
+                print(f"Making roughness plots for noise {noise_val} seed {seed}")
 
-        for seed_folder in noise_folder.iterdir():
-            seed = int(seed_folder.stem.split("-")[1])
-            # if seed != 0:
-            #     continue
-            print(f"Making roughness plots for noise {noise_val} seed {seed}")
+                for tau_key in seed_group.keys():
+                    tau_group = seed_group[tau_key]
+                    tauExt = float(tau_key.split("-")[1])
 
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(loadRoughnessData_partial, root_dir=root_dir), seed_folder.iterdir())
-                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-                roughnesses_partial_noise["tauExt"] += tauExt
-                roughnesses_partial_noise["seed"] += seed_r
-                roughnesses_partial_noise["c"] += c
-                roughnesses_partial_noise["zeta"] += zeta
-                roughnesses_partial_noise["cutoff"] += cutoff
-                roughnesses_partial_noise["k"] += k
-        
-        roughnesses_partial[noise_val] = roughnesses_partial_noise
+                    avg_w12 = tau_group[:]
+                    l_range = np.arange(len(avg_w12))
+                    params = tau_group.attrs["parameters"]
+                    
+                    p = Path(root_dir)
+                    p = p.joinpath(f"seed-{seed}")
+                    p.mkdir(parents=True, exist_ok=True)
+                    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
 
-    
+                    tauExt_r, seed_r, c, zeta, cutoff, k = makeRoughnessPlot_partial(l_range, avg_w12, params, p)
+
+                    roughnesses_partial_noise["tauExt"].append(tauExt_r)
+                    roughnesses_partial_noise["seed"].append(seed_r)
+                    roughnesses_partial_noise["c"].append(c)
+                    roughnesses_partial_noise["zeta"].append(zeta)
+                    roughnesses_partial_noise["cutoff"].append(cutoff)
+                    roughnesses_partial_noise["k"].append(k)
+            
+            roughnesses_partial[noise_val] = roughnesses_partial_noise
+
     with open(Path(root_dir).joinpath("roughness_partial.json"), "w") as fp:
         json.dump(roughnesses_partial, fp)
+
+def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path : Path):
+    # TODO: incorporate similar
+    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+
+    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
+                                                                                1.1, # zeta
+                                                                                4.1 ]) # cutoff
+    c, zeta, cutoff = fit_params
+    k = c*(cutoff**zeta)
+    ynew = roughness_fit(l_range, *fit_params)
+
+    plt.clf()
+    plt.figure(figsize=(8,8))
+    plt.scatter(l_range, avg_w12, label="$W_{{12}}$", marker="x")
+    # plt.plot(l_range, ynew, label=f"fit, c={c}, $\\zeta = $ {zeta}")
+
+    plt.xscale("log")
+    plt.yscale("log")
+
+    plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.xlabel("log(L)")
+    plt.ylabel("$\\log(W_{{12}}(L))$")
+    plt.legend()
+
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+
+    return (tauExt, seed, c, zeta, cutoff, k)
+
+def loadRoughnessData_partial(path_to_file, root_dir):
+    # Helper function to enable multiprocessing
+    loaded = np.load(path_to_file)
+    params = loaded["parameters"]
+    avg_w12 = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+
+    # Loop through every noise level here
+
+    save_path_partial_roughness = Path(root_dir)
+    save_path_partial_roughness = save_path_partial_roughness.joinpath("roughness-partial-pdf").joinpath(f"noise-{deltaR:.5f}/seed-{seed}/avg-roughness-tau-{tauExt:.3f}-partial.pdf")
+    save_path_partial_roughness.parent.mkdir(parents=True, exist_ok=True)
+
+    tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlotPerfect(l_range, avg_w12, params, save_path_partial_roughness)
+
+    return (tauExt, seed, c, zeta, cutoff, k)
 
 
 def find_fit_interval(l_range, avg_w, l_0_range, save_path : Path, tauExt):
@@ -178,7 +266,12 @@ def find_fit_interval(l_range, avg_w, l_0_range, save_path : Path, tauExt):
     return n_selected, last_exp, zeta, c
 
 def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
-    bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    else:
+        print(f"Lenght of params list len(params) = {len(params)}")
 
 
     if np.isnan(avg_w).any() or np.isinf(avg_w).any():
@@ -191,19 +284,15 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
 
     # Make an exponential plot to only the first decade of data.
 
-    l_0_range = np.linspace(np.exp(1),np.exp(4), 50) # not logarithmic here! from log(1) to log(4) This is the range where different fits are tried.
-    n_selected, last_exp, zeta, c = find_fit_interval(l_range, avg_w, l_0_range, save_path, tauExt)
-
     plt.clf()
     plt.figure(figsize=(linewidth/2,linewidth/2))
 
-    plt.scatter(l_range, avg_w, label="$W$", marker="x") # Plot the data as is
+    plt.scatter(l_range, avg_w, marker="o", s=1) # Plot the data as is
 
     # Make exponential plot to first 10% of data.
 
     start = 1
     end = 10
-    end = round(end)
 
     dekadi_l = l_range[start:end]
     dekadi_w = avg_w[start:end]
@@ -219,7 +308,7 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
 
     y_pred = x*slope + intercept
 
-    plt.plot(dekadi_l, np.exp(y_pred), label="linear regression", color="green")
+    plt.plot(dekadi_l, np.exp(y_pred), color="green")
 
     # Now find out the constant behavior from N/4 < L < 3N/4
 
@@ -229,25 +318,25 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     const_l = l_range[start:end]
     const_w = avg_w[start:end]
 
-    fit_c_range, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
+    fit_constant_params, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
     
-    new_c = np.ones(len(const_l))*fit_c_range
+    new_c = np.ones(len(const_l))*fit_constant_params
 
-    plt.plot(const_l, new_c, label=f"N/4 < L < 3N/4", color="orange")
+    plt.plot(const_l, new_c, color="orange")
 
     # Next find out the transition point between power law and constant behavior
 
-    fit_c_range = fit_c_range[0]    # This is the constant of constant behavior y = c
+    fit_constant_params = fit_constant_params[0]    # This is the constant of constant behavior y = c
     zeta = zeta                     # This is the exponent of power law y = c*l^zeta
     c = c                           # This is the factor in power law y=c*l^zeta
 
-    change_p = (fit_c_range / c)**(1/zeta)  # This is the points l=change_p where is changes from power to constant.
+    change_p = (fit_constant_params / c)**(1/zeta)  # This is the points l=change_p where is changes from power to constant.
 
-    plt.scatter([change_p], [fit_c_range], label="Tansition point")
+    plt.scatter([change_p], [fit_constant_params], label="$\\xi$")
 
     # Plot dashed lines to illustrate the intersection
     dashed_x = np.linspace(change_p, max(l_range)/4, 10)
-    dahsed_y = np.ones(10)*fit_c_range
+    dahsed_y = np.ones(10)*fit_constant_params
     plt.plot(dashed_x, dahsed_y, linestyle="dashed", color="grey")
 
     dashed_x = np.linspace(10, change_p, 10)
@@ -258,15 +347,16 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
     plt.yscale("log")
     plt.grid(True)
 
-    plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
-    plt.xlabel("log(L)")
-    plt.ylabel("$\\log(W_(L))$")
-    # plt.legend()
+    # plt.title(f"Roughness of a perfect dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
+    plt.xlabel("L")
+    plt.ylabel("$W(L)$")
 
-    plt.savefig(save_path, dpi=300)
+    plt.tight_layout()
+
+    plt.savefig(save_path)
     plt.close()
 
-    return (tauExt, seed, c, zeta, change_p, fit_c_range)
+    return (tauExt, seed, c, zeta, change_p, fit_constant_params)
 
 def loadRoughnessDataPerfect(f1, root_dir):
     # Helper function to enable use of multiprocessing when making plots
@@ -277,71 +367,64 @@ def loadRoughnessDataPerfect(f1, root_dir):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
     save_path = Path(root_dir)
-    save_path = save_path.joinpath("roughness-non-partial").joinpath(f"noise-{deltaR:.4f}/seed-{seed}")
+    save_path = save_path.joinpath("roughness-perfect-pdf").joinpath(f"noise-{deltaR:.5f}/seed-{seed}")
     save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath(f"avg-roughness-tau-{tauExt}.png")
+    save_path = save_path.joinpath(f"avg-roughness-tau-{tauExt}-perfect.pdf")
 
-    tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlotPerfect(l_range, avg_w, params, save_path)
+    try:
+        tauExt, seed, c, zeta, correlation_len, constant_val = makeRoughnessPlotPerfect(l_range, avg_w, params, save_path)
+    except Exception as e:
+        print(f1)
+        print(e)
 
-    return (tauExt, seed, c, zeta, cutoff, k)
+    return (tauExt, seed, c, zeta, correlation_len, constant_val)
 
-def makePerfectRoughnessPlots(root_dir, test=False):
-    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
-
+def makePerfectRoughnessPlots(h5path, root_dir):
     roughnesses_perfect = dict()
 
-    for n,noise_folder in enumerate([s for s in p.iterdir() if s.is_dir()]):
-        noise_val = noise_folder.name.split("-")[1]
+    with h5py.File(h5path, 'r') as hf:
+        roughness_group = hf["roughnesses"]
+        for noise_key in roughness_group.keys():
+            noise_group = roughness_group[noise_key]
+            noise_val = noise_key.split("-")[1]
 
-        roughnesses_np_noise = {
-            "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
-            "cutoff" : list(), "k":list()
-        }
+            roughnesses_np_noise = {
+                "tauExt" : list(), "seed" : list(), "c" : list(), "zeta" : list(),
+                "cutoff" : list(), "k":list()
+            }
 
-        if not n % 10 == 0 and test:
-            continue
+            for seed_key in noise_group.keys():
+                seed_group = noise_group[seed_key]
+                seed = int(seed_key.split("-")[1])
+                
+                print(f"Making roughness plots for noise {noise_val} seed {seed}")
 
-        for seed_folder in noise_folder.iterdir():
-            seed = int(seed_folder.stem.split("-")[1])
-            if seed != 0 and test:
-                continue
-            print(f"Making roughness plots for noise {noise_val} seed {seed}")
+                for tau_key in seed_group.keys():
+                    tau_group = seed_group[tau_key]
+                    tauExt = float(tau_key.split("-")[1])
 
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(loadRoughnessDataPerfect, root_dir=root_dir), seed_folder.iterdir())
-                tauExt, seed_r, c, zeta, cutoff, k = zip(*results)
-                roughnesses_np_noise["tauExt"] += tauExt
-                roughnesses_np_noise["seed"] += seed_r
-                roughnesses_np_noise["c"] += c
-                roughnesses_np_noise["zeta"] += zeta
-                roughnesses_np_noise["cutoff"] += cutoff
-                roughnesses_np_noise["k"] += k
+                    avg_w = tau_group[:]
+                    l_range = np.arange(len(avg_w))
+                    params = tau_group.attrs["parameters"]
+                    
+                    p = Path(root_dir)
+                    p = p.joinpath(f"seed-{seed}")
+                    p.mkdir(parents=True, exist_ok=True)
+                    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
+
+                    tauExt_r, seed_r, c, zeta, cutoff, k = makeRoughnessPlotPerfect(l_range, avg_w, params, p)
+
+                    roughnesses_np_noise["tauExt"].append(tauExt_r)
+                    roughnesses_np_noise["seed"].append(seed_r)
+                    roughnesses_np_noise["c"].append(c)
+                    roughnesses_np_noise["zeta"].append(zeta)
+                    roughnesses_np_noise["cutoff"].append(cutoff)
+                    roughnesses_np_noise["k"].append(k)
+            
+            roughnesses_perfect[noise_val] = roughnesses_np_noise
         
-        roughnesses_perfect[noise_val] = roughnesses_np_noise
-        
-    with open(Path(root_dir).joinpath("roughness_perfect.json"), "w") as fp:
+    with open(Path(root_dir).joinpath("roughness_perfect_from_plots.json"), "w") as fp:
         json.dump(roughnesses_perfect, fp)
-
-def makeAvgRoughnessPlots(root_dir):
-    # Makes roughness plots that have been averaged only at simulation (that is velocity) level first
-    # for partial dislocations
-
-    try:
-        makePerfectRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No perfect roughness data skipping.")
-
-    try:
-        makePartialRoughnessPlots(root_dir)
-    except FileNotFoundError:
-        print("No partial roighness data skipping.")
-
-    try:
-        analyzeRoughnessFitParamteters(root_dir)
-    except FileNotFoundError:
-        print("No roughness fit parameters data skipping.")
-    
-    pass
 
 def extractRoughnessExponent(l_range, avg_w, params):
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
@@ -374,7 +457,8 @@ def extractRoughnessExponent(l_range, avg_w, params):
 
     change_p = (fit_c_range / c)**(1/zeta)
 
-    return c, zeta
+    return c, zeta, change_p
+    return c, zeta, change_p
 
 def multiprocessing_helper(f1, root_dir):
     loaded = np.load(f1)
@@ -383,48 +467,51 @@ def multiprocessing_helper(f1, root_dir):
     l_range = loaded["l_range"]
     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
 
-    c, zeta = extractRoughnessExponent(l_range, avg_w, params)
+    c, zeta, transition = extractRoughnessExponent(l_range, avg_w, params)
 
-    return  (deltaR, tauExt, seed, c, zeta)
+    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition))
 
 
-def makeRoughnessExponentDataset(root_dir):
+def makeRoughnessExponentDataset(root_dir, h5root="debug-dict/single-dislocation/"):
     # Make a dataset of roughness exponents for all noise levels
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
     data = list() # List of tuples (noise, tau_ext, seed, c, zeta)
 
     progess = 0
 
-    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
-        noise = noise_folder.name.split("-")[1]
+    h5_path = Path(h5root).joinpath("perfect-dislocation.h5")
 
-        for seed_folder in noise_folder.iterdir():
-            seed = int(seed_folder.stem.split("-")[1])
-            print(f"Extracting params from data with noise {noise} and seed {seed}")
+    with h5py.File(h5_path, "r") as hf:
+        roughness_group = hf["roughnesses"]
+        for noise_key in roughness_group.keys():
+            noise = float(noise_key.split("-")[1])
+            noise_group = roughness_group[noise_key]
 
-            # Sequential loading
+            for seed_key in noise_group.keys():
+                seed = int(seed_key.split("-")[1])
+                seed_group = noise_group[seed_key]
 
-            # for file_path in seed_folder.iterdir():
-            #     loaded = np.load(file_path)
-            #     params = loaded["parameters"]
-            #     avg_w = loaded["avg_w"]
-            #     l_range = loaded["l_range"]
-            #     bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+                for tau_key in seed_group.keys():
+                    tauExt = float(tau_key.split("-")[1])
+                    tau_group = seed_group[tau_key]
 
-            #     c, zeta = extractRoughnessExponent(l_range, avg_w, params)
-            #     data.append((noise, tauExt, seed, c, zeta))
-            #     progess += 1
-            #     print(f"Progress: {progess}/1000*100")
+                    avg_w = tau_group[:]
+                    l_range = np.arange(len(avg_w))
+                    params = tau_group.attrs["parameters"]
 
-            with mp.Pool(7) as pool:
-                results = pool.map(partial(multiprocessing_helper, root_dir=root_dir), seed_folder.iterdir())
-                data += results
-                progess += len(results)
-                print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
-    
+                    c, zeta, change_p = extractRoughnessExponent(l_range, avg_w, params)
+                    # TODO: resolve error mismatch in params array length when using for partial dislocation data
+                    data.append([np.float64(noise), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(change_p)])
+                    progess += 1
+                    print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
+        
     # Save the data to a file
     data = np.array(data)
-    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta"])
+    np.savez(Path(root_dir).joinpath("roughness_exponents.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "transition-point"])
+
+    # Save the data to a csv file
+    header = "noise;tau-ext;seed;c;zeta;transition-point\n"
+    np.savetxt(Path(root_dir).joinpath("roughness_exponents.csv"), data, delimiter=";", header=header, fmt='%s', comments='')
 
 def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt
@@ -448,7 +535,7 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     bin_means, bin_edges, bin_counts = stats.binned_statistic(taus, zetas, statistic="mean", bins=100)
     stds, bin_edges, bin_counts = stats.binned_statistic(taus, zetas, statistic="std", bins=100)
 
-    plt.figure(figsize=(8,8))
+    plt.figure(figsize=(linewidth/2,linewidth/2))
 
     plt.scatter(taus, zetas, label="zeta", marker="x", color="lightgrey", alpha=0.5)
 
@@ -464,12 +551,50 @@ def makeZetaPlot(data, chosen_noise, root_dir):
     plt.grid(True)
 
     save_path = Path(root_dir)
-    save_path = save_path.joinpath("roughness-exponent-plots")
-    save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath(f"roughness-exponent-{chosen_noise}.png")
-    plt.savefig(save_path, dpi=300)
+    save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{chosen_noise}.eps")
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(save_path)
     plt.close()
 
+def makeCorrelationPlot(data, chosen_noise, root_dir):
+    noise = data[:,0]
+    tau_ext = data[:,1]
+    correlation = data[:,5]
+    seed = data[:,2]
+
+    mask = np.round(noise, 5) == chosen_noise
+
+    noise = noise[mask]
+    cor = correlation[mask]
+
+    # print(noise, cor)
+    # print(noise.shape, cor.shape)
+
+    bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="mean", bins=100)
+    stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="std", bins=100)
+
+    plt.figure(figsize=(linewidth/2,linewidth/2))
+
+    plt.scatter(tau_ext[mask], cor, label="correlation", marker="x", color="lightgrey", alpha=0.5)
+
+    plt.scatter(bin_edges[:-1], bin_means, label="mean", marker="o", color="blue")
+
+    plt.scatter(bin_edges[:-1], bin_means+stds, label="std", marker="_", color="blue")
+    plt.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
+
+    plt.xlabel("$\\tau_{{ext}}$")
+    plt.ylabel("Correlation")
+    plt.title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
+    plt.legend()
+    plt.grid(True)
+
+    save_path = Path(root_dir)
+    save_path = save_path.joinpath("correlation-plots")
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_path = save_path.joinpath(f"correlation-{chosen_noise}.eps")
+    plt.savefig(save_path)
+    plt.close()
+    pass
 
 def processExponentData(root_dir):
     path = Path(root_dir).joinpath("roughness_exponents.npz")
@@ -482,6 +607,7 @@ def processExponentData(root_dir):
     seed = data[:,2]
     c = data[:,3]
     zeta = data[:,4]
+    correlation = data[:,5]
 
     print(f"Noise: {min(noise)} - {max(noise)} count {len(set(noise))}")
     print(f"tauExt: {min(tauExt)} - {max(tauExt)}")
@@ -493,6 +619,7 @@ def processExponentData(root_dir):
 
     for unique_noise in unique_noises:
         makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
+        makeCorrelationPlot(data, np.round(unique_noise, 5), root_dir)
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -507,54 +634,6 @@ def roughness_fit(l, c, zeta, cutoff):
 
 def roughness_partial(l, c, zeta, k, cutoff):
     return np.array(list(map(lambda i : c*(i**zeta) + k if i < cutoff else c*(cutoff**zeta) + k, l)))
-
-def makeRoughnessPlot_partial(l_range, avg_w12, params, save_path : Path):
-    # TODO: incorporate similar
-    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-
-    fit_params, pcov = optimize.curve_fit(roughness_fit, l_range, avg_w12, p0=[1.1, # C
-                                                                                1.1, # zeta
-                                                                                4.1 ]) # cutoff
-    c, zeta, cutoff = fit_params
-    k = c*(cutoff**zeta)
-    ynew = roughness_fit(l_range, *fit_params)
-
-    plt.clf()
-    plt.figure(figsize=(8,8))
-    plt.scatter(l_range, avg_w12, label="$W_{{12}}$", marker="x")
-    # plt.plot(l_range, ynew, label=f"fit, c={c}, $\\zeta = $ {zeta}")
-
-    plt.xscale("log")
-    plt.yscale("log")
-
-    plt.title(f"Roughness of a partial dislocation s = {seed} $\\tau_{{ext}}$ = {tauExt:.3f}")
-    plt.xlabel("log(L)")
-    plt.ylabel("$\\log(W_{{12}}(L))$")
-    plt.legend()
-
-    plt.savefig(save_path, dpi=300)
-    plt.close()
-
-    return (tauExt, seed, c, zeta, cutoff, k)
-
-def loadRoughnessData_partial(path_to_file, root_dir):
-    # Helper function to enable multiprocessing
-    loaded = np.load(path_to_file)
-    params = loaded["parameters"]
-    avg_w12 = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    bigN, length,   time,   dt, selfdeltaR, selfbigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-
-    # Loop through every noise level here
-
-    p = Path(root_dir)
-    p = p.joinpath("roughness-partial").joinpath(f"seed-{seed}")
-    p.mkdir(parents=True, exist_ok=True)
-    p = p.joinpath(f"avg-roughness-tau-{tauExt:.3f}.png")
-
-    tauExt, seed, c, zeta, cutoff, k = makeRoughnessPlot_partial(l_range, avg_w12, params, p)
-
-    return (tauExt, seed, c, zeta, cutoff, k)
 
 def averageRoughnessBySeed(root_dir):
     rearrangeRoughnessDataByTau(root_dir)
@@ -652,12 +731,8 @@ def extractRoughnessFromLast(root_dir):
                 makeRoughnessPlotPerfect(l_range, roughness, new_params, save_path)
     pass
 
+def makeTranitionPointPlots():
+    pass
+
 if __name__ == "__main__":
-    # root_dir = Path("/home/niklas/Projects/Dislocation-Depinning-Model/roughness-data")
-    # makeAvgRoughnessPlots(root_dir)
-    # makeRoughnessExponentDataset(root_dir)
-    # averageRoughnessBySeed(root_dir)
-    # makeRoughnessExponentDataset("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # processExponentData("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
-    # extractRoughnessFromLast("/Users/elmerheino/Documents/partial-dislocations/results/2025-04-29-noise-smaller-lims-more-data")
     pass
