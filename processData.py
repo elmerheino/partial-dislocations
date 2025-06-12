@@ -31,100 +31,10 @@ mpl.rcParams.update({
 
 linewidth = 5.59164
 
-def makePartialNoisePlot(res_root : Path, save_path):
-    with open(results_root.joinpath("noise-data/partial-noises.csv"), "r") as fp:
-        loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
-        pass
-
-    # partial dislocation
-
-    noises = loaded[:,0]
-    tau_c_means = np.nanmean(loaded[:,1:10], axis=1)
-    tau_c_stds = np.nanstd(loaded[:,1:10], axis=1)
-
-    plt.figure(figsize=(linewidth/2, linewidth/2))
-    plt.errorbar(noises, tau_c_means, yerr=tau_c_stds, fmt='o', markersize=2, capsize=2, color='red', linewidth=0.5, zorder=0)
-
-    data_partial = np.array(list(zip(noises, tau_c_means)))
-    sorted_args = np.argsort(data_partial[:,0])
-    data_partial = data_partial[sorted_args]
-
-    # Mask away nan values
-    mask = ~np.isnan(data_partial[:,1])
-    data_partial = data_partial[mask]
-
-    point_0 = 10**(-1.2)
-    point_1 = 10**(0.25)
-    point_2 = 10**(1.45)
-    
-    # Fit power law to first region of data
-    try:
-        region1_index = np.where(data_partial[:,0] > point_1)[0][0]
-        region0_index = np.where(data_partial[:,0] > point_0)[0][0]
-
-        x = data_partial[region0_index:region1_index,0]
-        y = data_partial[region0_index:region1_index,1]
-
-        print(region1_index, x.shape, y.shape)
-        fit_params, pcov = optimize.curve_fit(
-            lambda x, a, b: a*x**b, 
-            x, y)
-        
-        fit_x = np.linspace(data_partial[region0_index,0], data_partial[region1_index,0], 100)
-        fit_y = fit_params[0]*fit_x**fit_params[1]
-
-        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linewidth=2, zorder=1)
-        print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
-    except:
-        print("No data in first region of data.")
-        region1_index = 0
-
-    # Fit power law to second region of data
-    try:
-        region1_end = np.where(data_partial[:,0] > point_2)[0][0]
-
-        x = data_partial[region1_index:region1_end,0]
-        y = data_partial[region1_index:region1_end,1]
-
-        fit_params, pcov = optimize.curve_fit(
-            lambda x, a, b: a*x**b,
-            x, y, maxfev=3000)
-        
-        fit_x = np.linspace(data_partial[region1_index,0], data_partial[region1_end,0], 100)
-        fit_y = fit_params[0]*fit_x**fit_params[1]
-        plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='black', linestyle='--', linewidth=2, zorder=1)
-        print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
-    except:
-        print("No data in second region of data.")
-
-    # Fit power law to third region of data
-    x = data_partial[region1_end:,0]
-    y = data_partial[region1_end:,1]
-
-    fit_params,_ = optimize.curve_fit(
-        lambda x, a, b: a*x**b,
-        x, y)
-    fit_x = np.linspace(data_partial[region1_end,0], data_partial[-1,0], 100)
-    fit_y = fit_params[0]*fit_x**fit_params[1]
-    plt.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='blue', linestyle=':', linewidth=2, zorder=1)
-    print(f"Partial dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
-
-
-    plt.xscale("log")
-    plt.yscale("log")
-    plt.grid(True)
-    plt.title(f"Partial dislocation")
-    # plt.xticks([point_0, point_1, point_2], labels=["$10^{-1.2}$", "$10^{0.0}$", "$10^{1.7}$"])
-    plt.legend()
-    plt.xlabel("$\\Delta R$")
-    plt.ylabel("$ \\tau_c $")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.close()
-
-def makeNoisePlot(noises, tau_c_means, tau_c_stds, point_1, point_2):
+def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color='blue', fit_color='red'):
     fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
 
-    ax.errorbar(noises, tau_c_means, yerr=tau_c_stds, fmt='s', markersize=2, capsize=2, color='blue', linewidth=0.5, zorder=0)
+    ax.errorbar(noises, tau_c_means, yerr=y_error, fmt='s', markersize=2, capsize=2, color=color, linewidth=0.5, zorder=0)
 
     data = np.array(list(zip(noises, tau_c_means)))
     sorted_args = np.argsort(data[:,0])
@@ -132,18 +42,20 @@ def makeNoisePlot(noises, tau_c_means, tau_c_stds, point_1, point_2):
 
     # Fit power law to first region of data
 
+    region0_index = np.where(data[:,0] > point_0)[0][0]
+
     try:
         region1_index = np.where(data[:,0] > point_1)[0][0]
-        x = data[0:region1_index,0]
-        y = data[0:region1_index,1]
+        x = data[region0_index:region1_index,0]
+        y = data[region0_index:region1_index,1]
         print(region1_index, x.shape, y.shape)
         fit_params, pcov = optimize.curve_fit(
             lambda x, a, b: a*x**b,
             x, y)
         fit_x = np.linspace(data[0,0], data[region1_index,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linewidth=2)
-        print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
+        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color=fit_color, linewidth=2)
+        print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in first region of data.")
 
@@ -157,8 +69,11 @@ def makeNoisePlot(noises, tau_c_means, tau_c_stds, point_1, point_2):
             x, y)
         fit_x = np.linspace(data[region1_index,0], data[region1_end,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='black', linestyle='--', linewidth=2)
-        print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
+        ax.plot(fit_x, fit_y,
+                label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", 
+                color='black', linestyle='--', linewidth=2
+                )
+        print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in second region of data.")
         region1_index = 0
@@ -172,7 +87,7 @@ def makeNoisePlot(noises, tau_c_means, tau_c_stds, point_1, point_2):
             x, y)
         fit_x = np.linspace(data[region1_end,0], data[-1,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color='red', linestyle=':', linewidth=2)
+        ax.plot(fit_x, fit_y, label=f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", color=fit_color, linestyle=':', linewidth=2)
         print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in third region of data.")
@@ -181,32 +96,67 @@ def makeNoisePlot(noises, tau_c_means, tau_c_stds, point_1, point_2):
 
 def makePerfectNoisePlot(results_root : Path, save_path):
     with open(results_root.joinpath("noise-data/perfect-noises.csv"), "r") as fp:
+        header = fp.readline().strip().split(',')
         loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
         pass
 
     # partial dislocation
 
     noises = loaded[:,0]
-    tau_c_means = np.mean(loaded[:,1:10], axis=1)
-    tau_c_stds = np.std(loaded[:,1:10], axis=1)
-
+    tau_c_means = np.nanmean(loaded[:,1:11], axis=1)
+    tau_c_stds = np.nanstd(loaded[:,1:11], axis=1)
+    tau_c_mses = np.nanmean(loaded[:, 11:21], axis=1)
+    deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
+    
     point_1 = 10**(-0)
     point_2 = 10**1.4
 
-    fig, ax = makeNoisePlot(noises, tau_c_means, tau_c_stds, point_1, point_2)
+    fig, ax = makeNoisePlot(noises, tau_c_means, 0, point_1, point_2, y_error=deltaTaus)
 
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.grid(True)
 
-    ax.set_title(f"Perfect dislocation")
+    # ax.set_title(f"Perfect dislocation")
     ax.set_xlabel("$\\Delta R$")
     ax.set_ylabel("$ \\tau_c $")
 
     fig.legend()
+    fig.tight_layout()
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
 
+def makePartialNoisePlot(res_root : Path, save_path):
+    with open(results_root.joinpath("noise-data/partial-noises.csv"), "r") as fp:
+        loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
+        pass
+
+    # partial dislocation
+
+    noises = loaded[:,0]
+    tau_c_means = np.nanmean(loaded[:,1:11], axis=1)
+    tau_c_stds = np.nanstd(loaded[:,1:11], axis=1)
+    tau_c_mses = np.nanmean(loaded[:, 11:21], axis=1)
+    deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
+
+    point_0 = 10**(-1.2)
+    point_1 = 10**(0.25)
+    point_2 = 10**(1.45)
+
+    fig, ax = makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, color='red', fit_color='blue', y_error=deltaTaus)
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(True)
+    # ax.set_title(f"Partial dislocation")
+    ax.legend()
+    ax.set_xlabel("$\\Delta R$")
+    ax.set_ylabel("$ \\tau_c $")
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    plt.close()
 
 def makeCommonNoisePlot(root_dir : Path):
     with open(results_root.joinpath("noise-data/perfect-noises.csv"), "r") as fp:
@@ -242,7 +192,7 @@ def makeCommonNoisePlot(root_dir : Path):
     plt.xlabel("R")
     plt.ylabel("$ \\tau_c $")
     plt.legend()
-    plt.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.png"), dpi=300, bbox_inches='tight')
+    plt.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
     pass
 
 def makeDislocationPlots(folder):
@@ -441,17 +391,12 @@ if __name__ == "__main__":
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
 
-        # try:
         partial_data = normalizedDepinnings(
             results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
             plot_save_folder=results_root.joinpath("partial-dislocation/normalized-plots"),
             data_save_path=results_root.joinpath("noise-data/partial-noises.csv"),
             json_save_path=results_root.joinpath("binning-data/tau_c_partial.json")
         )
-        # except Exception as e:
-            # print("No partial dislocation depinning dumps found. Skipping partial depinning normalization.")
-            # print(e)
-            # partial_data = {}
         
         try:
             non_partial_data = normalizedDepinnings(
@@ -482,16 +427,18 @@ if __name__ == "__main__":
     if parsed.all or parsed.noise:
         Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
         try:
+            print(f"Make noise plot from partial dislocation data")
             makePartialNoisePlot(Path(parsed.folder),
-                Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.png")
+                Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.pdf")
             )
         except Exception as e:
             print("No partial dislocation depinning dumps found. Skipping partial noise plot.")
             print(e)
 
         try:
+            print("Making noise plot from perfect dislocation data")
             makePerfectNoisePlot(Path(parsed.folder), 
-                Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.png")
+                Path(parsed.folder).joinpath("noise-plots/noise-tau_c-perfect.pdf")
             )
         except FileNotFoundError:
             print("No perfect dislocation depinning dumps found. Skipping perfect noise plot.")
