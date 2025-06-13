@@ -422,6 +422,7 @@ def multiprocessing_helper(f1, root_dir):
         l_range = loaded["l_range"]
     except Exception as e:
         print(f"Exception {e} and loadled.files : {loaded.files}")
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan) 
         
 
     if len(params) == 13:
@@ -583,7 +584,7 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
     return fig, ax, normalized_binned_data
 
 def processExponentData(root_dir):
-    path = Path(root_dir).joinpath("roughness_exponents.npz")
+    path = Path(root_dir).joinpath("roughness_parameters_perfect.npz")
     loaded = np.load(path)
     data = loaded["data"]
     columns = loaded["columns"]
