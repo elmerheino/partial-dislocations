@@ -592,8 +592,10 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
     if not np.isnan(tau_c_perfect): # Normalize data
         x = (x - tau_c_perfect)/tau_c_perfect
         ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+        normalized_binned_data = { "x":x, "y":y, "noise":chosen_noise}
     else:
         ax.set_xlabel("$\\tau_{{ext}}$")
+        normalized_binned_data = None
 
     ax.scatter(x, y, label="$\\vec{\\xi}$", marker="o", color="blue")
 
@@ -606,7 +608,7 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
     ax.legend()
     ax.grid(True)
 
-    return fig, ax
+    return fig, ax, normalized_binned_data
 
 def processExponentData(root_dir):
     path = Path(root_dir).joinpath("roughness_exponents.npz")
@@ -629,18 +631,25 @@ def processExponentData(root_dir):
 
     unique_noises = set(noise)
 
+    slices_for_3d_plot = []
+
     for unique_noise in unique_noises:
         makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
 
         chosen_noise = np.round(unique_noise, 5)
-        fig, ax = makeCorrelationPlot(data, chosen_noise, root_dir)
+        fig, ax, normalized_data = makeCorrelationPlot(data, chosen_noise, root_dir)
 
         save_path = Path(root_dir)
         save_path = save_path.joinpath("correlation-plots")
         save_path.mkdir(parents=True, exist_ok=True)
         save_path = save_path.joinpath(f"correlation-{chosen_noise}.pdf")
         fig.savefig(save_path)
+
+        slices_for_3d_plot.append(normalized_data)
+        
         plt.close()
+    
+    np.savez(Path(root_dir).joinpath("correaltion-3dplot-data.npz"), slices_for_3d_plot)
 
 
 def exp_beheavior(l, c, zeta):
