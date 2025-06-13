@@ -364,7 +364,25 @@ if __name__ == "__main__":
         
     if parsed.all or parsed.roughness:
         print("Making roughness plots. (w/o averaging by default)")
-        makeAvgRoughnessPlots(parsed.folder)
+            # for partial dislocations
+        try:
+            print("Making partial dislocation roughness plots.")
+            makePartialRoughnessPlots(parsed.folder)
+        except FileNotFoundError:
+            print("No partial roughness data skipping.")
+
+        try:
+            print("Making perfect dislocation roughness plots.")
+            makePerfectRoughnessPlots(parsed.folder)
+        except FileNotFoundError:
+            print("No perfect roughness data skipping.")
+
+        try:
+            analyzeRoughnessFitParamteters(parsed.folder)
+        except FileNotFoundError:
+            print("No roughness fit parameters data skipping.")
+        
+        pass
     
     if parsed.all or parsed.analyze_hurst_exponent:
         path = Path(parsed.folder).joinpath("roughness_parameters_perfect.npz")
