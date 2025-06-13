@@ -417,15 +417,10 @@ def multiprocessing_helper(f1, root_dir):
 
     return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition))
 
-
-def makeRoughnessExponentDataset(root_dir, seq=False):
-    # Make a dataset of roughness exponents for all noise levels
-    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
-    data = list() # List of tuples (noise, tau_ext, seed, c, zeta)
-
+def extractAllFitParams(path, root_dir, seq=False):
     progess = 0
-
-    for noise_folder in [s for s in p.iterdir() if s.is_dir()]:
+    data = list()
+    for noise_folder in [s for s in path.iterdir() if s.is_dir()]:
         noise = noise_folder.name.split("-")[1]
 
         for seed_folder in noise_folder.iterdir():
@@ -450,16 +445,35 @@ def makeRoughnessExponentDataset(root_dir, seq=False):
                     data += results
                     progess += len(results)
                     print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
+    return np.array(data)
+
+def makeRoughnessExponentDataset(root_dir, seq=False):
+    # Make a dataset of roughness exponents for all noise levels
+    p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
+    data_perfect = extractAllFitParams(p, root_dir)
     
     # Save the data to a file
-    data = np.array(data)
-    np.savez(Path(root_dir).joinpath("roughness_parameters_perfect.npz"), data=data, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation"])
+    np.savez(Path(root_dir).joinpath("roughness_parameters_perfect.npz"), data=data_perfect, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation"])
 
-    with open(Path(root_dir).joinpath("roughness_exponents.csv"), 'w', newline='') as csvfile:
+    with open(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
         writer.writerow(["noise", "tauExt", "seed", "c", "zeta", "transitions"])
-        writer.writerows(data)
-    np.savetxt(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), data, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
+        writer.writerows(data_perfect)
+    np.savetxt(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), data_perfect, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
+
+
+    p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
+    data_partial = extractAllFitParams(p, root_dir)
+    
+    # Save the data to a file
+    np.savez(Path(root_dir).joinpath("roughness_parameters_partial.npz"), data=data_partial, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation"])
+
+    with open(Path(root_dir).joinpath("roughness_parameters_partial.csv"), 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, delimiter=';')
+        writer.writerow(["noise", "tauExt", "seed", "c", "zeta", "transitions"])
+        writer.writerows(data_partial)
+    np.savetxt(Path(root_dir).joinpath("roughness_parameters_partial.csv"), data_partial, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
+
 
 def makeZetaPlot(data, chosen_noise, root_dir):
     # Make a plot of the roughness exponent zeta as function of tauExt
