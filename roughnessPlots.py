@@ -347,7 +347,10 @@ def makePerfectRoughnessPlots(root_dir):
         json.dump(roughnesses_perfect, fp)
 
 def extractRoughnessExponent(l_range, avg_w, params):
-    bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
     # Make a piecewise fit on all data
     # Make exponential plot to first 10% of data.
@@ -407,11 +410,20 @@ def find_tau_c(noise, root_dir):
     return tau_c_mean_perfect, tau_c_mean_partial
 
 def multiprocessing_helper(f1, root_dir):
-    loaded = np.load(f1)
+    try:
+        loaded = np.load(f1)
+    except:
+        print(f"File with path {f1} is corrupted")
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    
     params = loaded["parameters"]
     avg_w = loaded["avg_w"]
     l_range = loaded["l_range"]
-    bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
     c, zeta, transition = extractRoughnessExponent(l_range, avg_w, params)
 
@@ -427,24 +439,11 @@ def extractAllFitParams(path, root_dir, seq=False):
             seed = int(seed_folder.stem.split("-")[1])
             print(f"Extracting params from data with noise {noise} and seed {seed}")
 
-            if seq: # Make each plot sequentially
-                for file_path in seed_folder.iterdir():
-                    loaded = np.load(file_path)
-                    params = loaded["parameters"]
-                    avg_w = loaded["avg_w"]
-                    l_range = loaded["l_range"]
-                    bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-
-                    c, zeta, correlation_len = extractRoughnessExponent(l_range, avg_w, params)
-                    data.append((noise, tauExt, seed, c, zeta, correlation_len))
-                    progess += 1
-                    print(f"Progress: {progess}/{1000*100}")
-            else:
-                with mp.Pool(7) as pool:
-                    results = pool.map(partial(multiprocessing_helper, root_dir=root_dir), seed_folder.iterdir())
-                    data += results
-                    progess += len(results)
-                    print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
+            with mp.Pool(7) as pool:
+                results = pool.map(partial(multiprocessing_helper, root_dir=root_dir), seed_folder.iterdir())
+                data += results
+                progess += len(results)
+                print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
     return np.array(data)
 
 def makeRoughnessExponentDataset(root_dir, seq=False):
