@@ -416,9 +416,13 @@ def multiprocessing_helper(f1, root_dir):
         print(f"File with path {f1} is corrupted")
         return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     
-    params = loaded["parameters"]
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
+    try:
+        params = loaded["parameters"]
+        avg_w = loaded["avg_w"]
+        l_range = loaded["l_range"]
+    except Exception as e:
+        print(f"Exception {e} and loadled.files : {loaded.files}")
+        
 
     if len(params) == 13:
         bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
@@ -439,14 +443,14 @@ def extractAllFitParams(path, root_dir, seq=False):
             seed = int(seed_folder.stem.split("-")[1])
             print(f"Extracting params from data with noise {noise} and seed {seed}")
 
-            with mp.Pool(7) as pool:
+            with mp.Pool(10) as pool:
                 results = pool.map(partial(multiprocessing_helper, root_dir=root_dir), seed_folder.iterdir())
                 data += results
                 progess += len(results)
                 print(f"Progress: {progess}/{100000} = {progess/1000:.2f}%")
     return np.array(data)
 
-def makeRoughnessExponentDataset(root_dir, seq=False):
+def makeRoughnessExponentDataset_perfect(root_dir, seq=False):
     # Make a dataset of roughness exponents for all noise levels
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
     data_perfect = extractAllFitParams(p, root_dir)
@@ -460,7 +464,7 @@ def makeRoughnessExponentDataset(root_dir, seq=False):
         writer.writerows(data_perfect)
     np.savetxt(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), data_perfect, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
 
-
+def makeRoughnessExponentDataset_partial(root_dir):
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
     data_partial = extractAllFitParams(p, root_dir)
     

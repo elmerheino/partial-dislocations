@@ -387,7 +387,8 @@ if __name__ == "__main__":
     if parsed.all or parsed.analyze_hurst_exponent:
         path = Path(parsed.folder).joinpath("roughness_parameters_perfect.npz")
         if not path.exists():
-            makeRoughnessExponentDataset(parsed.folder)
+            makeRoughnessExponentDataset_perfect(parsed.folder)
+            makeRoughnessExponentDataset_partial(parsed.folder)
             print("Making roughness dataset.")
         processExponentData(Path(parsed.folder))
 
