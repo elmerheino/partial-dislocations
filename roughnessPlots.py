@@ -406,12 +406,15 @@ def find_tau_c(noise, root_dir):
 
     if len(row_perfect[:,1:11]) == 0:
         print(f"No critical force for perfect dislocation with noise={noise}")
+        tau_c_mean_perfect = np.nan
+    else:
+        tau_c_mean_perfect = np.nanmean(row_perfect[:,1:11])
     
     if len(row_partial[:,1:11]) == 0:
         print(f"No critical force for partial dislocation with noise={noise}")
-
-    tau_c_mean_perfect = np.nanmean(row_perfect[:,1:11])
-    tau_c_mean_partial = np.nanmean(row_partial[:,1:11])
+        tau_c_mean_partial = np.nan
+    else:
+        tau_c_mean_partial = np.nanmean(row_partial[:,1:11])
 
     return tau_c_mean_perfect, tau_c_mean_partial
 
@@ -485,28 +488,8 @@ def makeRoughnessExponentDataset_partial(root_dir):
     np.savetxt(Path(root_dir).joinpath("roughness_parameters_partial.csv"), data_partial, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
 
 
-def makeZetaPlot(data, chosen_noise, root_dir):
+def makeZetaPlot(taus, zetas):
     # Make a plot of the roughness exponent zeta as function of tauExt
-    chosen_noise = np.round(chosen_noise, 4)
-    noise = data[:,0]
-    tauExt = data[:,1]
-    seed = data[:,2]
-    c = data[:,3]
-    zeta = data[:,4]
-
-    # Get the data for the chosen noise and tauExt
-    noise_rounded = np.round(noise, 4)
-    chosen_data = data[ noise_rounded == chosen_noise]
-
-    taus = chosen_data[:,1]
-    zetas = chosen_data[:,4]
-
-    tau_c_perfect, tau_c_partial = find_tau_c(chosen_noise, root_dir)
-
-    if (tau_c_perfect == np.nan) or (tau_c_partial == np.nan):
-        print(noise)
-        pass
-
     # Create a binned plot of the data
 
     fig,ax = plt.subplots()
@@ -528,65 +511,44 @@ def makeZetaPlot(data, chosen_noise, root_dir):
 
     ax.set_xlabel("$\\tau_{{ext}}$")
     ax.set_ylabel("$\\zeta$")
-    ax.set_title(f"Roughness exponent for noise {chosen_noise}, N={len(taus)}")
     ax.legend()
     ax.grid(True)
 
     return fig,ax    
 
-def makeCorrelationPlot(data, chosen_noise, root_dir):
-    noise = data[:,0]
-    tau_ext = data[:,1]
-    correlation = data[:,5]
-    seed = data[:,2]
+def makeCorrelationPlot(tau_ext, cor, tau_c, noise, color, marker):
 
-    mask = np.round(noise, 5) == chosen_noise
-
-    noise = noise[mask]
-    cor = correlation[mask]
-
-    tau_c_perfect, tau_c_partial = find_tau_c(chosen_noise, root_dir)
-
-    if np.isnan(tau_c_perfect) or np.isnan(tau_c_partial):
-        print(chosen_noise)
-        pass
-
-    if len(tau_ext[mask]) == 0:
-        print("len(taus) = 0, so there is no data for this noise")
-        return None, None
-
-
-    bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="mean", bins=100)
-    stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="std", bins=100)
+    bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext, cor, statistic="mean", bins=100)
+    stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext, cor, statistic="std", bins=100)
 
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
 
 
     ax.set_ylim(0, 300)
 
-    x = tau_ext[mask]
+    x = tau_ext
     y = cor
 
-    if not np.isnan(tau_c_perfect): # Normalize data
-        x = (x - tau_c_perfect)/tau_c_perfect
+    if not np.isnan(tau_c): # Normalize data
+        x = (x - tau_c)/tau_c
 
-    ax.scatter(x, y, marker="x", color="lightgrey", alpha=0.5)
+    ax.scatter(x, y, marker="x", color="lightgrey", alpha=0.5, linewidth=0.2)
 
     x = bin_edges[:-1]
     y = bin_means
 
-    if not np.isnan(tau_c_perfect): # Normalize data
-        x = (x - tau_c_perfect)/tau_c_perfect
+    if not np.isnan(tau_c): # Normalize data
+        x = (x - tau_c)/tau_c
         ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
-        normalized_binned_data = { "x":x, "y":y, "noise":chosen_noise}
+        normalized_binned_data = { "x":x, "y":y, "noise": noise}
     else:
         ax.set_xlabel("$\\tau_{{ext}}$")
         normalized_binned_data = None
 
-    ax.scatter(x, y, label="$\\vec{\\xi}$", marker="o", color="blue")
+    ax.scatter(x, y, label="$\\vec{\\xi}$", linewidth=0.2, color=color, marker=marker, s=2)
 
-    ax.scatter(x, y+stds, label="$\\sigma$", marker="_", color="blue")
-    ax.scatter(x, y-stds, marker="_", color="blue")
+    ax.scatter(x, y+stds, label="$\\sigma$", marker="_",linewidth=0.5, color=color)
+    ax.scatter(x, y-stds, marker="_", linewidth=0.5, color=color)
 
     ax.set_ylabel("$\\xi$")
     # ax.set_title(f"Correlation for noise {chosen_noise}, N={len(noise)}")
@@ -596,7 +558,7 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
 
     return fig, ax, normalized_binned_data
 
-def processExponentData(path, root_dir, save_folder):
+def processExponentData(path, root_dir, save_folder, perfect):
     loaded = np.load(path)
     data = loaded["data"]
     columns = loaded["columns"]
@@ -618,32 +580,58 @@ def processExponentData(path, root_dir, save_folder):
 
     slices_for_3d_plot = []
 
-    for unique_noise in unique_noises:
-        chosen_noise = np.round(unique_noise, 5)
+    for unique_noise in [i for i in unique_noises if not np.isnan(i)]:
+        truncated_noise = np.round(unique_noise, 5)
+        noise = data[:,0]
+        tau_ext = data[:,1]
+        seed = data[:,2]
+        zeta = data[:,4]
+        correlation = data[:,5]
 
-        fig, ax = makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
+        # Get the data for the chosen noise and tauExt
+        mask = np.round(noise, 5) == truncated_noise
+        chosen_data = data[ mask]
 
-        save_path = Path(save_folder)
-        save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{chosen_noise}.pdf")
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        if not ( fig == None and ax == None ):
+        taus = chosen_data[:,1]
+        zetas = chosen_data[:,4]
+
+        tau_c_perfect, tau_c_partial = find_tau_c(truncated_noise, root_dir)
+        
+        if not len(taus) == 0:
+            fig, ax = makeZetaPlot(taus, zetas)
+
+            save_path = Path(save_folder)
+            save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{truncated_noise}.pdf")
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
             fig.savefig(save_path)
+            plt.close()
         else:
-            print(f"No figure for noise={chosen_noise}")
+            print(f"No data for noise = {truncated_noise}")
 
-        fig, ax, normalized_data = makeCorrelationPlot(data, chosen_noise, root_dir)
+        tau_ext_at_noise = tau_ext[mask]
+        noise = noise[mask]
+        cor = correlation[mask]
+
+        if len(tau_ext_at_noise) == 0:
+            print(f"No data for noise = {truncated_noise}")
+            continue
+        
+        if perfect:
+            fig, ax, normalized_data = makeCorrelationPlot(tau_ext_at_noise, cor, tau_c_perfect, truncated_noise, color="blue", marker="s")
+        else:
+            fig, ax, normalized_data = makeCorrelationPlot(tau_ext_at_noise, cor, tau_c_partial, truncated_noise, color="red", marker="o")
 
         save_path = Path(save_folder)
         save_path = save_path.joinpath("correlation-plots")
         save_path.mkdir(parents=True, exist_ok=True)
-        save_path = save_path.joinpath(f"correlation-{chosen_noise}.pdf")
+        save_path = save_path.joinpath(f"correlation-{truncated_noise}.pdf")
         fig.savefig(save_path)
+        plt.close()
 
         slices_for_3d_plot.append(normalized_data)
         
-        plt.close()
-    
-    np.savez(Path(root_dir).joinpath("correaltion-3dplot-data.npz"), slices_for_3d_plot)
+    np.savez(Path(save_folder).joinpath("correaltion-3dplot-data.npz"), slices_for_3d_plot)
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -766,7 +754,7 @@ if __name__ == "__main__":
     root = "/Volumes/contenttii/2025-06-08-merged-final"
     path = Path(root).joinpath("roughness_parameters_perfect.npz")
     path2 = Path(root).joinpath("roughness_parameters_partial.npz")
-    processExponentData(path, Path(root), Path(root).joinpath("perfect-correlations"))
-    processExponentData(path2, Path(root), Path(root).joinpath("partial-correlations"))
+    processExponentData(path, Path(root), Path(root).joinpath("perfect-correlations"), perfect=True)
+    processExponentData(path2, Path(root), Path(root).joinpath("partial-correlations"), perfect=False)
 
     pass
