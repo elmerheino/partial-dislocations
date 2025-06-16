@@ -404,6 +404,12 @@ def find_tau_c(noise, root_dir):
     row_perfect = tau_c_perfect[mask_perfect]
     row_partial = tau_c_partial[mask_partial]
 
+    if len(row_perfect[:,1:11]) == 0:
+        print(f"No critical force for perfect dislocation with noise={noise}")
+    
+    if len(row_partial[:,1:11]) == 0:
+        print(f"No critical force for partial dislocation with noise={noise}")
+
     tau_c_mean_perfect = np.nanmean(row_perfect[:,1:11])
     tau_c_mean_partial = np.nanmean(row_partial[:,1:11])
 
@@ -503,29 +509,30 @@ def makeZetaPlot(data, chosen_noise, root_dir):
 
     # Create a binned plot of the data
 
+    fig,ax = plt.subplots()
+    if len(taus) == 0:
+        print("len(taus) = 0, so there is no data for this noise")
+        return None, None
+
     bin_means, bin_edges, bin_counts = stats.binned_statistic(taus, zetas, statistic="mean", bins=100)
     stds, bin_edges, bin_counts = stats.binned_statistic(taus, zetas, statistic="std", bins=100)
 
-    plt.figure(figsize=(linewidth/2,linewidth/2))
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
 
-    plt.scatter(taus, zetas, label="zeta", marker="x", color="lightgrey", alpha=0.5)
+    ax.scatter(taus, zetas, label="zeta", marker="x", color="lightgrey", alpha=0.5)
 
-    plt.scatter(bin_edges[:-1], bin_means, label="binned zeta", marker="o", color="blue")
+    ax.scatter(bin_edges[:-1], bin_means, label="binned zeta", marker="o", color="blue")
 
-    plt.scatter(bin_edges[:-1], bin_means+stds, label="binned zeta", marker="_", color="blue")
-    plt.scatter(bin_edges[:-1], bin_means-stds, label="binned zeta", marker="_", color="blue")
+    ax.scatter(bin_edges[:-1], bin_means+stds, label="$\\sigma$", marker="_", color="blue")
+    ax.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
 
-    plt.xlabel("$\\tau_{{ext}}$")
-    plt.ylabel("$\\zeta$")
-    plt.title(f"Roughness exponent for noise {chosen_noise}, N={len(taus)}")
-    plt.legend()
-    plt.grid(True)
+    ax.set_xlabel("$\\tau_{{ext}}$")
+    ax.set_ylabel("$\\zeta$")
+    ax.set_title(f"Roughness exponent for noise {chosen_noise}, N={len(taus)}")
+    ax.legend()
+    ax.grid(True)
 
-    save_path = Path(root_dir)
-    save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{chosen_noise}.pdf")
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(save_path)
-    plt.close()
+    return fig,ax    
 
 def makeCorrelationPlot(data, chosen_noise, root_dir):
     noise = data[:,0]
@@ -544,10 +551,16 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
         print(chosen_noise)
         pass
 
+    if len(tau_ext[mask]) == 0:
+        print("len(taus) = 0, so there is no data for this noise")
+        return None, None
+
+
     bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="mean", bins=100)
     stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext[mask], cor, statistic="std", bins=100)
 
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+
 
     ax.set_ylim(0, 300)
 
@@ -583,8 +596,7 @@ def makeCorrelationPlot(data, chosen_noise, root_dir):
 
     return fig, ax, normalized_binned_data
 
-def processExponentData(root_dir):
-    path = Path(root_dir).joinpath("roughness_parameters_perfect.npz")
+def processExponentData(path, root_dir, save_folder):
     loaded = np.load(path)
     data = loaded["data"]
     columns = loaded["columns"]
@@ -607,12 +619,21 @@ def processExponentData(root_dir):
     slices_for_3d_plot = []
 
     for unique_noise in unique_noises:
-        makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
-
         chosen_noise = np.round(unique_noise, 5)
+
+        fig, ax = makeZetaPlot(data, np.round(unique_noise, 4), root_dir)
+
+        save_path = Path(save_folder)
+        save_path = save_path.joinpath(f"roughness-hurst-exponent-plots/roughness-hurst-exponent-R-{chosen_noise}.pdf")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        if not ( fig == None and ax == None ):
+            fig.savefig(save_path)
+        else:
+            print(f"No figure for noise={chosen_noise}")
+
         fig, ax, normalized_data = makeCorrelationPlot(data, chosen_noise, root_dir)
 
-        save_path = Path(root_dir)
+        save_path = Path(save_folder)
         save_path = save_path.joinpath("correlation-plots")
         save_path.mkdir(parents=True, exist_ok=True)
         save_path = save_path.joinpath(f"correlation-{chosen_noise}.pdf")
@@ -742,5 +763,10 @@ def makeTranitionPointPlots():
     pass
 
 if __name__ == "__main__":
-    print(find_tau_c(10.0, "/Volumes/contenttii/2025-06-08-merged-final"))
+    root = "/Volumes/contenttii/2025-06-08-merged-final"
+    path = Path(root).joinpath("roughness_parameters_perfect.npz")
+    path2 = Path(root).joinpath("roughness_parameters_partial.npz")
+    processExponentData(path, Path(root), Path(root).joinpath("perfect-correlations"))
+    processExponentData(path2, Path(root), Path(root).joinpath("partial-correlations"))
+
     pass

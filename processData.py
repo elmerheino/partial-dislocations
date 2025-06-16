@@ -386,11 +386,15 @@ if __name__ == "__main__":
     
     if parsed.all or parsed.analyze_hurst_exponent:
         path = Path(parsed.folder).joinpath("roughness_parameters_perfect.npz")
-        if not path.exists():
+        path2 = Path(parsed.folder).joinpath("roughness_parameters_partial.npz")
+
+        if not ( path.exists() or path2.exists() ):
             makeRoughnessExponentDataset_perfect(parsed.folder)
             makeRoughnessExponentDataset_partial(parsed.folder)
             print("Making roughness dataset.")
-        processExponentData(Path(parsed.folder))
+        
+        processExponentData(path, Path(parsed.folder), Path(parsed.folder).joinpath("perfect-correlations"))
+        processExponentData(path2, Path(parsed.folder), Path(parsed.folder).joinpath("partial-correlations"))
 
     if parsed.all or parsed.avg_roughness:
         averageRoughnessBySeed(parsed.folder)
