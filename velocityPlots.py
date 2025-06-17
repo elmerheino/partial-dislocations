@@ -110,11 +110,13 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
     tau_c = dict()
     fit_errors = dict()
     delta_tau_values = dict()
+    beta_values = dict()
+    prefactor_values = dict()
 
     # Collect all datapoints for binning
-
     data_perfect = dict()
 
+    # Prepare to save all fit data to a csv file
     tau_c_csv = list()
 
     for n,noise_path in enumerate(depinning_path.iterdir()):
@@ -126,7 +128,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
         
         noise = noise_path.name.split("-")[1]
 
-        truncated_key = str(f"{float(noise):.6f}") # Using 6 decimal places, minimum to distinguish values from np.logspace(-3,3,100)
+        truncated_key = str(f"{float(noise):.6f}") # Using 6 decimal places, minimum to distinguish values from np.logspace(-3,3,100) would be 4
 
         if truncated_key not in tau_c:
             tau_c[truncated_key] = list()
@@ -136,6 +138,10 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             data_perfect[truncated_key] = list()
         if truncated_key not in delta_tau_values:
             delta_tau_values[truncated_key] = list()
+        if truncated_key not in beta_values:
+            beta_values[truncated_key] = list()
+        if truncated_key not in prefactor_values:
+            prefactor_values[truncated_key] = list()
 
         for fpath in noise_path.iterdir():
             try:
@@ -144,7 +150,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             except Exception as e:
                 print(f"Failed to load file {fpath} with exception {e}")
             tauExt = depinning["stresses"]
-            vCm = np.array(depinning["v_rel"])*10
+            vCm = np.array(depinning["v_rel"])*10 # Multiply by ten to account for 0.1s dt between dislocation 
             seed = depinning["seed"]
 
             t_c_arvaus = (max(tauExt) - min(tauExt))/2
@@ -205,6 +211,8 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
 
             # Save the critical force, mse and delta tau to dicts for later use
             tau_c[truncated_key].append(tauCrit)
+            beta_values[truncated_key].append(beta)
+            prefactor_values[truncated_key].append(a)
             fit_errors[truncated_key].append(mse)
             delta_tau_values[truncated_key].append(deltaTau)
 
@@ -241,6 +249,8 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
         current_tau_crits = list(tau_c.get(truncated_key, []))
         current_fit_errors = list(fit_errors.get(truncated_key, []))
         current_delta_taus = list(delta_tau_values.get(truncated_key, []))
+        current_beta_vals = list(beta_values.get(truncated_key, []))
+        current_prefcator_vals = list(prefactor_values.get(truncated_key, []))
 
         if len(current_tau_crits) < k:
             current_tau_crits.extend([None] * (k - len(current_tau_crits)))
@@ -257,7 +267,17 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
         elif len(current_delta_taus) > k:
             current_delta_taus = current_delta_taus[:k]
 
-        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors + current_delta_taus
+        if len(current_beta_vals) < k:
+            current_beta_vals.extend([None] * (k - len(current_beta_vals)))
+        elif len(current_beta_vals) > k:
+            current_beta_vals = current_beta_vals[:k]
+
+        if len(current_prefcator_vals) < k:
+            current_prefcator_vals.extend([None] * (k - len(current_prefcator_vals)))
+        elif len(current_prefcator_vals) > k:
+            current_prefcator_vals = current_prefcator_vals[:k]
+
+        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors + current_delta_taus + current_beta_vals + current_prefcator_vals
         tau_c_csv.append(compiled_row)
 
     tau_c_csv.sort(key=lambda row: float(row[0]))
@@ -266,7 +286,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
     with open(data_save_path, "w") as fp:
         writer = csv.writer(fp)
         # Write header
-        header = ["noise"] + [f"tau_c_{i+1}" for i in range(k)] + [f"mse_{i+1}" for i in range(k)]
+        header = ["noise"] + [f"tau_c_{i+1}" for i in range(k)] + [f"mse_{i+1}" for i in range(k)]  + [f"d_tau_{i+1}" for i in range(k)] + [f"beta_{i+1}" for i in range(k)] + [f"A_{i+1}" for i in range(k)]
         writer.writerow(header)
         # Write data rows
         writer.writerows(tau_c_csv)

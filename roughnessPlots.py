@@ -380,7 +380,7 @@ def extractRoughnessExponent(l_range, avg_w, params):
 
     change_p = (fit_c_range / c)**(1/zeta)
 
-    return c, zeta, change_p
+    return c, zeta, change_p, fit_c_range
 
 def find_tau_c(noise, root_dir):
 
@@ -439,9 +439,9 @@ def multiprocessing_helper(f1, root_dir):
     elif len(params) == 16:
         bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
-    c, zeta, transition = extractRoughnessExponent(l_range, avg_w, params)
+    c, zeta, transition, constant = extractRoughnessExponent(l_range, avg_w, params)
 
-    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition))
+    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition), np.float64(constant))
 
 def extractAllFitParams(path, root_dir, seq=False):
     progess = 0
@@ -470,9 +470,9 @@ def makeRoughnessExponentDataset_perfect(root_dir, seq=False):
 
     with open(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
-        writer.writerow(["noise", "tauExt", "seed", "c", "zeta", "transitions"])
+        writer.writerow(["noise", "tauExt", "seed", "prefactor", "zeta", "transition", "constant"])
         writer.writerows(data_perfect)
-    np.savetxt(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), data_perfect, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
+    np.savetxt(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), data_perfect, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation,constant")
 
 def makeRoughnessExponentDataset_partial(root_dir):
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
@@ -483,9 +483,9 @@ def makeRoughnessExponentDataset_partial(root_dir):
 
     with open(Path(root_dir).joinpath("roughness_parameters_partial.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
-        writer.writerow(["noise", "tauExt", "seed", "c", "zeta", "transitions"])
+        writer.writerow(["noise", "tauExt", "seed", "prefactor", "zeta", "transition", "constant"])
         writer.writerows(data_partial)
-    np.savetxt(Path(root_dir).joinpath("roughness_parameters_partial.csv"), data_partial, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation")
+    np.savetxt(Path(root_dir).joinpath("roughness_parameters_partial.csv"), data_partial, delimiter=",", header="noise,tauExt,seed,c,zeta,correlation,constant")
 
 
 def makeZetaPlot(taus, zetas):
