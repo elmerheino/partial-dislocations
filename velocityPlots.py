@@ -5,8 +5,21 @@ from pathlib import Path
 from scipy import stats, optimize
 from functools import partial
 import csv
+import matplotlib as mpl
 
 linewidth = 5.59164
+
+mpl.rcParams.update({
+    "text.usetex": True,
+    "font.family": "Computer Modern Roman",  # Or 'sans-serif', 'Computer Modern Roman', etc.
+    "font.size": 12,         # Match LaTeX document font size
+    "axes.titlesize": 12,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "legend.fontsize": 12,
+    "figure.titlesize": 12
+})
 
 def velocity_fit(tau_ext, tau_crit, beta, a):
     v_res = np.empty(len(tau_ext))
@@ -375,6 +388,37 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
 
     pass
 
+def makeBetaPlot(results_root : Path):
+    with open(results_root.joinpath("noise-data/perfect-noises.csv"), "r") as fp:
+        header = fp.readline().strip().split(',')
+        loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
+        pass
+
+    # partial dislocation
+
+    noises = loaded[:,0]
+    tau_c_means = np.nanmean(loaded[:,1:11], axis=1)
+    tau_c_stds = np.nanstd(loaded[:,1:11], axis=1)
+    tau_c_mses = np.nanmean(loaded[:, 11:21], axis=1)
+    deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
+    betas = np.nanmean(loaded[:, 31:41], axis=1)
+
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+    ax.scatter(noises, betas, marker="o", s=0.5)
+
+    ax.set_xlabel("$\\Delta R$")
+    ax.set_ylabel("$\\beta$")
+
+    ax.set_title("$\\beta$ vs Noise")
+    ax.set_xscale('log')
+    ax.grid(True)
+    fig.tight_layout()
+
+    save_path = results_root.joinpath("beta-vs-noise.pdf")
+    fig.savefig(save_path)
+    plt.close()
+    pass
+
 def makeAveragedDepnningPlots(dir_path, opt=False):
     print("Making averaged depinning plots.")
     partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/depinning-dumps")
@@ -454,3 +498,7 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
             plt.savefig(dest.joinpath(f"depinning-noise.png"))
         pass
         plt.close()
+
+if __name__ == "__main__":
+    root = "/Volumes/contenttii/2025-06-08-merged-final"
+    makeBetaPlot(Path(root))
