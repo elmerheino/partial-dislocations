@@ -364,7 +364,7 @@ def extractRoughnessExponent(l_range, avg_w, params):
     # Use scipy.stats.linregress for linear regression
     slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
 
-    c = np.exp(intercept)
+    prefactor = np.exp(intercept)
     zeta = slope
 
     # Find out constant behavior and the transition point
@@ -378,9 +378,9 @@ def extractRoughnessExponent(l_range, avg_w, params):
     fit_c_range, pcov = optimize.curve_fit(lambda x,c : c, const_l, const_w, p0=[4.5])
 
 
-    change_p = (fit_c_range / c)**(1/zeta)
+    change_p = (fit_c_range / prefactor)**(1/zeta)
 
-    return c, zeta, change_p, fit_c_range
+    return prefactor, zeta, change_p, fit_c_range
 
 def find_tau_c(noise, root_dir):
 
@@ -423,7 +423,7 @@ def multiprocessing_helper(f1, root_dir):
         loaded = np.load(f1)
     except:
         print(f"File with path {f1} is corrupted")
-        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     
     try:
         params = loaded["parameters"]
@@ -431,7 +431,7 @@ def multiprocessing_helper(f1, root_dir):
         l_range = loaded["l_range"]
     except Exception as e:
         print(f"Exception {e} and loadled.files : {loaded.files}")
-        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan) 
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
         
 
     if len(params) == 13:
@@ -439,9 +439,9 @@ def multiprocessing_helper(f1, root_dir):
     elif len(params) == 16:
         bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
 
-    c, zeta, transition, constant = extractRoughnessExponent(l_range, avg_w, params)
+    prefactor, zeta, transition, constant = extractRoughnessExponent(l_range, avg_w, params)
 
-    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(c), np.float64(zeta), np.float64(transition), np.float64(constant))
+    return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(prefactor), np.float64(zeta), np.float64(transition), np.float64(constant))
 
 def extractAllFitParams(path, root_dir, seq=False):
     progess = 0
@@ -466,7 +466,7 @@ def makeRoughnessExponentDataset_perfect(root_dir, seq=False):
     data_perfect = extractAllFitParams(p, root_dir)
     
     # Save the data to a file
-    np.savez(Path(root_dir).joinpath("roughness_parameters_perfect.npz"), data=data_perfect, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation"])
+    np.savez(Path(root_dir).joinpath("roughness_parameters_perfect.npz"), data=data_perfect, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation", "constant"])
 
     with open(Path(root_dir).joinpath("roughness_parameters_perfect.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
@@ -479,7 +479,7 @@ def makeRoughnessExponentDataset_partial(root_dir):
     data_partial = extractAllFitParams(p, root_dir)
     
     # Save the data to a file
-    np.savez(Path(root_dir).joinpath("roughness_parameters_partial.npz"), data=data_partial, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation"])
+    np.savez(Path(root_dir).joinpath("roughness_parameters_partial.npz"), data=data_partial, columns=["noise", "tauExt", "seed", "c", "zeta", "transitions", "correlation", "constant"])
 
     with open(Path(root_dir).joinpath("roughness_parameters_partial.csv"), 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
@@ -516,7 +516,7 @@ def makeZetaPlot(taus, zetas):
 
     return fig,ax    
 
-def makeCorrelationPlot(tau_ext, cor, tau_c, noise, color, marker):
+def makeCorrelationPlot(tau_ext, cor, tau_c, noise, color):
 
     bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext, cor, statistic="mean", bins=100)
     stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext, cor, statistic="std", bins=100)
@@ -545,7 +545,7 @@ def makeCorrelationPlot(tau_ext, cor, tau_c, noise, color, marker):
         ax.set_xlabel("$\\tau_{{ext}}$")
         normalized_binned_data = None
 
-    ax.scatter(x, y, label="$\\vec{\\xi}$", linewidth=0.2, color=color, marker=marker, s=2)
+    ax.scatter(x, y, label="$\\vec{\\xi}$", linewidth=0.2, color=color, marker='o', s=2)
 
     ax.scatter(x, y+stds, label="$\\sigma$", marker="_",linewidth=0.5, color=color)
     ax.scatter(x, y-stds, marker="_", linewidth=0.5, color=color)
@@ -558,17 +558,48 @@ def makeCorrelationPlot(tau_ext, cor, tau_c, noise, color, marker):
 
     return fig, ax, normalized_binned_data
 
-def processExponentData(path, root_dir, save_folder, perfect):
+def makeConstPlot(tau_ext, const, tau_c, color):
+    fig, ax = plt.subplots()
+    if tau_c != np.nan:
+        tau_ext = (tau_ext - tau_c)/tau_c
+
+    bin_means, bin_edges, bin_counts = stats.binned_statistic(tau_ext, const, statistic="mean", bins=100)
+    stds, bin_edges, bin_counts = stats.binned_statistic(tau_ext, const, statistic="std", bins=100)
+
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+
+    ax.scatter(tau_ext, const, label="constant", marker="x", color="lightgrey", alpha=0.5)
+
+    ax.scatter(bin_edges[:-1], bin_means, label="binned constant", marker="o", color=color)
+
+    ax.scatter(bin_edges[:-1], bin_means+stds, label="$\\sigma$", marker="_", color=color)
+    ax.scatter(bin_edges[:-1], bin_means-stds, marker="_", color="blue")
+
+    if tau_c != np.nan:
+        ax.set_xlabel("$( \\tau_{{ext}} - \\tau_c ) / \\tau_c$")
+    else:
+        ax.set_xlabel("$ \\tau_{{ext}} $")
+
+    ax.set_ylabel("Constant")
+
+    ax.legend()
+    ax.grid(True)
+    fig.tight_layout()
+
+    return fig,ax
+
+def processRoughnessFitParamData(path, root_dir, save_folder, perfect):
     loaded = np.load(path)
     data = loaded["data"]
     columns = loaded["columns"]
 
-    noise = data[:,0]
+    noise = data[:,0] 
     tauExt = data[:,1]
     seed = data[:,2]
     c = data[:,3]
     zeta = data[:,4]
     correlation = data[:,5]
+    const = data[:,6]
 
     print(f"Noise: {min(noise)} - {max(noise)} count {len(set(noise))}")
     print(f"tauExt: {min(tauExt)} - {max(tauExt)}")
@@ -612,15 +643,16 @@ def processExponentData(path, root_dir, save_folder, perfect):
         tau_ext_at_noise = tau_ext[mask]
         noise = noise[mask]
         cor = correlation[mask]
+        const_current = const[mask]
 
         if len(tau_ext_at_noise) == 0:
             print(f"No data for noise = {truncated_noise}")
             continue
         
         if perfect:
-            fig, ax, normalized_data = makeCorrelationPlot(tau_ext_at_noise, cor, tau_c_perfect, truncated_noise, color="blue", marker="s")
+            fig, ax, normalized_data = makeCorrelationPlot(tau_ext_at_noise, cor, tau_c_perfect, truncated_noise, color="blue")
         else:
-            fig, ax, normalized_data = makeCorrelationPlot(tau_ext_at_noise, cor, tau_c_partial, truncated_noise, color="red", marker="o")
+            fig, ax, normalized_data = makeCorrelationPlot(tau_ext_at_noise, cor, tau_c_partial, truncated_noise, color="red")
 
         save_path = Path(save_folder)
         save_path = save_path.joinpath("correlation-plots")
@@ -628,6 +660,17 @@ def processExponentData(path, root_dir, save_folder, perfect):
         save_path = save_path.joinpath(f"correlation-{truncated_noise}.pdf")
         fig.savefig(save_path)
         plt.close()
+
+        if perfect:
+            fig_const, ax = makeConstPlot(tau_ext_at_noise, const_current, tau_c_perfect, color="blue")
+        else:
+            fig_const, ax = makeConstPlot(tau_ext_at_noise, const_current, tau_c_partial, color="red")
+        
+        save_path = Path(save_folder)
+        save_path = save_path.joinpath(f"const-plots/constant-{truncated_noise}.pdf")
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+
+        fig_const.savefig(save_path)
 
         slices_for_3d_plot.append(normalized_data)
         
@@ -747,14 +790,8 @@ def extractRoughnessFromLast(root_dir):
                 fig.savefig(save_path)
     pass
 
-def makeTranitionPointPlots():
-    pass
-
 if __name__ == "__main__":
     root = "/Volumes/contenttii/2025-06-08-merged-final"
     path = Path(root).joinpath("roughness_parameters_perfect.npz")
-    path2 = Path(root).joinpath("roughness_parameters_partial.npz")
-    processExponentData(path, Path(root), Path(root).joinpath("perfect-correlations"), perfect=True)
-    processExponentData(path2, Path(root), Path(root).joinpath("partial-correlations"), perfect=False)
-
+    processRoughnessFitParamData(path, Path(root), Path(root).joinpath("roughness-fit-analysis/perfect"), perfect=True)
     pass

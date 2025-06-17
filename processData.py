@@ -393,8 +393,8 @@ if __name__ == "__main__":
             makeRoughnessExponentDataset_partial(parsed.folder)
             print("Making roughness dataset.")
         
-        processExponentData(path, Path(parsed.folder), Path(parsed.folder).joinpath("perfect-correlations"))
-        processExponentData(path2, Path(parsed.folder), Path(parsed.folder).joinpath("partial-correlations"))
+        processRoughnessFitParamData(path, Path(parsed.folder), Path(parsed.folder).joinpath("perfect-correlations"), perfect=True)
+        processRoughnessFitParamData(path2, Path(parsed.folder), Path(parsed.folder).joinpath("partial-correlations"), perfect=False)
 
     if parsed.all or parsed.avg_roughness:
         averageRoughnessBySeed(parsed.folder)
