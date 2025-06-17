@@ -61,7 +61,7 @@ class DepinningPartial(Depinning):
                                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                                    dt=self.dt, time=self.time, d0=self.d0, c_gamma=self.c_gamma,
                                                    cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
-        params = simulation.getParameteters()
+        params = simulation.getParameters()
         params_str = np.array2string(params)  # Convert array to string
         hash_object = hashlib.sha256(params_str.encode())
         hex_dig = hash_object.hexdigest()

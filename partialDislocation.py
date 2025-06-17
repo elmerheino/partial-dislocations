@@ -119,7 +119,7 @@ class PartialDislocationsSimulation(Simulation):
             y_i = sol_i.y.reshape(2, self.bigN, -1)
 
             last_y0 = y_i[:, :, -1]
-            np.savez(backup_file, y_last=last_y0, params=self.getParameters())
+            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i)
             total_time_so_far += chunk_size
         
         sol = solve_ivp(self.rhs, [self.time*(1 - 0.1), self.time], last_y0.flatten(), method='RK45', 
