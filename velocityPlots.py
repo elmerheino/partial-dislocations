@@ -291,7 +291,7 @@ def confidence_interval_upper(l, c_level):
     c = stats.norm.interval(c_level, loc=m, scale=s)
     return c[1]
 
-def makeOneBinnedPlot(x,y,tau_c, save_path : Path, bins=100, conf_level=0.9):
+def makeOneBinnedPlot(x,y,tau_c, save_path : Path, color, bins=100, conf_level=0.9):
     bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
 
     lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
@@ -303,24 +303,24 @@ def makeOneBinnedPlot(x,y,tau_c, save_path : Path, bins=100, conf_level=0.9):
 
     plt.clf()
     plt.close('all')
-    plt.figure(figsize=(linewidth/2,linewidth/2))
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
     
-    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-    plt.ylabel("$v_{{cm}}$")
+    ax.set_xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+    ax.set_ylabel("$v_{{CM}}$")
 
     bin_width = (bin_edges[1] - bin_edges[0])
     bin_centers = bin_edges[1:] - bin_width/2
 
-    plt.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
-    plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
-    plt.plot(bin_centers, upper_confidence, color="blue")
+    ax.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
+    # plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
+    # plt.plot(bin_centers, upper_confidence, color="blue")
 
-    plt.scatter(bin_centers, bin_means, color="red", marker="x",
-        label='Binned depinning data')    
+    ax.scatter(bin_centers, bin_means, color=color, marker="o", s=0.5,
+        label='Binned depinning data')
 
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=600)
-    pass
+    fig.tight_layout()
+    
+    return fig, ax
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
@@ -345,11 +345,13 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
             if perfect_partial == "perfect_data":
                 tau_c_perfect = sum(data_tau_perfect[noise])/len(data_tau_perfect[noise])
                 p = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
-                makeOneBinnedPlot(x,y,tau_c_perfect, p)
+                fig,ax = makeOneBinnedPlot(x,y,tau_c_perfect, p, color="blue")
+                fig.savefig(p)
             elif perfect_partial == "partial_data":
                 tau_c_partial = sum(data_tau_partial[noise])/len(data_tau_partial[noise])
                 p = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
-                makeOneBinnedPlot(x,y, tau_c_partial, p)
+                fig, ax = makeOneBinnedPlot(x,y, tau_c_partial, p, color="red")
+                fig.savefig(p)
 
     pass
 
