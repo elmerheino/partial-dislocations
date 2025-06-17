@@ -7,11 +7,23 @@ import multiprocessing as mp
 from scipy import optimize, stats
 from functools import partial
 from numba import jit
-import math
 from sklearn.linear_model import LinearRegression
 import csv
+import matplotlib as mpl
 
 linewidth = 5.59164
+
+mpl.rcParams.update({
+    "text.usetex": True,
+    "font.family": "Computer Modern Roman",  # Or 'sans-serif', 'Computer Modern Roman', etc.
+    "font.size": 12,         # Match LaTeX document font size
+    "axes.titlesize": 12,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "legend.fontsize": 12,
+    "figure.titlesize": 12
+})
 
 def rearrangeRoughnessDataByTau(root_dir):
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
@@ -676,6 +688,91 @@ def processRoughnessFitParamData(path, root_dir, save_folder, perfect):
         
     np.savez(Path(save_folder).joinpath("correaltion-3dplot-data.npz"), slices_for_3d_plot)
 
+def selectedCorrelationPlots(path, root_dir, save_folder, perfect):
+    loaded = np.load(path)
+    data = loaded["data"]
+    columns = loaded["columns"]
+
+    noise = data[:,0] 
+    tauExt = data[:,1]
+    seed = data[:,2]
+    c = data[:,3]
+    zeta = data[:,4]
+    correlation = data[:,5]
+    const = data[:,6]
+
+    unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 1000.0]
+    colors = ["red", "green", "blue", "orange", "purple"]
+
+    fig, ax, normalized_binned_data = None, None, None
+
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+    ax.set_ylim(0, 300)
+
+    normalized_binned_datas = []
+
+    for i, unique_noise in enumerate(unique_noises):
+        truncated_noise = np.round(unique_noise, 5)
+        noise = data[:,0]
+        tau_ext = data[:,1]
+        seed = data[:,2]
+        zeta = data[:,4]
+        correlation = data[:,5]
+        const = data[:,6]
+
+        # Get the data for the chosen noise and tauExt
+        mask = np.round(noise, 5) == truncated_noise
+        chosen_data = data[ mask]
+
+        taus = chosen_data[:,1]
+        zetas = chosen_data[:,4]
+        correlations = chosen_data[:,5]
+        tau_exts = chosen_data[:,1]
+
+        tau_c_perfect, tau_c_partial = find_tau_c(truncated_noise, root_dir)
+
+        tau_ext_at_noise = tau_ext[mask]
+        noise = noise[mask]
+        cor = correlation[mask]
+        const_current = const[mask]
+
+        if len(tau_ext_at_noise) == 0:
+            print(f"No data for noise = {truncated_noise}")
+            continue
+
+        # Normalize data
+        x = tau_exts
+        y = correlations
+
+        tau_c = tau_c_perfect if perfect else tau_c_partial
+
+        if not np.isnan(tau_c):  # Normalize data
+            x = (x - tau_c) / tau_c
+
+        bin_means, bin_edges, bin_counts = stats.binned_statistic(x, y, statistic="mean", bins=100)
+        stds, bin_edges, bin_counts = stats.binned_statistic(x, y, statistic="std", bins=100)
+
+        x = bin_edges[:-1]
+        y = bin_means
+
+        ax.scatter(x, y, label=f"$\\vec{{\\xi}}$ R={truncated_noise}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        # ax.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
+        # ax.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
+
+    ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+    ax.set_ylabel("$\\xi$")
+    # ax.legend()
+    ax.grid(True)
+    fig.tight_layout()
+
+    save_path = Path(save_folder)
+    save_path = save_path.joinpath("correlation-plots")
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_path = save_path.joinpath(f"correlation-selected.pdf")
+    fig.savefig(save_path)
+    plt.close()
+
+
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
 
@@ -793,5 +890,6 @@ def extractRoughnessFromLast(root_dir):
 if __name__ == "__main__":
     root = "/Volumes/contenttii/2025-06-08-merged-final"
     path = Path(root).joinpath("roughness_parameters_perfect.npz")
-    processRoughnessFitParamData(path, Path(root), Path(root).joinpath("roughness-fit-analysis/perfect"), perfect=True)
+    # processRoughnessFitParamData(path, Path(root), Path(root).joinpath("roughness-fit-analysis/perfect"), perfect=True)
+    selectedCorrelationPlots(path, Path(root), Path(root), perfect=True)
     pass
