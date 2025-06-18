@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=2:00:00
+#SBATCH --time=00:30:00
 #SBATCH --job-name=perfect-reg1
-#SBATCH --mem-per-cpu=1G
-#SBATCH --output=2025-06-18-region1-perfect.out
+#SBATCH --mem-per-cpu=500M
+#SBATCH --output=2025-06-18-region-1-attempt2-perfect.out
 #SBATCH --array=1-10
 #SBATCH --cpus-per-task=20
 #SBATCH --mail-type=ALL
@@ -12,7 +12,7 @@
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
 
-NAME=2025-06-18-region-1
+NAME=2025-06-18-region-1-attempt2
 
 CORES=20
 
