@@ -409,24 +409,28 @@ if __name__ == "__main__":
     # Make normalized depinning plots
     if parsed.all or parsed.np:
         print("Making normalized depinning plots.")
-
-        partial_data = normalizedDepinnings(
-            results_root.joinpath("partial-dislocation").joinpath("depinning-dumps"),
-            plot_save_folder=results_root.joinpath("partial-dislocation/normalized-plots"),
-            data_save_path=results_root.joinpath("noise-data/partial-noises.csv"),
-            json_save_path=results_root.joinpath("binning-data/tau_c_partial.json")
-        )
+        partial_depinning_dumps = results_root.joinpath("partial-dislocation").joinpath("depinning-dumps")
+        if partial_depinning_dumps.exists():
+            partial_data = normalizedDepinnings(
+                partial_depinning_dumps,
+                plot_save_folder=results_root.joinpath("partial-dislocation/normalized-plots"),
+                data_save_path=results_root.joinpath("noise-data/partial-noises.csv"),
+                json_save_path=results_root.joinpath("binning-data/tau_c_partial.json")
+            )
+        else:
+            print("No partial disloation depinning dumps.")
+            partial_data = {}
         
-        try:
+        perfect_dumps = results_root.joinpath("single-dislocation").joinpath("depinning-dumps")
+        if perfect_dumps.exists():
             non_partial_data = normalizedDepinnings(
-                results_root.joinpath("single-dislocation").joinpath("depinning-dumps"),
+                perfect_dumps,
                 plot_save_folder=results_root.joinpath("single-dislocation/normalized-plots"),
                 data_save_path=results_root.joinpath("noise-data/perfect-noises.csv"),
                 json_save_path=results_root.joinpath("binning-data/tau_c_perfect.json")
             )
-        except Exception as e:
+        else:
             print("No perfect dislocation depinning dumps found. Skipping perfect depinning normalization.")
-            print(e)
             non_partial_data = {}
 
         with open(Path(results_root).joinpath("global_data_dump.json"), "w") as fp:
