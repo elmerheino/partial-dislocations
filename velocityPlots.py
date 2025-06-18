@@ -427,77 +427,84 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
     if opt:
         partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/optimal-depinning-dumps")
         perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/optimal-depinning-dumps")
+    
+    if partial_depinning_path.exists():
 
-    for noise_dir in partial_depinning_path.iterdir():
-        if not noise_dir.is_dir():
-            continue
-        noise = noise_dir.name.split("-")[1]
-        velocities = list()
-        stresses = None
-        seed = None
-        for depining_file in noise_dir.iterdir():
-            with open(depining_file, "r") as fp:
-                loaded = json.load(fp)
-                stresses = loaded["stresses"]
-                velocities.append(loaded["v_rel"])
+        for noise_dir in partial_depinning_path.iterdir():
+            if not noise_dir.is_dir():
+                continue
+            noise = noise_dir.name.split("-")[1]
+            velocities = list()
+            stresses = None
+            seed = None
+            for depining_file in noise_dir.iterdir():
+                with open(depining_file, "r") as fp:
+                    loaded = json.load(fp)
+                    stresses = loaded["stresses"]
+                    velocities.append(loaded["v_rel"])
+                pass
+
+            x = np.array(stresses)
+            y = np.average(np.array(velocities), axis=0)
+
+            plt.clf()
+            plt.figure(figsize=(linewidth/2,linewidth/2))
+
+            plt.scatter(x,y, marker="x")
+
+            plt.title(f"Depinning noise = {noise}")
+            plt.xlabel("$\\tau_{ext}$")
+            plt.ylabel("$v_{CM}$")
+
+            dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/noise-{noise}")
+            dest.mkdir(parents=True, exist_ok=True)
+            if opt:
+                plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
+            else:
+                plt.savefig(dest.joinpath(f"depinning-noise.png"))
+            pass
+            plt.close()
+    else:
+        print("No partial depinning dumps")
+
+    if perfect_depinning_path.exists():
+        for noise_dir in perfect_depinning_path.iterdir():
+            if not noise_dir.is_dir():
+                continue
+
+            noise = noise_dir.name.split("-")[1]
+            velocities = list()
+            stresses = None
+            seed = None
+            for depining_file in noise_dir.iterdir():
+                with open(depining_file, "r") as fp:
+                    loaded = json.load(fp)
+                    stresses = loaded["stresses"]
+                    velocities.append(loaded["v_rel"])
             pass
 
-        x = np.array(stresses)
-        y = np.average(np.array(velocities), axis=0)
+            x = np.array(stresses)
+            y = np.average(np.array(velocities), axis=0)
 
-        plt.clf()
-        plt.figure(figsize=(linewidth/2,linewidth/2))
+            plt.clf()
+            plt.figure(figsize=(linewidth/2,linewidth/2))
 
-        plt.scatter(x,y, marker="x")
+            plt.scatter(x,y, marker="x")
 
-        plt.title(f"Depinning noise = {noise}")
-        plt.xlabel("$\\tau_{ext}$")
-        plt.ylabel("$v_{CM}$")
+            plt.title(f"Depinning noise = {noise}")
+            plt.xlabel("$\\tau_{ext}$")
+            plt.ylabel("$v_{CM}$")
 
-        dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/noise-{noise}")
-        dest.mkdir(parents=True, exist_ok=True)
-        if opt:
-            plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
-        else:
-            plt.savefig(dest.joinpath(f"depinning-noise.png"))
-        pass
-        plt.close()
-
-    for noise_dir in perfect_depinning_path.iterdir():
-        if not noise_dir.is_dir():
-            continue
-
-        noise = noise_dir.name.split("-")[1]
-        velocities = list()
-        stresses = None
-        seed = None
-        for depining_file in noise_dir.iterdir():
-            with open(depining_file, "r") as fp:
-                loaded = json.load(fp)
-                stresses = loaded["stresses"]
-                velocities.append(loaded["v_rel"])
+            dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
+            dest.mkdir(parents=True, exist_ok=True)
+            if opt:
+                plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
+            else:
+                plt.savefig(dest.joinpath(f"depinning-noise.png"))
             pass
-
-        x = np.array(stresses)
-        y = np.average(np.array(velocities), axis=0)
-
-        plt.clf()
-        plt.figure(figsize=(8,8))
-
-        plt.scatter(x,y, marker="x")
-
-        plt.title(f"Depinning noise = {noise}")
-        plt.xlabel("$\\tau_{ext}$")
-        plt.ylabel("$v_{CM}$")
-
-        dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
-        dest.mkdir(parents=True, exist_ok=True)
-        if opt:
-            plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
-        else:
-            plt.savefig(dest.joinpath(f"depinning-noise.png"))
-        pass
-        plt.close()
+            plt.close()
+    else:
+        print("No perfect depinning dumps")
 
 if __name__ == "__main__":
     root = "/Volumes/contenttii/2025-06-08-merged-final"
