@@ -163,7 +163,7 @@ def makeCommonNoisePlot(root_dir : Path):
         loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
 
         noises = loaded[:,0]
-        tau_c_means = np.mean(loaded[:,1:10], axis=1)
+        tau_c_means = np.nanmean(loaded[:,1:10], axis=1)
 
         data_perfect = np.column_stack([
             noises,
@@ -172,12 +172,11 @@ def makeCommonNoisePlot(root_dir : Path):
 
     with open(results_root.joinpath("noise-data/partial-noises.csv"), "r") as fp:
         loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
-        
         pass
 
         data_partial = np.column_stack([
             loaded[:,0],
-            np.mean(loaded[:,1:10], axis=1)
+            np.nanmean(loaded[:,1:11], axis=1)
         ])
 
     plt.figure(figsize=(linewidth/2, linewidth/2))
@@ -469,6 +468,7 @@ if __name__ == "__main__":
             )
         except FileNotFoundError:
             print("No perfect dislocation depinning dumps found. Skipping perfect noise plot.")
+
         try:    
             makeCommonNoisePlot(Path(parsed.folder))
         except FileNotFoundError:

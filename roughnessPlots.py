@@ -758,7 +758,7 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
     fig_std, ax_std = plt.subplots(figsize=(linewidth/2,linewidth/2))
     ax_std.set_ylim(0, 300)
 
-    normalized_binned_datas = []
+    scatter_objs = list()
 
     for i, unique_noise in enumerate(unique_noises):
         truncated_noise = np.round(unique_noise, 5)
@@ -804,18 +804,26 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
         x = bin_edges[:-1]
         y = bin_means
 
-        ax.scatter(x, y, label=f"R={truncated_noise}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        sc = ax.scatter(x, y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        scatter_objs.append(sc)
         # ax.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
         # ax.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
 
-        ax_std.scatter(x, y, label=f"R={truncated_noise}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        ax_std.scatter(x, y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
         ax_std.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
         ax_std.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
 
 
     ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax.set_ylabel("$\\xi$")
-    ax.legend(fontsize='small')
+    if perfect:
+        legend1 = ax.legend(handles=scatter_objs[0:3], loc='upper right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        legend2 = ax.legend(handles=scatter_objs[3:], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        ax.add_artist(legend1)
+        ax.add_artist(legend2)
+    else:
+        ax.legend(fontsize='small')
+
     ax.grid(True)
     fig.tight_layout()
 
