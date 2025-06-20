@@ -832,13 +832,14 @@ def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
     path_obj = Path(path)
     if not path_obj.exists():
         print(f"File not found, cannot create plots: {path_obj}")
-        return
+        return None, None, None, None
     loaded = np.load(path)
     data = loaded["data"]
 
     colors = ["red", "green", "blue", "orange", "purple"]
 
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+    fig_std, ax_std = plt.subplots(figsize=(linewidth/2,linewidth/2))
 
     for i, unique_noise in enumerate(unique_noises):
         truncated_noise = np.round(unique_noise, 5)
@@ -873,11 +874,16 @@ def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
             continue
 
         bin_means, bin_edges, _ = stats.binned_statistic(x, y, statistic="mean", bins=100)
+        stds, _, _ = stats.binned_statistic(x, y, statistic="std", bins=100)
         
         plot_x = bin_edges[:-1]
         plot_y = bin_means
 
         ax.scatter(plot_x, plot_y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+
+        ax_std.scatter(plot_x, plot_y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        ax_std.scatter(plot_x, plot_y + stds, marker="_", linewidth=0.5, color=colors[i])
+        ax_std.scatter(plot_x, plot_y - stds, marker="_", linewidth=0.5, color=colors[i])
 
     ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax.set_ylabel("$\\zeta$")
@@ -885,8 +891,13 @@ def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
     ax.grid(True)
     fig.tight_layout()
 
-    fig.savefig(save_path)
-    plt.close()
+    ax_std.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+    ax_std.set_ylabel("$\\zeta$")
+    ax_std.legend(fontsize='small')
+    ax_std.grid(True)
+    fig_std.tight_layout()
+
+    return fig, ax, fig_std, ax_std
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -1031,8 +1042,12 @@ if __name__ == "__main__":
 
     save_path = Path(root).joinpath("selected-zeta-plots/zeta-selected-perfect.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    selectedZetaPlots(path_perfect, Path(root), save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 1000.0])
+    fig, ax, fig_std, ax_std = selectedZetaPlots(path_perfect, Path(root), save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 1000.0])
+    fig.savefig(save_path)
+    fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-perfect.pdf"))
 
     save_path = Path(root).joinpath("selected-zeta-plots/zeta-selected-partial.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    selectedZetaPlots(path_partial, Path(root), save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 869.74900])
+    fig, ax, fig_std, ax_std = selectedZetaPlots(path_partial, Path(root), save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 869.74900])
+    fig.savefig(save_path)
+    fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-partial.pdf"))
