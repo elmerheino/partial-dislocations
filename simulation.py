@@ -2,6 +2,7 @@ from scipy import fft
 import numpy as np
 import math
 from numba import jit
+from scipy.ndimage import map_coordinates
 
 class Simulation(object):
     def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, mu, tauExt, seed=None):
@@ -57,33 +58,14 @@ class Simulation(object):
         return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
     
     def tau(self, y):
-        return self.tau_interpolated_static(y, self.bigN, self.stressField, self.x_indices) # x is discrete anyways here
+        # return self.tau_interpolated_static(y, self.bigN, self.stressField, self.x_indices) # x is discrete anyways here
+        return self.tau_interpolated(y)
     
     def tau_interpolated(self, y): # Takes around 541.84 mu s, which is 8x slower than w/o interpolation
         # tau_res = [ np.interp(y[x], self.x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in self.x_points ]
-
-        tau_res = np.empty(self.bigN)
-        for x in self.x_indices:
-            col = self.stressField[x,0:self.bigN] # This is actually a row
-            y_x = y[x]
-
-            x1 = math.floor(y_x)
-            x2 = math.ceil(y_x)
-
-            y1 = col[x1 % self.bigN]
-            y2 = col[x2 % self.bigN]
-
-            if (x2 - x1) == 0: # handle the case where 
-                # print(f"y_x={y_x} y1={y1}=col[x1]  y2={y2}=col[x2] k={k} ")
-                tau_res[x] = y1
-                continue
-
-            k = (y2 - y1)/(x2 - x1)
-            b = y1 - k*x1
-
-            tau_res[x] = k*y_x + b
-
-        return tau_res
+        coords = np.array([self.x_indices, y])
+        stress_data = self.stressField[:, :self.bigN]
+        return map_coordinates(stress_data, coords, order=1, mode='wrap')
     
     @staticmethod
     @jit(nopython=True)

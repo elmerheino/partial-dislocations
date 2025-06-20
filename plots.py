@@ -185,32 +185,76 @@ def makeDepinningPlotAvg(time, count, stresses:list, vCms:list, names:list, fold
     plt.savefig(f"{folder_name}/depinning-tau-{min(stresses[0])}-{max(stresses[0])}-p-{len(stresses[0])}-t-{time}-N-{count}.png", dpi=300)
 
 def plotRandTau():
-    sim = PartialDislocationsSimulation(1024, 1024,100,0.05,1,1,1,1,1,0)
+    sim = PartialDislocationsSimulation(1024, 1024,100,0.05,10,1,1,1,1,0)
+
     x = 100
     z = list()
     y = np.linspace(1024-10,1024+10,100)
+    times = list()
     for y_i in y:
         y_all = y_i*np.ones(sim.bigN)
+        t0 = time.time()
         z_i = sim.tau_no_interpolation(y_all)[x]
+        t1 = time.time()
+        times.append(t1 - t0)
         z.append(z_i)
+
+    avg_time = sum(times)/len(times)
+    print(f"No interp call takes on avg {avg_time*1e6} mu s per call")
 
     x = 100
     z_1 = list()
     y_1 = np.linspace(1024-10,1024+10,100)
+    times_1 = list()
     for y_i in y_1:
         y_all = y_i*np.ones(sim.bigN)
+        t0 = time.time()
         z_i = sim.tau_interpolated(y_all)[x]
+        t1 = time.time()
+        times_1.append(t1 - t0)
         z_1.append(z_i)
 
-    fig, axes = plt.subplots(2, 1, figsize=(12, 4))  # 1 row, 3 columns
+    scipy_avg_time = sum(times_1)/len(times_1)
+    print(f"Scipy call takes on avg {scipy_avg_time*1e6} mu s per call")
+    
+    x = 100
+    z_2 = list()
+    y_2 = np.linspace(1024-10,1024+10,100)
+    times_2 = list()
+    for y_i in y_2:
+        y_all = y_i*np.ones(sim.bigN)
+        t0 = time.time()
+        z_i = sim.tau_interpolated_static(y_all, sim.bigN, sim.stressField, sim.x_indices)[x]
+        t1 = time.time()
+
+        times_2.append(t1 - t0)
+
+        z_2.append(z_i)
+    numba_avg_time = sum(times_2)/len(times_2)
+    print(f"Numba call takes on avg {numba_avg_time*1e6} mu s per call")
+
+
+    fig, axes = plt.subplots(3, 1, figsize=(12, 4))  # 1 row, 3 columns
     axes[0].plot(y, z)
     axes[0].set_title("Cross section of $z = \\tau(100,y)$ when x=100")
     axes[0].set_xlabel("$y$")
     axes[0].set_ylabel("$z$")
 
     axes[1].plot(y_1, z_1)
-    axes[1].set_title("Interpolated Cross section of $z = \\tau(100,y)$ when x=100")
+    axes[1].set_title("Interpolated (scipy) Cross section of $z = \\tau(100,y)$ when x=100")
     axes[1].set_xlabel("$y$")
     axes[1].set_ylabel("$z$")
 
+    axes[2].plot(y_2, z_2)
+    axes[2].set_title("Interpolated (static numba) Cross section of $z = \\tau(100,y)$ when x=100")
+    axes[2].set_xlabel("$y$")
+    axes[2].set_ylabel("$z$")
+
+    fig.tight_layout()
+
     plt.show()
+
+    print(f"Scipy is {numba_avg_time/scipy_avg_time} faster than numba")
+
+if __name__ == "__main__":
+    plotRandTau()
