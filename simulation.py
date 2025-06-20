@@ -97,17 +97,17 @@ class Simulation(object):
     @staticmethod
     @jit(nopython=True)
     def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
-        l_range = np.arange(0,int(bigN))    # TODO: Use range parameter instead
+        l_range = np.arange(0,int(bigN))
         roughness = np.empty(int(bigN))
 
-        y_size = len(y) # TODO: check if len(y) = bigN ?
+        y_size = len(y)
         
         for l in l_range:
             res = 0
             for i in range(0,y_size):
                 res += ( y[i] - y[ (i+l) % y_size ] )**2
             
-            # res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ] # TODO: check fomula here
+            # res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ]
 
             res = res/y_size
             c = np.sqrt(res)
