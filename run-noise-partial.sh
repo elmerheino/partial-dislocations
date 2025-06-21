@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=04:00:00
+#SBATCH --time=08:00:00
 #SBATCH --job-name=partial-reg1
 #SBATCH --mem-per-cpu=1G
-#SBATCH --output=2025-06-18-region-1-attempt2-partial.out
+#SBATCH --output=2025-06-21-region-1-partial.out
 #SBATCH --array=1-10
 #SBATCH --cpus-per-task=20
 #SBATCH --mail-type=ALL
@@ -13,7 +13,7 @@
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
 
-NAME=2025-06-18-region-1-attempt2
+NAME=2025-06-21-region-1
 
 CORES=20
 
@@ -26,8 +26,8 @@ NOISE_MAX=-1
 ARRAY_LEN=10   # SEEDS*NOISES=ARRAY_LEN for a square grid
 SEEDS=1         # Seed count is array-max/noise points
 
-TIME=300000
-DT=5
+TIME=500000
+DT=10
 
 TAU_POINTS=20   # How many external forces are tried per noise level to find the critical force
 
