@@ -160,11 +160,11 @@ def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, core
 def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
         # tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=True)
 
-        if 0 <= deltaR < 0.1: 
+        if 0 <= deltaR <= 0.1:
+            tau_c = 0.909 * deltaR**1.335
             tau_min_opt = 0
-            tau_c = 5.244 * deltaR**2.166
             tau_max_opt = tau_c*4
-        elif 0.1 <= deltaR < 1.0:
+        elif 0.1 < deltaR < 1.0:
             tau_min_opt = 0
             tau_c = 0.946 * deltaR**1.381
             tau_max_opt = tau_c*4
@@ -228,11 +228,11 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
     # Searching for better limits to find critical force
     #tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
-    if 0 < deltaR < 0.1:
-        tau_c = 1.113 * deltaR**1.595
+    if 0 < deltaR <= 0.1:
+        tau_c = 0.830 * deltaR**1.356
         tau_min_opt = 0
         tau_max_opt = tau_c*4
-    elif 0.1 <= deltaR < 1.0:
+    elif 0.1 < deltaR < 1.0:
         tau_c =  0.688 * deltaR ** 1.374
         tau_min_opt = 0
         tau_max_opt = tau_c*4
