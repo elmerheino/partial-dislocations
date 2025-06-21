@@ -34,7 +34,12 @@ def rearrangeRoughnessDataByTau(root_dir):
             print(f"{dislocation_dir} already rearranged.")
             continue
 
-        for noise_folder in [i for i in p.joinpath("averaged-roughnesses").iterdir() if i.is_dir()]:
+        averaged_roughnesses_path = p.joinpath("averaged-roughnesses")
+        if not averaged_roughnesses_path.exists():
+            print(f"Directory not found, skipping: {averaged_roughnesses_path}")
+            continue
+
+        for noise_folder in [i for i in averaged_roughnesses_path.iterdir() if i.is_dir()]:
             for seed_folder in noise_folder.iterdir():
                 for file_path in seed_folder.iterdir():
                     fname = file_path.stem
@@ -53,15 +58,24 @@ def rearrangeRoughnessDataByTau(root_dir):
 
 def analyzeRoughnessFitParamteters(root_dir):
     # TODO: also analyze the partial dislocation fit parameters
-    with open(Path(root_dir).joinpath("roughness_perfect.json"), "r") as fp:
-        roughnesses_np = json.load(fp)
-    
-    try:
-        with open(Path(root_dir).joinpath("roughness_partial.json"), "r") as fp:
-            roughnesses_partial = json.load(fp)
-    except:
-        print(f"No partial data")
-    
+    perfect_path = Path(root_dir).joinpath("roughness_perfect.json")
+    if perfect_path.exists():
+        with open(perfect_path, "r") as fp:
+            roughnesses_np = json.load(fp)
+    else:
+        print(f"File not found: {perfect_path}")
+        return
+
+    partial_path = Path(root_dir).joinpath("roughness_partial.json")
+    if partial_path.exists():
+        try:
+            with open(partial_path, "r") as fp:
+                roughnesses_partial = json.load(fp)
+        except Exception as e:
+            print(f"Could not load partial data from {partial_path}: {e}")
+    else:
+        print(f"No partial data file found: {partial_path}")
+
     for noise in roughnesses_np.keys():
         plt.clf()
         plt.figure(figsize=(8,8))
@@ -106,6 +120,9 @@ def analyzeRoughnessFitParamteters(root_dir):
 
 def makePartialRoughnessPlots(root_dir):
     p = Path(root_dir).joinpath("partial-dislocation").joinpath("averaged-roughnesses")
+    if not p.exists():
+        print(f"Directory not found, skipping: {p}")
+        return
 
     roughnesses_partial = dict()
 
@@ -118,7 +135,9 @@ def makePartialRoughnessPlots(root_dir):
             "cutoff" : list(), "k":list()
         }
 
-        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder.iterdir()):
+        noise_folder_dir = [i for i in noise_folder.iterdir() if i.is_dir() and len(i.name.split("-")) == 2]
+
+        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder_dir):
             seed_in_name = int(seed_folder.stem.split("-")[1])
             print(f"Making roughness plots for noise {noise_val} seed {seed_in_name}")
 
@@ -140,6 +159,9 @@ def makePartialRoughnessPlots(root_dir):
 
 def loadRoughnessData_partial(path_to_file, root_dir):
     # Helper function to enable multiprocessing
+    if not Path(path_to_file).exists():
+        print(f"File not found: {path_to_file}")
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     loaded = np.load(path_to_file)
     params = loaded["parameters"]
     avg_w12 = loaded["avg_w"]
@@ -303,6 +325,9 @@ def makeRoughnessPlotPerfect(l_range, avg_w, params, save_path : Path):
 
 def loadRoughnessDataPerfect(f1, root_dir):
     # Helper function to enable use of multiprocessing when making plots
+    if not Path(f1).exists():
+        print(f"File not found: {f1}")
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     loaded = np.load(f1)
     avg_w = loaded["avg_w"]
     l_range = loaded["l_range"]
@@ -326,6 +351,9 @@ def loadRoughnessDataPerfect(f1, root_dir):
 
 def makePerfectRoughnessPlots(root_dir):
     p = Path(root_dir).joinpath("single-dislocation").joinpath("averaged-roughnesses")
+    if not p.exists():
+        print(f"Directory not found, skipping: {p}")
+        return
 
     roughnesses_perfect = dict()
 
@@ -337,7 +365,9 @@ def makePerfectRoughnessPlots(root_dir):
             "cutoff" : list(), "k":list()
         }
 
-        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder.iterdir()): # Only make roughness plots for seed = 1
+        seed_folder_dirs = [i for i in noise_folder.iterdir() if i.is_dir() and len(i.name.split("-")) == 2]    # Handle special cases
+
+        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, seed_folder_dirs): # Only make roughness plots for seed = 1
             seed = int(seed_folder.stem.split("-")[1])
 
             print(f"Making roughness plots for noise {noise_val} seed {seed}")
@@ -401,40 +431,50 @@ def find_tau_c(noise, root_dir):
     noise_partial_path = Path(root_dir).joinpath(f"noise-data/partial-noises.csv")
     noise_perfect_path = Path(root_dir).joinpath(f"noise-data/perfect-noises.csv")
 
-    try:
+    tau_c_partial = np.empty((0, 11))
+    if noise_partial_path.exists():
         tau_c_partial = np.genfromtxt(noise_partial_path, delimiter=",", skip_header=1)
-        tau_c_perfect = np.genfromtxt(noise_perfect_path, delimiter=",", skip_header=1)
-    except:
-        print(f"No noise data")
-    
-    column1_perfect = np.round(tau_c_perfect[:,0],6)
-    mask_perfect = np.abs( column1_perfect - noise ) < 1e-5
+    else:
+        print(f"No partial noise data file found: {noise_partial_path}")
 
-    column1_partial = np.round(tau_c_partial[:,0],6)
-    mask_partial = np.abs( column1_partial - noise ) < 1e-5
+    tau_c_perfect = np.empty((0, 11))
+    if noise_perfect_path.exists():
+        tau_c_perfect = np.genfromtxt(noise_perfect_path, delimiter=",", skip_header=1)
+    else:
+        print(f"No perfect noise data file found: {noise_perfect_path}")
+
+    column1_perfect = np.round(tau_c_perfect[:, 0], 6)
+    mask_perfect = np.abs(column1_perfect - noise) < 1e-5
+
+    column1_partial = np.round(tau_c_partial[:, 0], 6)
+    mask_partial = np.abs(column1_partial - noise) < 1e-5
 
     row_perfect = tau_c_perfect[mask_perfect]
     row_partial = tau_c_partial[mask_partial]
 
-    if len(row_perfect[:,1:11]) == 0:
+    if row_perfect.shape[0] == 0 or row_perfect.shape[1] < 11:
         print(f"No critical force for perfect dislocation with noise={noise}")
         tau_c_mean_perfect = np.nan
     else:
-        tau_c_mean_perfect = np.nanmean(row_perfect[:,1:11])
-    
-    if len(row_partial[:,1:11]) == 0:
+        tau_c_mean_perfect = np.nanmean(row_perfect[:, 1:11])
+
+    if row_partial.shape[0] == 0 or row_partial.shape[1] < 11:
         print(f"No critical force for partial dislocation with noise={noise}")
         tau_c_mean_partial = np.nan
     else:
-        tau_c_mean_partial = np.nanmean(row_partial[:,1:11])
+        tau_c_mean_partial = np.nanmean(row_partial[:, 1:11])
 
     return tau_c_mean_perfect, tau_c_mean_partial
 
 def multiprocessing_helper(f1, root_dir):
+    f1_path = Path(f1)
+    if not f1_path.exists():
+        print(f"File with path {f1} does not exist")
+        return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     try:
         loaded = np.load(f1)
-    except:
-        print(f"File with path {f1} is corrupted")
+    except Exception as e:
+        print(f"File with path {f1} is corrupted: {e}")
         return (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     
     try:
@@ -456,6 +496,9 @@ def multiprocessing_helper(f1, root_dir):
     return  (np.float64(deltaR), np.float64(tauExt), np.float64(seed), np.float64(prefactor), np.float64(zeta), np.float64(transition), np.float64(constant))
 
 def extractAllFitParams(path, root_dir, seq=False):
+    if not path.exists():
+        print(f"Directory not found, cannot extract fit parameters: {path}")
+        return np.array([])
     progess = 0
     data = list()
     for noise_folder in [s for s in path.iterdir() if s.is_dir()]:
@@ -601,6 +644,10 @@ def makeConstPlot(tau_ext, const, tau_c, color):
     return fig,ax
 
 def processRoughnessFitParamData(path, root_dir, save_folder, perfect):
+    path_obj = Path(path)
+    if not path_obj.exists():
+        print(f"File not found, cannot process data: {path_obj}")
+        return
     loaded = np.load(path)
     data = loaded["data"]
     columns = loaded["columns"]
@@ -688,7 +735,11 @@ def processRoughnessFitParamData(path, root_dir, save_folder, perfect):
         
     np.savez(Path(save_folder).joinpath("correaltion-3dplot-data.npz"), slices_for_3d_plot)
 
-def selectedCorrelationPlots(path, root_dir, save_folder, perfect):
+def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
+    path_obj = Path(path)
+    if not path_obj.exists():
+        print(f"File not found, cannot create plots: {path_obj}")
+        return
     loaded = np.load(path)
     data = loaded["data"]
     columns = loaded["columns"]
@@ -701,7 +752,6 @@ def selectedCorrelationPlots(path, root_dir, save_folder, perfect):
     correlation = data[:,5]
     const = data[:,6]
 
-    unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 1000.0]
     colors = ["red", "green", "blue", "orange", "purple"]
 
     fig, ax, normalized_binned_data = None, None, None
@@ -709,7 +759,11 @@ def selectedCorrelationPlots(path, root_dir, save_folder, perfect):
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
     ax.set_ylim(0, 300)
 
-    normalized_binned_datas = []
+    fig_std, ax_std = plt.subplots(figsize=(linewidth/2,linewidth/2))
+    ax_std.set_ylim(0, 300)
+
+    scatter_objs = list()
+    scatter_objs_std = list()
 
     for i, unique_noise in enumerate(unique_noises):
         truncated_noise = np.round(unique_noise, 5)
@@ -755,23 +809,112 @@ def selectedCorrelationPlots(path, root_dir, save_folder, perfect):
         x = bin_edges[:-1]
         y = bin_means
 
-        ax.scatter(x, y, label=f"$\\vec{{\\xi}}$ R={truncated_noise}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        sc = ax.scatter(x, y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        scatter_objs.append(sc)
         # ax.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
         # ax.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
 
+        sc_std = ax_std.errorbar(x, y, yerr=stds, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], fmt='s', markersize=2, capsize=2)
+        scatter_objs_std.append(sc_std)
+        # ax_std.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
+        # ax_std.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
+
+
     ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax.set_ylabel("$\\xi$")
-    # ax.legend()
+    if perfect:
+        legend1 = ax.legend(handles=scatter_objs[0:3], loc='upper right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        legend2 = ax.legend(handles=scatter_objs[3:], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        ax.add_artist(legend1)
+        ax.add_artist(legend2)
+
+        legend1_std = ax_std.legend(handles=scatter_objs_std[0:3], loc='upper right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        legend2_std = ax_std.legend(handles=scatter_objs_std[3:], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        ax_std.add_artist(legend1_std)
+        ax_std.add_artist(legend2_std)
+    else:
+        ax.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
+        ax_std.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
+
     ax.grid(True)
     fig.tight_layout()
 
-    save_path = Path(save_folder)
-    save_path = save_path.joinpath("correlation-plots")
-    save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath(f"correlation-selected.pdf")
-    fig.savefig(save_path)
-    plt.close()
+    ax_std.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+    ax_std.set_ylabel("$\\xi$")
+    ax_std.grid(True)
+    fig_std.tight_layout()
 
+    return fig, ax, fig_std, ax_std
+
+
+def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
+    path_obj = Path(path)
+    if not path_obj.exists():
+        print(f"File not found, cannot create plots: {path_obj}")
+        return None, None, None, None
+    loaded = np.load(path)
+    data = loaded["data"]
+
+    colors = ["red", "green", "blue", "orange", "purple"]
+
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+    fig_std, ax_std = plt.subplots(figsize=(linewidth/2,linewidth/2))
+
+    for i, unique_noise in enumerate(unique_noises):
+        truncated_noise = np.round(unique_noise, 5)
+        
+        # Get the data for the chosen noise
+        mask = np.round(data[:, 0], 5) == truncated_noise
+        chosen_data = data[mask]
+
+        if chosen_data.shape[0] == 0:
+            print(f"No data for noise = {truncated_noise}")
+            continue
+
+        tau_exts = chosen_data[:, 1]
+        zetas = chosen_data[:, 4]
+
+        tau_c_perfect, tau_c_partial = find_tau_c(truncated_noise, root_dir)
+        tau_c = tau_c_perfect if perfect else tau_c_partial
+
+        # Normalize data
+        x = tau_exts
+        y = zetas
+
+        if not np.isnan(tau_c):  # Normalize data
+            x = (x - tau_c) / tau_c
+        
+        # Remove nans from x and y before binning
+        valid_indices = ~np.isnan(x) & ~np.isnan(y)
+        x = x[valid_indices]
+        y = y[valid_indices]
+
+        if len(x) == 0:
+            continue
+
+        bin_means, bin_edges, _ = stats.binned_statistic(x, y, statistic="mean", bins=100)
+        stds, _, _ = stats.binned_statistic(x, y, statistic="std", bins=100)
+        
+        plot_x = bin_edges[:-1]
+        plot_y = bin_means
+
+        ax.scatter(plot_x, plot_y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+
+        ax_std.errorbar(plot_x, plot_y, yerr=stds, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], fmt='s', markersize=2, capsize=2)
+
+    ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+    ax.set_ylabel("$\\zeta$")
+    ax.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
+    ax.grid(True)
+    fig.tight_layout()
+
+    ax_std.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
+    ax_std.set_ylabel("$\\zeta$")
+    ax_std.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
+    ax_std.grid(True)
+    fig_std.tight_layout()
+
+    return fig, ax, fig_std, ax_std
 
 def exp_beheavior(l, c, zeta):
     return c*(l**zeta)
@@ -793,7 +936,11 @@ def averageRoughnessBySeed(root_dir):
     dest = Path(root_dir).joinpath("roughness-avg-tau")
     for dislocation_dir in ["single-dislocation", "partial-dislocation"]: # Do the rearranging for both dirs
         p = Path(root_dir).joinpath(dislocation_dir)
-        for noise_folder in p.joinpath("avg-rough-arranged").iterdir():
+        avg_rough_path = p.joinpath("avg-rough-arranged")
+        if not avg_rough_path.exists():
+            print(f"Directory not found, skipping: {avg_rough_path}")
+            continue
+        for noise_folder in avg_rough_path.iterdir():
 
             noise_val = noise_folder.name.split("-")[1]
 
@@ -855,6 +1002,9 @@ def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dis
 
 def extractRoughnessFromLast(root_dir):
     path = Path(root_dir).joinpath("partial-dislocation").joinpath("dislocations-last")
+    if not path.exists():
+        print(f"Directory not found, cannot extract roughness: {path}")
+        return
     for noise_folder in [s for s in path.iterdir() if s.is_dir()]:
         noise_val = noise_folder.name.split("-")[1]
 
@@ -863,6 +1013,9 @@ def extractRoughnessFromLast(root_dir):
             print(f"Extracting params from data with noise {noise_val} and seed {seed}")
 
             for file_path in seed_folder.iterdir():
+                if not file_path.exists():
+                    print(f"File not found, skipping: {file_path}")
+                    continue
                 loaded = np.load(file_path)
                 parameters = loaded["parameters"]
                 bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = parameters
@@ -888,8 +1041,30 @@ def extractRoughnessFromLast(root_dir):
     pass
 
 if __name__ == "__main__":
-    root = "/Volumes/contenttii/2025-06-08-merged-final"
-    path = Path(root).joinpath("roughness_parameters_perfect.npz")
-    # processRoughnessFitParamData(path, Path(root), Path(root).joinpath("roughness-fit-analysis/perfect"), perfect=True)
-    selectedCorrelationPlots(path, Path(root), Path(root), perfect=True)
-    pass
+    root = "results/2025-06-08-merged-final"
+    path_perfect = Path(root).joinpath("roughness_parameters_perfect.npz")
+    path_partial = Path(root).joinpath("roughness_parameters_partial.npz")
+    
+    save_path = Path(root).joinpath("correlation-plots/correlation-selected-perfect.pdf")
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax, fig_std, ax_std = selectedCorrelationPlots(path_perfect, Path(root),save_path, perfect=True, unique_noises = [0.100000, 10.0, 1000.0])
+    fig.savefig(save_path)
+    fig_std.savefig(save_path.parent.joinpath("correlation-w-std-selected-perfect.pdf"))
+
+    save_path = Path(root).joinpath("correlation-plots/correlation-selected-partial.pdf")
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax, fig_std, ax_std = selectedCorrelationPlots(path_partial, Path(root), save_path, perfect=False, unique_noises = [0.100000, 10.0, 869.74900])
+    fig.savefig(save_path)
+    fig_std.savefig(save_path.parent.joinpath("correlation-w-std-selected-partial.pdf"))
+
+    save_path = Path(root).joinpath("selected-zeta-plots/zeta-selected-perfect.pdf")
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax, fig_std, ax_std = selectedZetaPlots(path_perfect, Path(root), save_path, perfect=True, unique_noises = [0.100000, 10.0, 1000.0])
+    fig.savefig(save_path)
+    fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-perfect.pdf"))
+
+    save_path = Path(root).joinpath("selected-zeta-plots/zeta-selected-partial.pdf")
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax, fig_std, ax_std = selectedZetaPlots(path_partial, Path(root), save_path, perfect=True, unique_noises = [0.100000, 10.0, 869.74900])
+    fig.savefig(save_path)
+    fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-partial.pdf"))

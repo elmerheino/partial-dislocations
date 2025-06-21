@@ -45,9 +45,14 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
     region0_index = np.where(data[:,0] > point_0)[0][0]
 
     try:
-        region1_index = np.where(data[:,0] > point_1)[0][0]
-        x = data[region0_index:region1_index,0]
-        y = data[region0_index:region1_index,1]
+        if np.where(data[:,0] > point_1)[0].size == 0:
+            x = data[:,0]
+            y = data[:,1]
+            region1_index = len(x) - 1
+        else:
+            region1_index = np.where(data[:,0] > point_1)[0][0]
+            x = data[region0_index:region1_index,0]
+            y = data[region0_index:region1_index,1]
         print(region1_index, x.shape, y.shape)
         fit_params, pcov = optimize.curve_fit(
             lambda x, a, b: a*x**b,
@@ -57,8 +62,8 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         ax.plot(fit_x, fit_y, color=fit_color, linewidth=2)
         ax.text(fit_x[1], fit_y[1], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='left', va='top')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
-    except:
-        print("No data in first region of data.")
+    except Exception as e:
+        print(f"No data in first region of data. {e}")
 
     # Fit power law to second region of data
     try:
@@ -110,7 +115,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     tau_c_mses = np.nanmean(loaded[:, 11:21], axis=1)
     deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
     
-    point_1 = 10**(-0)
+    point_1 = 10**(0)
     point_2 = 10**1.4
 
     fig, ax = makeNoisePlot(noises, tau_c_means, 0, point_1, point_2, y_error=deltaTaus)
@@ -163,56 +168,76 @@ def makeCommonNoisePlot(root_dir : Path):
         loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
 
         noises = loaded[:,0]
-        tau_c_means = np.mean(loaded[:,1:10], axis=1)
+        tau_c_means = np.nanmean(loaded[:,1:10], axis=1)
+        tau_c_deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
 
         data_perfect = np.column_stack([
             noises,
-            tau_c_means
+            tau_c_means,
+            tau_c_deltaTaus
         ])
 
     with open(results_root.joinpath("noise-data/partial-noises.csv"), "r") as fp:
         loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
-        
         pass
 
         data_partial = np.column_stack([
             loaded[:,0],
-            np.mean(loaded[:,1:10], axis=1)
+            np.nanmean(loaded[:,1:11], axis=1),
+            np.nanmean(loaded[:, 21:31], axis=1)
         ])
 
-    plt.figure(figsize=(linewidth/2, linewidth/2))
-    plt.xscale("log")
-    plt.yscale("log")
-    plt.grid(True)
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(True)
 
-    plt.errorbar(data_partial[:,0], data_partial[:,1], fmt='o', markersize=2, capsize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
-    plt.errorbar(data_perfect[:,0], data_perfect[:,1], fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+    ax.errorbar(data_partial[:,0], data_partial[:,1], yerr=data_partial[:,2],
+                 fmt='o', markersize=2, capsize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
+    
+    ax.errorbar(data_perfect[:,0], data_perfect[:,1], yerr=data_perfect[:,2],
+                 fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
         
-    # plt.title("Noise magnitude and external force")
-    plt.xlabel("R")
-    plt.ylabel("$ \\tau_c $")
-    plt.legend()
-    plt.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
+    ax.set_xlabel("R")
+    ax.set_ylabel("$ \\tau_c $")
+    ax.legend()
+    fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both-w-error.pdf"), bbox_inches='tight')
+
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(True)
+
+    ax.plot(data_partial[:,0], data_partial[:,1],
+                 'o', markersize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
+    
+    ax.plot(data_perfect[:,0], data_perfect[:,1],
+                 's', markersize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+        
+    ax.set_xlabel("R")
+    ax.set_ylabel("$ \\tau_c $")
+    ax.legend()
+    fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
     pass
 
 def makeDislocationPlots(folder):
     # First plot all perfect dislocations
-    path = Path(folder).joinpath("single-dislocation/dislocations-last")
+    path_partial = Path(folder).joinpath("single-dislocation/dislocations-last")
     dest_folder = Path(folder).joinpath("single-dislocation/dislocations-last-pictures")
     print("Making perfect dislocation plots.")
-    for noise_path in [p for p in path.iterdir() if p.is_dir()]:
+    for n_noise, noise_path in enumerate([p for p in path_partial.iterdir() if p.is_dir()]):
         noise = noise_path.name.split("-")[1]
         noise = float(noise)
 
-        # if noise != 1:
-        #     continue
+        if noise != 0.1:
+            continue
 
         for seed_path in noise_path.iterdir():
             seed = seed_path.name.split("-")[1]
             seed = int(seed)
 
-            # if seed != 1:
-            #     continue
+            if seed != 0:
+                continue
 
             for dislocation_file in seed_path.iterdir():
                 try:
@@ -241,45 +266,49 @@ def makeDislocationPlots(folder):
                 min_y = int(math.floor(min(y)) - 1)
                 max_y = int(math.ceil(max(y)) + 1)
 
-                relevantPart = stressField[:,min_y:max_y]*10
-                # print(relevantPart.shape, min_y, max_y)
-
-                # interpolated = np.array([
-                #     np.interp(np.linspace(0, relevantPart.shape[1], 1000), np.arange(relevantPart.shape[1]), relevantPart[row, :]) for row in range(relevantPart.shape[0])
-                # ])
-                plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")
+                if f"{tauExt*1e3:.2f}" == "22.32": # Select one dislocation to be included in thesis
+                    print(f"Found selected tau w/ {tauExt}")
+                    ylim_min = 0
+                    ylim_max = 50
+                    plt.ylim(ylim_min,ylim_max)
+                    relevantPart = stressField[:,ylim_min:ylim_max]*10
+                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, ylim_min, ylim_max], origin='lower', aspect='auto', label="stress field")
+                    dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/perfect-{tauExt*1e3}-1e-3-tau-dislocation-R-{deltaR:.4f}-seed-{seed}.pdf")
+                else:
+                    relevantPart = stressField[:,min_y:max_y]*10
+                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")                
+                    dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/{tauExt*1e3}-1e-3-tau-dislocation.pdf")
 
                 plt.xlabel("$x$")
                 plt.ylabel("$y(x)$")
 
                 plt.plot(x, y, color='blue')
 
-
-                dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/")
-                dest_file.mkdir(exist_ok=True, parents=True)
-                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.pdf")
-
+                dest_file.parent.mkdir(exist_ok=True, parents=True)
                 plt.savefig(dest_file, dpi=600, bbox_inches='tight')
+
                 plt.close()
         pass
 
     # Next plot all partial dislocations
-    path = Path(folder).joinpath("partial-dislocation/dislocations-last")
+    path_perfect = Path(folder).joinpath("partial-dislocation/dislocations-last")
     dest_folder = Path(folder).joinpath("partial-dislocation/dislocations-last-pictures")
     print("Making partial dislocation plots.")
-    for noise_path in [p for p in path.iterdir() if p.is_dir()]:
+    for n_noise, noise_path in enumerate([p for p in path_perfect.iterdir() if p.is_dir()]):
         noise = noise_path.name.split("-")[1]
 
         noise = float(noise)
-        # if noise != 1:
-        #     continue
 
-        for seed_folder in noise_path.iterdir():
+        if noise != 0.1:
+            continue
+
+        for n,seed_folder in enumerate(noise_path.iterdir()):
             seed = seed_folder.name.split("-")[1]
             seed = int(seed)
+            print(seed)
 
-            # if seed != 1:
-            #     continue
+            if seed != 0:
+                continue
 
             for dislocation_file in seed_folder.iterdir():
                 loaded = np.load(dislocation_file)
@@ -310,28 +339,28 @@ def makeDislocationPlots(folder):
                 max_y = max([
                     int(math.ceil(max(y1)) + 1), int(math.ceil(max(y2)) + 1)
                 ])
+                if f"{tauExt*1e3:.2f}" == "22.26":  # Select one dislocation to be included in thesis
+                    print(f"Found selected tau w/ {tauExt}")
+                    plt.ylim(30,80)
 
-                relevantPart = stressField[:,min_y:max_y]*10
+                    relevantPart = stressField[:,30:80]*10
+                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, 30, 80], origin='lower', aspect='auto', label="stress field")
+                    dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/partial-{tauExt*1e3}-1e-3-tau-dislocation-R-{deltaR:.4f}-seed-{seed}.pdf")
+                else:
+                    relevantPart = stressField[:,min_y:max_y]*10
+                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")
+                    dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/{tauExt*1e3}-1e-3-tau-dislocation.pdf")
 
-                # interpolated = np.array([
-                #     np.interp(np.linspace(0, relevantPart.shape[1], 1000), np.arange(relevantPart.shape[1]), relevantPart[row, :]) for row in range(relevantPart.shape[0])
-                # ])
-                plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")
 
                 plt.xlabel("$x$")
                 plt.ylabel("$y(x)$")
-
-                # plt.ylim(0,50)
 
                 plt.plot(x, y1, color='blue')
                 plt.plot(x, y2, color='red')
                 plt.plot(x, (y1 + y2)/2, color='yellow', linestyle='--')
 
 
-                dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.3f}/")
-                dest_file.mkdir(exist_ok=True, parents=True)
-                dest_file = dest_file.joinpath(f"dislocation-tau-{tauExt}.pdf")
-
+                dest_file.parent.mkdir(exist_ok=True, parents=True)
                 plt.savefig(dest_file, dpi=600, bbox_inches='tight')
                 plt.close()
             pass
@@ -465,6 +494,7 @@ if __name__ == "__main__":
             )
         except FileNotFoundError:
             print("No perfect dislocation depinning dumps found. Skipping perfect noise plot.")
+
         try:    
             makeCommonNoisePlot(Path(parsed.folder))
         except FileNotFoundError:

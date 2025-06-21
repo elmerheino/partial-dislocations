@@ -75,8 +75,10 @@ class DepinningPartial(Depinning):
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
         y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
         l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
+        y1, y2, cm = simulation.getCM()
+        v_cm = np.gradient(cm, self.dt)
 
-        return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, simulation.getParameters())
+        return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, v_cm, simulation.getParameters())
     
     def run(self):
         # Multiprocessing compatible version of a single depinning study, here the studies
@@ -92,9 +94,9 @@ class DepinningPartial(Depinning):
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
         
 
-        v1_rel, v2_rel, v_cm, l_ranges, avg_w12s, y1_last, y2_last, params = zip(*self.results)
+        v1_rel, v2_rel, v_cm_rel, l_ranges, avg_w12s, y1_last, y2_last, v_cms, params = zip(*self.results)
 
-        return v1_rel, v2_rel, v_cm, l_ranges[0], avg_w12s, y1_last, y2_last, params
+        return v1_rel, v2_rel, v_cm_rel, l_ranges[0], avg_w12s, y1_last, y2_last, v_cms, params
     
     def getStresses(self):
         return self.stresses
@@ -131,6 +133,7 @@ class DepinningSingle(Depinning):
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
+        v_cm_over_time = np.gradient(sim.getCM(), self.dt)
 
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")
@@ -144,7 +147,7 @@ class DepinningSingle(Depinning):
                 with open(error_log, 'w') as f:
                     f.write(f"{tauExt}\t{self.deltaR} \n")
 
-        return v_rel, l_range, avg_w, y_last, sim.getParameteters()
+        return v_rel, l_range, avg_w, y_last, v_cm_over_time, sim.getParameteters()
 
     def run(self):
         velocities = list()
@@ -156,9 +159,9 @@ class DepinningSingle(Depinning):
         else:
             with mp.Pool(self.cores) as pool:
                 results = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
-                velocities, l_ranges, w_avgs, y_last, params = zip(*results)
+                velocities, l_ranges, w_avgs, y_last, v_cms, params = zip(*results)
         
-        return velocities, l_ranges[0], w_avgs, y_last, params
+        return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
     
     def getParameteters(self):
         parameters = np.array([
