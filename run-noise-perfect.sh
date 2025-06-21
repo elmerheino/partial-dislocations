@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=01:00:00
-#SBATCH --job-name=perfect-reg1
+#SBATCH --time=03:00:00
+#SBATCH --job-name=per-reg1-sys512
 #SBATCH --mem-per-cpu=1G
-#SBATCH --output=2025-06-21-region-1-perfect.out
+#SBATCH --output=2025-06-21-region-1-sys512-perfect.out
 #SBATCH --array=1-10
 #SBATCH --cpus-per-task=20
 #SBATCH --mail-type=ALL
@@ -12,7 +12,7 @@
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
 
-NAME=2025-06-21-region-1
+NAME=2025-06-21-region-1-sys512
 
 CORES=20
 
@@ -25,8 +25,8 @@ NOISE_MAX=3
 ARRAY_LEN=100   # SEEDS*NOISES=ARRAY_LEN for a square grid
 SEEDS=1         # Seed count is array-max/noise points, so how many seeds per noise level
 
-TIME=500000
-DT=10
+TIME=300000
+DT=5
 
 TAU_POINTS=100   # How many external forces are tried per noise level to find the critical force
 
