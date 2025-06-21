@@ -133,6 +133,7 @@ class DepinningSingle(Depinning):
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
+        v_cm_over_time = np.gradient(sim.getCM(), self.dt)
 
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")
@@ -146,7 +147,7 @@ class DepinningSingle(Depinning):
                 with open(error_log, 'w') as f:
                     f.write(f"{tauExt}\t{self.deltaR} \n")
 
-        return v_rel, l_range, avg_w, y_last, sim.getParameteters()
+        return v_rel, l_range, avg_w, y_last, v_cm_over_time, sim.getParameteters()
 
     def run(self):
         velocities = list()
@@ -158,9 +159,9 @@ class DepinningSingle(Depinning):
         else:
             with mp.Pool(self.cores) as pool:
                 results = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
-                velocities, l_ranges, w_avgs, y_last, params = zip(*results)
+                velocities, l_ranges, w_avgs, y_last, v_cms, params = zip(*results)
         
-        return velocities, l_ranges[0], w_avgs, y_last, params
+        return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
     
     def getParameteters(self):
         parameters = np.array([
