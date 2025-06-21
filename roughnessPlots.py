@@ -135,7 +135,9 @@ def makePartialRoughnessPlots(root_dir):
             "cutoff" : list(), "k":list()
         }
 
-        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder.iterdir()):
+        noise_folder_dir = [i for i in noise_folder.iterdir() if i.is_dir() and len(i.name.split("-")) == 2]
+
+        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder_dir):
             seed_in_name = int(seed_folder.stem.split("-")[1])
             print(f"Making roughness plots for noise {noise_val} seed {seed_in_name}")
 
@@ -363,7 +365,9 @@ def makePerfectRoughnessPlots(root_dir):
             "cutoff" : list(), "k":list()
         }
 
-        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, noise_folder.iterdir()): # Only make roughness plots for seed = 1
+        seed_folder_dirs = [i for i in noise_folder.iterdir() if i.is_dir() and len(i.name.split("-")) == 2]    # Handle special cases
+
+        for seed_folder in filter(lambda x : int(x.name.split("-")[1]) == 1, seed_folder_dirs): # Only make roughness plots for seed = 1
             seed = int(seed_folder.stem.split("-")[1])
 
             print(f"Making roughness plots for noise {noise_val} seed {seed}")
@@ -759,6 +763,7 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
     ax_std.set_ylim(0, 300)
 
     scatter_objs = list()
+    scatter_objs_std = list()
 
     for i, unique_noise in enumerate(unique_noises):
         truncated_noise = np.round(unique_noise, 5)
@@ -804,14 +809,15 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
         x = bin_edges[:-1]
         y = bin_means
 
-        sc = ax.scatter(x, y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        sc = ax.scatter(x, y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
         scatter_objs.append(sc)
         # ax.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
         # ax.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
 
-        ax_std.scatter(x, y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
-        ax_std.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
-        ax_std.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
+        sc_std = ax_std.errorbar(x, y, yerr=stds, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], fmt='s', markersize=2, capsize=2)
+        scatter_objs_std.append(sc_std)
+        # ax_std.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
+        # ax_std.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
 
 
     ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
@@ -821,15 +827,20 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
         legend2 = ax.legend(handles=scatter_objs[3:], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
         ax.add_artist(legend1)
         ax.add_artist(legend2)
+
+        legend1_std = ax_std.legend(handles=scatter_objs_std[0:3], loc='upper right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        legend2_std = ax_std.legend(handles=scatter_objs_std[3:], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1 )
+        ax_std.add_artist(legend1_std)
+        ax_std.add_artist(legend2_std)
     else:
-        ax.legend(fontsize='small')
+        ax.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
+        ax_std.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
 
     ax.grid(True)
     fig.tight_layout()
 
     ax_std.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax_std.set_ylabel("$\\xi$")
-    ax_std.legend(fontsize='small')
     ax_std.grid(True)
     fig_std.tight_layout()
 
@@ -887,21 +898,19 @@ def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
         plot_x = bin_edges[:-1]
         plot_y = bin_means
 
-        ax.scatter(plot_x, plot_y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
+        ax.scatter(plot_x, plot_y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
 
-        ax_std.scatter(plot_x, plot_y, label=f"R={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
-        ax_std.scatter(plot_x, plot_y + stds, marker="_", linewidth=0.5, color=colors[i])
-        ax_std.scatter(plot_x, plot_y - stds, marker="_", linewidth=0.5, color=colors[i])
+        ax_std.errorbar(plot_x, plot_y, yerr=stds, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], fmt='s', markersize=2, capsize=2)
 
     ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax.set_ylabel("$\\zeta$")
-    ax.legend(fontsize='small')
+    ax.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
     ax.grid(True)
     fig.tight_layout()
 
     ax_std.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax_std.set_ylabel("$\\zeta$")
-    ax_std.legend(fontsize='small')
+    ax_std.legend(fontsize='small', handletextpad=0.1, borderpad=0.1)
     ax_std.grid(True)
     fig_std.tight_layout()
 
@@ -1038,24 +1047,24 @@ if __name__ == "__main__":
     
     save_path = Path(root).joinpath("correlation-plots/correlation-selected-perfect.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax, fig_std, ax_std = selectedCorrelationPlots(path_perfect, Path(root),save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 1000.0])
+    fig, ax, fig_std, ax_std = selectedCorrelationPlots(path_perfect, Path(root),save_path, perfect=True, unique_noises = [0.100000, 10.0, 1000.0])
     fig.savefig(save_path)
     fig_std.savefig(save_path.parent.joinpath("correlation-w-std-selected-perfect.pdf"))
 
     save_path = Path(root).joinpath("correlation-plots/correlation-selected-partial.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax, fig_std, ax_std = selectedCorrelationPlots(path_partial, Path(root), save_path, perfect=False, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 869.74900])
+    fig, ax, fig_std, ax_std = selectedCorrelationPlots(path_partial, Path(root), save_path, perfect=False, unique_noises = [0.100000, 10.0, 869.74900])
     fig.savefig(save_path)
     fig_std.savefig(save_path.parent.joinpath("correlation-w-std-selected-partial.pdf"))
 
     save_path = Path(root).joinpath("selected-zeta-plots/zeta-selected-perfect.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax, fig_std, ax_std = selectedZetaPlots(path_perfect, Path(root), save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 1000.0])
+    fig, ax, fig_std, ax_std = selectedZetaPlots(path_perfect, Path(root), save_path, perfect=True, unique_noises = [0.100000, 10.0, 1000.0])
     fig.savefig(save_path)
     fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-perfect.pdf"))
 
     save_path = Path(root).joinpath("selected-zeta-plots/zeta-selected-partial.pdf")
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    fig, ax, fig_std, ax_std = selectedZetaPlots(path_partial, Path(root), save_path, perfect=True, unique_noises = [0.01072, 1.07227, 10.0, 107.22672, 869.74900])
+    fig, ax, fig_std, ax_std = selectedZetaPlots(path_partial, Path(root), save_path, perfect=True, unique_noises = [0.100000, 10.0, 869.74900])
     fig.savefig(save_path)
     fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-partial.pdf"))
