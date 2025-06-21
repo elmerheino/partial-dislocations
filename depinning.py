@@ -75,8 +75,10 @@ class DepinningPartial(Depinning):
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
         y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
         l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
+        y1, y2, cm = simulation.getCM()
+        v_cm = np.gradient(cm, self.dt)
 
-        return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, simulation.getParameters())
+        return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, v_cm, simulation.getParameters())
     
     def run(self):
         # Multiprocessing compatible version of a single depinning study, here the studies
@@ -92,9 +94,9 @@ class DepinningPartial(Depinning):
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
         
 
-        v1_rel, v2_rel, v_cm, l_ranges, avg_w12s, y1_last, y2_last, params = zip(*self.results)
+        v1_rel, v2_rel, v_cm_rel, l_ranges, avg_w12s, y1_last, y2_last, v_cms, params = zip(*self.results)
 
-        return v1_rel, v2_rel, v_cm, l_ranges[0], avg_w12s, y1_last, y2_last, params
+        return v1_rel, v2_rel, v_cm_rel, l_ranges[0], avg_w12s, y1_last, y2_last, v_cms, params
     
     def getStresses(self):
         return self.stresses

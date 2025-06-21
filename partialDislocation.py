@@ -157,7 +157,7 @@ class PartialDislocationsSimulation(Simulation):
         return np.average(self.y1, axis=1) - np.average(self.y2, axis=1)
     
     def getCM(self):
-        # Return the centres of mass of the two lines as functions of time (from the last 10% of simulation time)
+        # Return the centres of mass of the two lines as functions of time
         if len(self.y1) == 0 or len(self.y2) == 0:
             raise Exception('simulation has probably not been run')
 

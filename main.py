@@ -181,7 +181,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
                     time=time, dt=timestep, seed=seed,
                     folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     
-        v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last, parameters = depinning.run()
+        v1, v2, vcm_rel, l_range, avg_w12s, y1_last, y2_last, v_cms, parameters = depinning.run()
 
         tau_min_ = min(depinning.stresses.tolist())
         tau_max_ = max(depinning.stresses.tolist())
@@ -196,7 +196,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         with open(str(depining_path), 'w') as fp:
             json.dump({
                 "stresses": depinning.stresses.tolist(),
-                "v_rel": vcm,
+                "v_rel": vcm_rel,
                 "seed":depinning.seed,
                 "time":depinning.time,
                 "dt":depinning.dt,
@@ -223,6 +223,19 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
             p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i}-R-{deltaR_i}.npz")
             np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
             pass
+
+        # Save the dislocation velocities into a nice file
+        v_cms_over_time = list()
+        for v_cm, params in zip(v_cms, parameters):
+            deltaR_i = params[4]
+            tauExt_i = params[11]
+            row = np.insert(v_cm, 0, tauExt_i)
+            v_cms_over_time.append(row)
+        
+        v_cms_over_time = np.array(v_cms_over_time)
+        vel_save_path = Path(folder).joinpath(f"velocties/noise-{deltaR}-seed-{depinning.seed}-v_cm.npz")
+        vel_save_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(vel_save_path, columns=["tau_ext", "t"], data=v_cms_over_time )
 
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
