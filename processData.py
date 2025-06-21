@@ -45,9 +45,14 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
     region0_index = np.where(data[:,0] > point_0)[0][0]
 
     try:
-        region1_index = np.where(data[:,0] > point_1)[0][0]
-        x = data[region0_index:region1_index,0]
-        y = data[region0_index:region1_index,1]
+        if np.where(data[:,0] > point_1)[0].size == 0:
+            x = data[:,0]
+            y = data[:,1]
+            region1_index = len(x) - 1
+        else:
+            region1_index = np.where(data[:,0] > point_1)[0][0]
+            x = data[region0_index:region1_index,0]
+            y = data[region0_index:region1_index,1]
         print(region1_index, x.shape, y.shape)
         fit_params, pcov = optimize.curve_fit(
             lambda x, a, b: a*x**b,
@@ -57,8 +62,8 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         ax.plot(fit_x, fit_y, color=fit_color, linewidth=2)
         ax.text(fit_x[1], fit_y[1], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='left', va='top')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
-    except:
-        print("No data in first region of data.")
+    except Exception as e:
+        print(f"No data in first region of data. {e}")
 
     # Fit power law to second region of data
     try:
@@ -110,7 +115,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
     tau_c_mses = np.nanmean(loaded[:, 11:21], axis=1)
     deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
     
-    point_1 = 10**(-0)
+    point_1 = 10**(0)
     point_2 = 10**1.4
 
     fig, ax = makeNoisePlot(noises, tau_c_means, 0, point_1, point_2, y_error=deltaTaus)
@@ -164,10 +169,12 @@ def makeCommonNoisePlot(root_dir : Path):
 
         noises = loaded[:,0]
         tau_c_means = np.nanmean(loaded[:,1:10], axis=1)
+        tau_c_deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
 
         data_perfect = np.column_stack([
             noises,
-            tau_c_means
+            tau_c_means,
+            tau_c_deltaTaus
         ])
 
     with open(results_root.joinpath("noise-data/partial-noises.csv"), "r") as fp:
@@ -176,22 +183,41 @@ def makeCommonNoisePlot(root_dir : Path):
 
         data_partial = np.column_stack([
             loaded[:,0],
-            np.nanmean(loaded[:,1:11], axis=1)
+            np.nanmean(loaded[:,1:11], axis=1),
+            np.nanmean(loaded[:, 21:31], axis=1)
         ])
 
-    plt.figure(figsize=(linewidth/2, linewidth/2))
-    plt.xscale("log")
-    plt.yscale("log")
-    plt.grid(True)
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(True)
 
-    plt.errorbar(data_partial[:,0], data_partial[:,1], fmt='o', markersize=2, capsize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
-    plt.errorbar(data_perfect[:,0], data_perfect[:,1], fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+    ax.errorbar(data_partial[:,0], data_partial[:,1], yerr=data_partial[:,2],
+                 fmt='o', markersize=2, capsize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
+    
+    ax.errorbar(data_perfect[:,0], data_perfect[:,1], yerr=data_perfect[:,2],
+                 fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
         
-    # plt.title("Noise magnitude and external force")
-    plt.xlabel("R")
-    plt.ylabel("$ \\tau_c $")
-    plt.legend()
-    plt.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
+    ax.set_xlabel("R")
+    ax.set_ylabel("$ \\tau_c $")
+    ax.legend()
+    fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both-w-error.pdf"), bbox_inches='tight')
+
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(True)
+
+    ax.plot(data_partial[:,0], data_partial[:,1],
+                 'o', markersize=2, label="Partial", color='red', linewidth=0.2, zorder=0)
+    
+    ax.plot(data_perfect[:,0], data_perfect[:,1],
+                 's', markersize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+        
+    ax.set_xlabel("R")
+    ax.set_ylabel("$ \\tau_c $")
+    ax.legend()
+    fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
     pass
 
 def makeDislocationPlots(folder):
