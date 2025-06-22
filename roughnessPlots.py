@@ -1090,7 +1090,32 @@ def makeSelectedRoughessPlots():
         bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
     elif len(params) == 16:
         bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="blue")
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="red")
+    
+    # Fit for perfect_01
+    start, end = 1, 10
+    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
+    x, y = np.log(dekadi_l), np.log(dekadi_w)
+    slope, intercept, _, _, _ = stats.linregress(x, y)
+    c, zeta = np.exp(intercept), slope
+    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
+
+    start_const = int(round(len(l_range) / 4))
+    end_const = int(round(3 * len(l_range) / 4))
+    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
+    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
+    constant_val = fit_constant_params[0]
+    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
+
+    if zeta != 0 and c > 0 and constant_val > 0:
+        change_p = (constant_val / c)**(1 / zeta)
+        if change_p > dekadi_l[-1] and change_p < const_l[0]:
+            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
+            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
+            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
+            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
+            ax.scatter([change_p], [constant_val], s=3)
+
     ax.set_xscale('log')
     ax.set_yscale('log')
 
@@ -1103,6 +1128,31 @@ def makeSelectedRoughessPlots():
     elif len(params) == 16:
         bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
     ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="green")
+
+    # Fit for perfect_10
+    start, end = 1, 10
+    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
+    x, y = np.log(dekadi_l), np.log(dekadi_w)
+    slope, intercept, _, _, _ = stats.linregress(x, y)
+    c, zeta = np.exp(intercept), slope
+    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
+
+    start_const = int(round(len(l_range) / 4))
+    end_const = int(round(3 * len(l_range) / 4))
+    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
+    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
+    constant_val = fit_constant_params[0]
+    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
+
+    if zeta != 0 and c > 0 and constant_val > 0:
+        change_p = (constant_val / c)**(1 / zeta)
+        if change_p > dekadi_l[-1] and change_p < const_l[0]:
+            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
+            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
+            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
+            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
+            ax.scatter([change_p], [constant_val], s=3)
+
     ax.set_xscale('log')
     ax.set_yscale('log')
 
@@ -1114,14 +1164,39 @@ def makeSelectedRoughessPlots():
         bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
     elif len(params) == 16:
         bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="red")
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="blue")
+    
+    # Fit for perfect_1000
+    start, end = 1, 10
+    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
+    x, y = np.log(dekadi_l), np.log(dekadi_w)
+    slope, intercept, _, _, _ = stats.linregress(x, y)
+    c, zeta = np.exp(intercept), slope
+    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
+
+    start_const = int(round(len(l_range) / 4))
+    end_const = int(round(3 * len(l_range) / 4))
+    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
+    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
+    constant_val = fit_constant_params[0]
+    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
+
+    if zeta != 0 and c > 0 and constant_val > 0:
+        change_p = (constant_val / c)**(1 / zeta)
+        if change_p > dekadi_l[-1] and change_p < const_l[0]:
+            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
+            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
+            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
+            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
+            ax.scatter([change_p], [constant_val], s=3)
+
     ax.set_xscale('log')
     ax.set_yscale('log')
 
     ax.set_xlabel("L")
     ax.set_ylabel("$W(L)$")
     ax.grid(True)
-    ax.legend()
+    # ax.legend()
     fig.tight_layout()
 
     save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
@@ -1130,6 +1205,7 @@ def makeSelectedRoughessPlots():
     fig.savefig(save_path)
     plt.close()
 
+    # Next make the same plots but for partial dislocations
     fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
 
     loaded = np.load(partial_01)
