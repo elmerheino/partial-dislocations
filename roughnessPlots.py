@@ -1040,7 +1040,7 @@ def extractRoughnessFromLast(root_dir):
                 fig.savefig(save_path)
     pass
 
-if __name__ == "__main__":
+def makeAllSelectedParamPlots():
     root = "results/2025-06-08-merged-final"
     path_perfect = Path(root).joinpath("roughness_parameters_perfect.npz")
     path_partial = Path(root).joinpath("roughness_parameters_partial.npz")
@@ -1068,3 +1068,119 @@ if __name__ == "__main__":
     fig, ax, fig_std, ax_std = selectedZetaPlots(path_partial, Path(root), save_path, perfect=True, unique_noises = [0.100000, 10.0, 869.74900])
     fig.savefig(save_path)
     fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-partial.pdf"))
+    pass
+
+
+def makeSelectedRoughessPlots():
+    perfect_01 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/single-dislocation/averaged-roughnesses/noise-0.09999999999999999/seed-9/roughness-tau-0.055990718562643406-R-0.09999999999999999.npz")
+    perfect_10 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/single-dislocation/averaged-roughnesses/noise-10.0/seed-1/roughness-tau-53.80204938724954-R-10.0.npz")
+    perfect_1000 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/single-dislocation/averaged-roughnesses/noise-1000.0/seed-1/roughness-tau-17490.362829098616-R-1000.0.npz")
+
+    partial_01 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/partial-dislocation/averaged-roughnesses/noise-0.1/seed-1/roughness-tau-0.058819002781865706-R-0.1.npz")
+    partial_10 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/partial-dislocation/averaged-roughnesses/noise-10.0/seed-1/roughness-tau-146.17489328277372-R-10.0.npz")
+    partial_1000 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/partial-dislocation/averaged-roughnesses/noise-869.7490026177834/seed-1/roughness-tau-40962.63983578546-R-869.7490026177834.npz")
+
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    
+    loaded = np.load(perfect_01)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="blue")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    loaded = np.load(perfect_10)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="green")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    loaded = np.load(perfect_1000)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="red")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    ax.set_xlabel("L")
+    ax.set_ylabel("$W(L)$")
+    ax.grid(True)
+    ax.legend()
+    fig.tight_layout()
+
+    save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_path = save_path.joinpath("roughness-perfect-selected.pdf")
+    fig.savefig(save_path)
+    plt.close()
+
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+
+    loaded = np.load(partial_01)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="blue")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    loaded = np.load(partial_10)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="green")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    loaded = np.load(partial_1000)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    if len(params) == 13:
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
+    elif len(params) == 16:
+        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
+    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="red")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+
+    ax.set_xlabel("L")
+    ax.set_ylabel("$W(L)$")
+    ax.grid(True)
+    ax.legend()
+    fig.tight_layout()
+
+    save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
+    save_path.mkdir(parents=True, exist_ok=True)
+    save_path = save_path.joinpath("roughness-partial-selected.pdf")
+    fig.savefig(save_path)
+    plt.close()
+    pass
+
+if __name__ == "__main__":
+    makeSelectedRoughessPlots()
+    pass
