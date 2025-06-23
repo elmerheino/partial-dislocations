@@ -1070,6 +1070,50 @@ def makeAllSelectedParamPlots():
     fig_std.savefig(save_path.parent.joinpath("zeta-selected-w-std-partial.pdf"))
     pass
 
+def plot_and_fit_roughness(ax, file_path, color):
+    loaded = np.load(file_path)
+    avg_w = loaded["avg_w"]
+    l_range = loaded["l_range"]
+    params = loaded["parameters"]
+    
+    if len(params) == 13:
+        _, _, _, _, deltaR, _, _, _, _, _, _, _, _ = params
+    elif len(params) == 16:
+        _, _, _, _, deltaR, _, _, _, _, _, _, _, _, _, _, _ = params
+    
+    sc_obj = ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color=color)
+
+    # Fit for the power-law part
+    start, end = 1, 10
+    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
+    if len(dekadi_l) > 1 and len(dekadi_w) > 1:
+        x, y = np.log(dekadi_l), np.log(dekadi_w)
+        slope, intercept, _, _, _ = stats.linregress(x, y)
+        c, zeta = np.exp(intercept), slope
+        power_law_plot, = ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
+        ax.annotate(f"$\\zeta$", (dekadi_l[2], exp_beheavior(dekadi_l[2], c, zeta)), textcoords="offset points", xytext=(5,7), ha='center', color='black')
+
+    # Fit for the constant part
+    start_const = int(round(len(l_range) / 4))
+    end_const = int(round(3 * len(l_range) / 4))
+    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
+    if len(const_l) > 0 and len(const_w) > 0:
+        fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
+        constant_val = fit_constant_params[0]
+        const_law, = ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
+
+    # Plot transition
+    if 'zeta' in locals() and zeta != 0 and c > 0 and 'constant_val' in locals() and constant_val > 0:
+        change_p = (constant_val / c)**(1 / zeta)
+        if len(dekadi_l) > 0 and len(const_l) > 0 and change_p > dekadi_l[-1] and change_p < const_l[0]:
+            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
+            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
+            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
+            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
+            tansition_point = ax.scatter([change_p], [constant_val], s=3, color='black')
+            ax.annotate(f"$\\xi$", (change_p, constant_val), textcoords="offset points", xytext=(5,5), ha='center', color='black')
+    
+
 
 def makeSelectedRoughessPlots():
     perfect_01 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/single-dislocation/averaged-roughnesses/noise-0.09999999999999999/seed-9/roughness-tau-0.055990718562643406-R-0.09999999999999999.npz")
@@ -1080,255 +1124,61 @@ def makeSelectedRoughessPlots():
     partial_10 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/partial-dislocation/averaged-roughnesses/noise-10.0/seed-1/roughness-tau-146.17489328277372-R-10.0.npz")
     partial_1000 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/partial-dislocation/averaged-roughnesses/noise-869.7490026177834/seed-1/roughness-tau-40962.63983578546-R-869.7490026177834.npz")
 
+    # Plot perfect dislocations
     fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
-    
-    loaded = np.load(perfect_01)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["parameters"]
-    if len(params) == 13:
-        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-    elif len(params) == 16:
-        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="red")
-    
-    # Fit for perfect_01
-    start, end = 1, 10
-    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
-    x, y = np.log(dekadi_l), np.log(dekadi_w)
-    slope, intercept, _, _, _ = stats.linregress(x, y)
-    c, zeta = np.exp(intercept), slope
-    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
+    perfect_files = [perfect_01, perfect_10, perfect_1000]
+    colors = ["red", "green", "blue"]
 
-    start_const = int(round(len(l_range) / 4))
-    end_const = int(round(3 * len(l_range) / 4))
-    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
-    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
-    constant_val = fit_constant_params[0]
-    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
-
-    if zeta != 0 and c > 0 and constant_val > 0:
-        change_p = (constant_val / c)**(1 / zeta)
-        if change_p > dekadi_l[-1] and change_p < const_l[0]:
-            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
-            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
-            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
-            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
-            ax.scatter([change_p], [constant_val], s=3)
+    for file_path, color in zip(perfect_files, colors):
+        plot_and_fit_roughness(ax, file_path, color)
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-
-    loaded = np.load(perfect_10)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["parameters"]
-    if len(params) == 13:
-        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-    elif len(params) == 16:
-        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="green")
-
-    # Fit for perfect_10
-    start, end = 1, 10
-    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
-    x, y = np.log(dekadi_l), np.log(dekadi_w)
-    slope, intercept, _, _, _ = stats.linregress(x, y)
-    c, zeta = np.exp(intercept), slope
-    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
-
-    start_const = int(round(len(l_range) / 4))
-    end_const = int(round(3 * len(l_range) / 4))
-    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
-    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
-    constant_val = fit_constant_params[0]
-    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
-
-    if zeta != 0 and c > 0 and constant_val > 0:
-        change_p = (constant_val / c)**(1 / zeta)
-        if change_p > dekadi_l[-1] and change_p < const_l[0]:
-            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
-            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
-            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
-            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
-            ax.scatter([change_p], [constant_val], s=3)
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-    loaded = np.load(perfect_1000)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["parameters"]
-    if len(params) == 13:
-        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-    elif len(params) == 16:
-        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="blue")
-    
-    # Fit for perfect_1000
-    start, end = 1, 10
-    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
-    x, y = np.log(dekadi_l), np.log(dekadi_w)
-    slope, intercept, _, _, _ = stats.linregress(x, y)
-    c, zeta = np.exp(intercept), slope
-    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
-
-    start_const = int(round(len(l_range) / 4))
-    end_const = int(round(3 * len(l_range) / 4))
-    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
-    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
-    constant_val = fit_constant_params[0]
-    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
-
-    if zeta != 0 and c > 0 and constant_val > 0:
-        change_p = (constant_val / c)**(1 / zeta)
-        if change_p > dekadi_l[-1] and change_p < const_l[0]:
-            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
-            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
-            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
-            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
-            ax.scatter([change_p], [constant_val], s=3)
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
     ax.set_xlabel("L")
     ax.set_ylabel("$W(L)$")
+
+    # Add legend
+    handles, labels = ax.get_legend_handles_labels()
+    legend1 = ax.legend([handles[0]], [labels[0]], loc='upper left', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend2 = ax.legend([handles[1]], [labels[1]], loc='center left', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend3 = ax.legend([handles[2]], [labels[2]], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    ax.add_artist(legend1)
+    ax.add_artist(legend2)
+    ax.add_artist(legend3)
+
     ax.grid(True)
-    # ax.legend()
     fig.tight_layout()
 
     save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
     save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath("roughness-perfect-selected.pdf")
-    fig.savefig(save_path)
+    fig.savefig(save_path.joinpath("roughness-perfect-selected.pdf"))
     plt.close()
 
-    # Next make the same plots but for partial dislocations
+    # Plot partial dislocations
     fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    partial_files = [partial_01, partial_10, partial_1000]
 
-    loaded = np.load(partial_01)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["parameters"]
-    if len(params) == 13:
-        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-    elif len(params) == 16:
-        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="red")
-    
-    # Fit for partial_01
-    start, end = 1, 10
-    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
-    x, y = np.log(dekadi_l), np.log(dekadi_w)
-    slope, intercept, _, _, _ = stats.linregress(x, y)
-    c, zeta = np.exp(intercept), slope
-    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
-
-    start_const = int(round(len(l_range) / 4))
-    end_const = int(round(3 * len(l_range) / 4))
-    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
-    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
-    constant_val = fit_constant_params[0]
-    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
-
-    if zeta != 0 and c > 0 and constant_val > 0:
-        change_p = (constant_val / c)**(1 / zeta)
-        if change_p > dekadi_l[-1] and change_p < const_l[0]:
-            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
-            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
-            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
-            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
-            ax.scatter([change_p], [constant_val], s=3, color='black')
+    for file_path, color in zip(partial_files, colors):
+        plot_and_fit_roughness(ax, file_path, color)
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-
-    loaded = np.load(partial_10)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["parameters"]
-    if len(params) == 13:
-        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-    elif len(params) == 16:
-        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="green")
-    
-    # Fit for partial_10
-    start, end = 1, 10
-    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
-    x, y = np.log(dekadi_l), np.log(dekadi_w)
-    slope, intercept, _, _, _ = stats.linregress(x, y)
-    c, zeta = np.exp(intercept), slope
-    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
-
-    start_const = int(round(len(l_range) / 4))
-    end_const = int(round(3 * len(l_range) / 4))
-    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
-    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
-    constant_val = fit_constant_params[0]
-    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
-
-    if zeta != 0 and c > 0 and constant_val > 0:
-        change_p = (constant_val / c)**(1 / zeta)
-        if change_p > dekadi_l[-1] and change_p < const_l[0]:
-            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
-            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
-            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
-            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
-            ax.scatter([change_p], [constant_val], s=3, color='black')
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
-    loaded = np.load(partial_1000)
-    avg_w = loaded["avg_w"]
-    l_range = loaded["l_range"]
-    params = loaded["parameters"]
-    if len(params) == 13:
-        bigN, length, time, dt, deltaR, bigB, smallB, cLT, mu, tauExt, d0, seed, tau_cutoff = params
-    elif len(params) == 16:
-        bigN, length,   time,   dt, deltaR, bigB, smallB,  b_p, cLT1,   cLT2,   mu,   tauExt,   c_gamma, d0,   seed,   tau_cutoff = params
-    ax.scatter(l_range, avg_w, marker="o", s=2, label=f"$\\Delta R = {deltaR:.1f}$", color="blue")
-    
-    # Fit for partial_1000
-    start, end = 1, 10
-    dekadi_l, dekadi_w = l_range[start:end], avg_w[start:end]
-    x, y = np.log(dekadi_l), np.log(dekadi_w)
-    slope, intercept, _, _, _ = stats.linregress(x, y)
-    c, zeta = np.exp(intercept), slope
-    ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
-
-    start_const = int(round(len(l_range) / 4))
-    end_const = int(round(3 * len(l_range) / 4))
-    const_l, const_w = l_range[start_const:end_const], avg_w[start_const:end_const]
-    fit_constant_params, _ = optimize.curve_fit(lambda x, const_val: const_val, const_l, const_w, p0=[np.mean(const_w)])
-    constant_val = fit_constant_params[0]
-    ax.plot(const_l, np.ones_like(const_l) * constant_val, color="black", linestyle='--')
-
-    if zeta != 0 and c > 0 and constant_val > 0:
-        change_p = (constant_val / c)**(1 / zeta)
-        if change_p > dekadi_l[-1] and change_p < const_l[0]:
-            dashed_x_exp = np.geomspace(dekadi_l[-1], change_p, 10)
-            ax.plot(dashed_x_exp, exp_beheavior(dashed_x_exp, c, zeta), linestyle=":", color="grey")
-            dashed_x_const = np.geomspace(change_p, const_l[0], 10)
-            ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
-            ax.scatter([change_p], [constant_val], s=3, color='black')
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-
     ax.set_xlabel("L")
     ax.set_ylabel("$W(L)$")
+
+    handles, labels = ax.get_legend_handles_labels()
+    legend1 = ax.legend([handles[0]], [labels[0]], loc='upper left', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend2 = ax.legend([handles[1]], [labels[1]], loc='center left', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend3 = ax.legend([handles[2]], [labels[2]], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    ax.add_artist(legend1)
+    ax.add_artist(legend2)
+    ax.add_artist(legend3)
+
     ax.grid(True)
-    # ax.legend()
     fig.tight_layout()
 
-    save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
     save_path.mkdir(parents=True, exist_ok=True)
-    save_path = save_path.joinpath("roughness-partial-selected.pdf")
-    fig.savefig(save_path)
+    fig.savefig(save_path.joinpath("roughness-partial-selected.pdf"))
     plt.close()
     pass
 

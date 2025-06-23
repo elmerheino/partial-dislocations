@@ -478,14 +478,15 @@ if __name__ == "__main__":
 
     if parsed.all or parsed.noise:
         Path(parsed.folder).joinpath("noise-plots").mkdir(parents=True, exist_ok=True)
-        try:
+        if results_root.joinpath("noise-data/partial-noises.csv").exists():
             print(f"Make noise plot from partial dislocation data")
-            makePartialNoisePlot(Path(parsed.folder),
+            makePartialNoisePlot(
+                Path(parsed.folder),
                 Path(parsed.folder).joinpath("noise-plots/noise-tau_c-partial.pdf")
             )
-        except Exception as e:
+        else:
             print("No partial dislocation depinning dumps found. Skipping partial noise plot.")
-            print(e)
+
 
         try:
             print("Making noise plot from perfect dislocation data")
