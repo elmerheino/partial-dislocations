@@ -184,7 +184,7 @@ def makeCommonNoisePlot(root_dir : Path):
         data_partial = np.column_stack([
             loaded[:,0],
             np.nanmean(loaded[:,1:11], axis=1),
-            np.nanmean(loaded[:, 21:31], axis=1)
+            np.nanmean(loaded[:, 21:31], axis=1) # Delta tau
         ])
 
     fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))

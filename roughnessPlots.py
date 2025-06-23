@@ -1178,12 +1178,12 @@ def makeSelectedRoughessPlots():
     ax.set_ylabel("$W(L)$")
 
     handles, labels = ax.get_legend_handles_labels()
-    legend1 = ax.legend([handles[0]], [labels[0]], loc='upper left', fontsize='small', handletextpad=0.0, borderpad=0.1)
-    legend2 = ax.legend([handles[1]], [labels[1]], loc='center left', fontsize='small', handletextpad=0.1, borderpad=0.1)
-    legend3 = ax.legend([handles[2]], [labels[2]], loc='lower right', fontsize='small', handletextpad=0.2, borderpad=0.1)
+    legend1 = ax.legend([handles[2], handles[1]], [labels[2], labels[1]], loc='upper left', fontsize='small', handletextpad=0.0, borderpad=0.1)
+    # legend2 = ax.legend([handles[1]], [labels[1]], loc='center left', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend3 = ax.legend([handles[0]], [labels[0]], loc='lower center', fontsize='small', handletextpad=0.2, borderpad=0.1)
     
     ax.add_artist(legend1)
-    ax.add_artist(legend2)
+    # ax.add_artist(legend2)
     ax.add_artist(legend3)
 
     ax.grid(True)
