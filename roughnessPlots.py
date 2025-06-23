@@ -1091,6 +1091,7 @@ def plot_and_fit_roughness(ax, file_path, color):
         slope, intercept, _, _, _ = stats.linregress(x, y)
         c, zeta = np.exp(intercept), slope
         power_law_plot, = ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
+
         ax.annotate(f"$\\zeta$", (dekadi_l[2], exp_beheavior(dekadi_l[2], c, zeta)), textcoords="offset points", xytext=(5,7), ha='center', color='black')
 
     # Fit for the constant part
@@ -1111,6 +1112,7 @@ def plot_and_fit_roughness(ax, file_path, color):
             dashed_x_const = np.geomspace(change_p, const_l[0], 10)
             ax.plot(dashed_x_const, np.ones_like(dashed_x_const) * constant_val, linestyle=":", color="grey")
             tansition_point = ax.scatter([change_p], [constant_val], s=3, color='black')
+
             ax.annotate(f"$\\xi$", (change_p, constant_val), textcoords="offset points", xytext=(5,5), ha='center', color='black')
     
 
@@ -1125,28 +1127,35 @@ def makeSelectedRoughessPlots():
     partial_1000 = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/partial-dislocation/averaged-roughnesses/noise-869.7490026177834/seed-1/roughness-tau-40962.63983578546-R-869.7490026177834.npz")
 
     # Plot perfect dislocations
-    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    fig, ax_perfect = plt.subplots(figsize=(linewidth/2, linewidth/2))
     perfect_files = [perfect_01, perfect_10, perfect_1000]
     colors = ["red", "green", "blue"]
 
     for file_path, color in zip(perfect_files, colors):
-        plot_and_fit_roughness(ax, file_path, color)
+        plot_and_fit_roughness(ax_perfect, file_path, color)
 
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlabel("L")
-    ax.set_ylabel("$W(L)$")
+    ax_perfect.set_xscale('log')
+    ax_perfect.set_yscale('log')
+    ax_perfect.set_xlabel("L")
+    ax_perfect.set_ylabel("$W(L)$")
 
     # Add legend
-    handles, labels = ax.get_legend_handles_labels()
-    legend1 = ax.legend([handles[0]], [labels[0]], loc='upper left', fontsize='small', handletextpad=0.1, borderpad=0.1)
-    legend2 = ax.legend([handles[1]], [labels[1]], loc='center left', fontsize='small', handletextpad=0.1, borderpad=0.1)
-    legend3 = ax.legend([handles[2]], [labels[2]], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1)
-    ax.add_artist(legend1)
-    ax.add_artist(legend2)
-    ax.add_artist(legend3)
+    handles, labels = ax_perfect.get_legend_handles_labels()
+    legend1 = ax_perfect.legend([handles[0]], [labels[0]], loc='lower center', fontsize='small', handletextpad=0, borderpad=0.1, handlelength=1)
 
-    ax.grid(True)
+    legend2 = ax_perfect.legend([handles[1]], [labels[1]], loc='center left', 
+                        bbox_to_anchor=(0.0, 0.54),
+                        fontsize='small', handletextpad=0, borderpad=0.1, handlelength=1)
+
+    legend3 = ax_perfect.legend([handles[2]], [labels[2]], loc='upper left', fontsize='small', 
+                        handletextpad=0, borderpad=0.1, handlelength=1,
+                         bbox_to_anchor=(-0.01, 1.02))
+    
+    ax_perfect.add_artist(legend1)
+    ax_perfect.add_artist(legend2)
+    ax_perfect.add_artist(legend3)
+
+    ax_perfect.grid(True)
     fig.tight_layout()
 
     save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
@@ -1161,15 +1170,18 @@ def makeSelectedRoughessPlots():
     for file_path, color in zip(partial_files, colors):
         plot_and_fit_roughness(ax, file_path, color)
 
+    ax.set_ylim(ax_perfect.get_ylim())
+
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel("L")
     ax.set_ylabel("$W(L)$")
 
     handles, labels = ax.get_legend_handles_labels()
-    legend1 = ax.legend([handles[0]], [labels[0]], loc='upper left', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend1 = ax.legend([handles[0]], [labels[0]], loc='upper left', fontsize='small', handletextpad=0.0, borderpad=0.1)
     legend2 = ax.legend([handles[1]], [labels[1]], loc='center left', fontsize='small', handletextpad=0.1, borderpad=0.1)
-    legend3 = ax.legend([handles[2]], [labels[2]], loc='lower right', fontsize='small', handletextpad=0.1, borderpad=0.1)
+    legend3 = ax.legend([handles[2]], [labels[2]], loc='lower right', fontsize='small', handletextpad=0.2, borderpad=0.1)
+    
     ax.add_artist(legend1)
     ax.add_artist(legend2)
     ax.add_artist(legend3)
