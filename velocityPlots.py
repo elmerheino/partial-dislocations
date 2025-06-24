@@ -355,12 +355,14 @@ def makeOneBinnedPlot(x,y,tau_c, save_path : Path, color, bins=100, conf_level=0
     
     return fig, ax
 
-def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
+def binning(data : dict, res_dir : Path, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
     Make binned depinning plots from the data. The data is binned and the mean and confidence intervals are calculated.
 
     Here dict is a dictionary containing all the normalized data for each noise level.
     """
+
+    res_dir = Path(res_dir)
 
     with open(res_dir.joinpath("binning-data/tau_c_perfect.json"), "r") as fp:
         data_tau_perfect = json.load(fp)
@@ -377,12 +379,18 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
                         
             if perfect_partial == "perfect_data":
                 tau_c_perfect = sum(data_tau_perfect[noise])/len(data_tau_perfect[noise])
+
                 p = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                p.parent.mkdir(exist_ok=True, parents=True)
+
                 fig,ax = makeOneBinnedPlot(x,y,tau_c_perfect, p, color="blue")
                 fig.savefig(p)
             elif perfect_partial == "partial_data":
                 tau_c_partial = sum(data_tau_partial[noise])/len(data_tau_partial[noise])
+
                 p = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                p.parent.mkdir(exist_ok=True, parents=True)
+
                 fig, ax = makeOneBinnedPlot(x,y, tau_c_partial, p, color="red")
                 fig.savefig(p)
 
@@ -507,5 +515,15 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         print("No perfect depinning dumps")
 
 if __name__ == "__main__":
-    root = "/Volumes/contenttii/2025-06-08-merged-final"
+    root = "results/2025-06-08-merged-final"
     makeBetaPlot(Path(root))
+
+    global_data_dump = Path(root).joinpath("global_data_dump.json")
+
+    if not global_data_dump.exists():
+        raise Exception("--np must be called before this one.")
+    
+    with open(Path(root).joinpath("global_data_dump.json"), "r") as fp:
+        data = json.load(fp)
+
+    binning(data, Path(root), conf_level=0.9)

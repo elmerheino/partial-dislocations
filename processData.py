@@ -466,9 +466,9 @@ if __name__ == "__main__":
             json.dump({"perfect_data":non_partial_data, "partial_data":partial_data}, fp, indent=2)
         
     if parsed.all or parsed.binning:
-        p = Path(results_root).joinpath("global_data_dump.json")
+        global_data_dump = Path(results_root).joinpath("global_data_dump.json")
 
-        if not p.exists():
+        if not global_data_dump.exists():
             raise Exception("--np must be called before this one.")
         
         with open(Path(results_root).joinpath("global_data_dump.json"), "r") as fp:
