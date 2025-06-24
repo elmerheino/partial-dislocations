@@ -178,7 +178,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             xnew_all = np.array([])
             ynew_all = np.array([])
 
-            if float(noise) > 0.5:
+            if float(noise) > 0.1:
                 bounds = None
                 tauCrit, beta, a = None, None, None
 
@@ -230,7 +230,8 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             delta_tau_values[truncated_key].append(deltaTau)
 
             # Scale the original data
-            data_perfect[truncated_key] += zip(x_all,y_all)
+            filtered_raw = [(t, v) for t, v in zip(x_all, y_all) if not (np.isnan(t) or np.isinf(t) or np.isnan(v) or np.isinf(v))]
+            data_perfect[truncated_key] += filtered_raw
 
             plt.clf()
             plt.figure(figsize=(linewidth/2,linewidth/2))
@@ -377,14 +378,16 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
                         
             if perfect_partial == "perfect_data":
                 tau_c_perfect = sum(data_tau_perfect[noise])/len(data_tau_perfect[noise])
-                p = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
-                fig,ax = makeOneBinnedPlot(x,y,tau_c_perfect, p, color="blue")
-                fig.savefig(p)
+                path_binning_perfect = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                path_binning_perfect.parent.mkdir(parents=True, exist_ok=True)
+                fig,ax = makeOneBinnedPlot(x,y,tau_c_perfect, path_binning_perfect, color="blue")
+                fig.savefig(path_binning_perfect)
             elif perfect_partial == "partial_data":
                 tau_c_partial = sum(data_tau_partial[noise])/len(data_tau_partial[noise])
-                p = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
-                fig, ax = makeOneBinnedPlot(x,y, tau_c_partial, p, color="red")
-                fig.savefig(p)
+                path_binning_partial = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
+                path_binning_partial.parent.mkdir(parents=True, exist_ok=True)
+                fig, ax = makeOneBinnedPlot(x,y, tau_c_partial, path_binning_partial, color="red")
+                fig.savefig(path_binning_partial)
 
     pass
 
@@ -456,7 +459,7 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
             plt.xlabel("$\\tau_{ext}$")
             plt.ylabel("$v_{CM}$")
 
-            dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/noise-{noise}")
+            dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/{float(noise)*1e3}-noise")
             dest.mkdir(parents=True, exist_ok=True)
             if opt:
                 plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
