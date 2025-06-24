@@ -325,7 +325,7 @@ def confidence_interval_upper(l, c_level):
     c = stats.norm.interval(c_level, loc=m, scale=s)
     return c[1]
 
-def makeOneBinnedPlot(x,y,tau_c, save_path : Path, color, bins=100, conf_level=0.9):
+def makeOneBinnedPlot(x,y, ax, tau_c, color, label, bins=100, conf_level=0.9):
     bin_means, bin_edges, _ = stats.binned_statistic(x,y,statistic="mean", bins=bins)
 
     lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=conf_level), bins=bins)
@@ -335,26 +335,20 @@ def makeOneBinnedPlot(x,y,tau_c, save_path : Path, color, bins=100, conf_level=0
 
     # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
 
-    plt.clf()
-    plt.close('all')
-    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
-    
     ax.set_xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
     ax.set_ylabel("$v_{{CM}}$")
 
     bin_width = (bin_edges[1] - bin_edges[0])
     bin_centers = bin_edges[1:] - bin_width/2
 
-    ax.scatter(x,y, marker='x', linewidths=0.2, label="data", color="grey")
+    ax.scatter(x,y, marker='x', linewidths=0.2, color="grey")
     # plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
     # plt.plot(bin_centers, upper_confidence, color="blue")
 
-    ax.scatter(bin_centers, bin_means, color=color, marker="o", s=0.5,
-        label='Binned depinning data')
+    # ax.scatter(bin_centers, bin_means, color=color, marker="o", s=0.5,
+    #     label=label)
 
-    fig.tight_layout()
-    
-    return fig, ax
+    ax.errorbar(bin_centers, bin_means, yerr=[bin_means - lower_confidence, upper_confidence - bin_means], color=color, fmt="s", ms=2, capsize=2, label=label)
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
@@ -370,24 +364,40 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
 
     with open(res_dir.joinpath("binning-data/tau_c_partial.json"), "r") as fp:
         data_tau_partial = json.load(fp)
+    
+    figures = dict()
 
     for perfect_partial in data.keys():
         for noise in data[perfect_partial].keys():
             d = data[perfect_partial]
             x,y = zip(*d[noise])
+
+            if not noise in figures.keys():
+                figures[noise] = plt.subplots(figsize=(linewidth/2,linewidth/2))
+            
                         
             if perfect_partial == "perfect_data":
                 tau_c_perfect = sum(data_tau_perfect[noise])/len(data_tau_perfect[noise])
-                path_binning_perfect = Path(res_dir).joinpath(f"binned-depinnings-perfect/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
-                path_binning_perfect.parent.mkdir(parents=True, exist_ok=True)
-                fig,ax = makeOneBinnedPlot(x,y,tau_c_perfect, path_binning_perfect, color="blue")
-                fig.savefig(path_binning_perfect)
+
+                fig, ax = figures[noise]
+                makeOneBinnedPlot(x,y,ax, tau_c_perfect, color="blue", label="Perfect")
+                figures[noise] = (fig, ax)
+                
             elif perfect_partial == "partial_data":
                 tau_c_partial = sum(data_tau_partial[noise])/len(data_tau_partial[noise])
-                path_binning_partial = Path(res_dir).joinpath(f"binned-depinnings-partial/binned-depinning-noise-{noise}-conf-{conf_level}.pdf")
-                path_binning_partial.parent.mkdir(parents=True, exist_ok=True)
-                fig, ax = makeOneBinnedPlot(x,y, tau_c_partial, path_binning_partial, color="red")
-                fig.savefig(path_binning_partial)
+
+                fig, ax = figures[noise]
+                makeOneBinnedPlot(x,y,ax, tau_c_partial, color="red", label="Partial")
+                figures[noise] = (fig, ax)
+
+    for key in figures.keys():
+        path_binning_combined = Path(res_dir).joinpath(f"binned-depinnings-combined/binned-depinning-noise-{key}-conf-{conf_level}.pdf")
+        path_binning_combined.parent.mkdir(parents=True, exist_ok=True)
+
+        fig, ax = figures[key]
+        fig.tight_layout()
+        fig.legend()
+        fig.savefig(path_binning_combined)
 
     pass
 
