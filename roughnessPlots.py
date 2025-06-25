@@ -10,6 +10,8 @@ from numba import jit
 from sklearn.linear_model import LinearRegression
 import csv
 import matplotlib as mpl
+from velocityPlots import confidence_interval_lower
+from velocityPlots import confidence_interval_upper
 
 linewidth = 5.59164
 
@@ -805,6 +807,8 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
 
         bin_means, bin_edges, bin_counts = stats.binned_statistic(x, y, statistic="mean", bins=100)
         stds, bin_edges, bin_counts = stats.binned_statistic(x, y, statistic="std", bins=100)
+        lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=0.95), bins=100)
+        upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=0.95), bins=100)        
 
         x = bin_edges[:-1]
         y = bin_means
@@ -814,7 +818,9 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
         # ax.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
         # ax.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
 
-        sc_std = ax_std.errorbar(x, y, yerr=stds, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], fmt='s', markersize=2, capsize=2)
+        sc_std = ax_std.scatter(x, y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)        
+        ax_std.fill_between(x, lower_confidence, upper_confidence, color=colors[i], alpha=0.2)
+        
         scatter_objs_std.append(sc_std)
         # ax_std.scatter(x, y + stds, marker="_", linewidth=0.5, color=colors[i])
         # ax_std.scatter(x, y - stds, marker="_", linewidth=0.5, color=colors[i])
@@ -894,13 +900,17 @@ def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
 
         bin_means, bin_edges, _ = stats.binned_statistic(x, y, statistic="mean", bins=100)
         stds, _, _ = stats.binned_statistic(x, y, statistic="std", bins=100)
+        lower_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_lower, c_level=0.95), bins=100)
+        upper_confidence, _, _ = stats.binned_statistic(x,y,statistic=partial(confidence_interval_upper, c_level=0.95), bins=100)        
+
         
         plot_x = bin_edges[:-1]
         plot_y = bin_means
 
         ax.scatter(plot_x, plot_y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)
 
-        ax_std.errorbar(plot_x, plot_y, yerr=stds, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], fmt='s', markersize=2, capsize=2)
+        ax_std.scatter(plot_x, plot_y, label=f"$\\Delta R$={truncated_noise:.2f}", linewidth=0.5, color=colors[i], marker='o', s=2)        
+        ax_std.fill_between(plot_x, lower_confidence, upper_confidence, color=colors[i], alpha=0.2)
 
     ax.set_xlabel("$(\\tau_{{ext}} - \\tau_c)/\\tau_c$")
     ax.set_ylabel("$\\zeta$")
@@ -1195,5 +1205,6 @@ def makeSelectedRoughessPlots():
     pass
 
 if __name__ == "__main__":
-    makeSelectedRoughessPlots()
+    # makeSelectedRoughessPlots()
+    makeAllSelectedParamPlots()
     pass

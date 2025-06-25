@@ -341,14 +341,18 @@ def makeOneBinnedPlot(x,y, ax, tau_c, color, label, bins=100, conf_level=0.9):
     bin_width = (bin_edges[1] - bin_edges[0])
     bin_centers = bin_edges[1:] - bin_width/2
 
-    ax.scatter(x,y, marker='x', linewidths=0.2, color="grey")
+    # ax.scatter(x,y, marker='x', linewidths=0.2, color="grey")
     # plt.plot(bin_centers, lower_confidence, color="blue", label=f"${conf_level*100} \\%$ confidence")
     # plt.plot(bin_centers, upper_confidence, color="blue")
 
-    # ax.scatter(bin_centers, bin_means, color=color, marker="o", s=0.5,
-    #     label=label)
+    print(f"Mean condfidence : {np.nanmean(upper_confidence - bin_means)}")
 
-    ax.errorbar(bin_centers, bin_means, yerr=[bin_means - lower_confidence, upper_confidence - bin_means], color=color, fmt="s", ms=2, capsize=2, label=label)
+
+    if np.nanmean(upper_confidence - bin_means) < 0.5:
+        ax.scatter(bin_centers, bin_means, marker="o", s=2, linewidth=0.5,
+            label=label, color=color)
+    else:
+        ax.errorbar(bin_centers, bin_means, yerr=[bin_means - lower_confidence, upper_confidence - bin_means], color=color, fmt="s", ms=2, capsize=2,  linewidth=0.5, label=label)
 
 def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
@@ -395,8 +399,10 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
         path_binning_combined.parent.mkdir(parents=True, exist_ok=True)
 
         fig, ax = figures[key]
+        ax.legend(loc='lower right', handletextpad=0.1, borderpad=0.1)
+        ax.grid(True)
+
         fig.tight_layout()
-        fig.legend()
         fig.savefig(path_binning_combined)
 
     pass
