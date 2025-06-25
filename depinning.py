@@ -70,13 +70,13 @@ class DepinningPartial(Depinning):
 
         chunk_size = self.time/10
 
-        simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
+        is_relaxed = simulation.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size, tolerance=1e9)
+        print(f"Dislocaiation was relaxed? {is_relaxed}")
 
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
         y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
         l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
-        y1, y2, cm = simulation.getCM()
-        v_cm = np.gradient(cm, self.dt)
+        v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
 
         return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, v_cm, simulation.getParameters())
     

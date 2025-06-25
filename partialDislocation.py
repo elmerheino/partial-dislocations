@@ -23,6 +23,9 @@ class PartialDislocationsSimulation(Simulation):
         self.errors = list()         # List of the errors
 
         self.rtol = rtol
+
+        self.avg_v_cm_history = list()
+        self.avg_stacking_fault_history = list()
         
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
@@ -142,6 +145,98 @@ class PartialDislocationsSimulation(Simulation):
             t1 = time.time()
             print(f"Time taken for simulation: {t1 - t0}")
         pass
+
+    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6):   
+        """
+        When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
+        is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
+        getRoughness, etc.
+
+        So when using this method, these other varibaled will not be computed from the "last 10%" of simulation time, unless
+        chunk_size is one tenth of it and it so happend that exactly ten chunks is used to achieve relaxation.
+        """
+
+        if timeit:
+            t0 = time.time()
+        
+        chunk_size = int(chunk_size)
+
+        backup_file = Path(backup_file)
+        backup_file.parent.mkdir(exist_ok=True, parents=True)
+
+        y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Initial condition for two partials
+        last_y0 = y0
+
+        total_time_so_far = 0
+        max_time = self.time
+
+        relaxed = False
+        
+        while total_time_so_far < max_time:
+            start_i = total_time_so_far
+            end_i = total_time_so_far + chunk_size
+            
+            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
+                            t_eval=np.arange(start_i, end_i, self.dt),
+                            rtol=self.rtol)
+            
+            y_i = sol_i.y.reshape(2, self.bigN, -1)
+            
+            current_chunk_y1 = y_i[0].T
+            current_chunk_y2 = y_i[1].T
+            current_chunk_timesteps = sol_i.t[1:] - sol_i.t[:-1]
+
+            last_y0 = y_i[:, :, -1]
+            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i)
+            total_time_so_far += chunk_size
+
+            # Check for relaxation
+            y1_CM_i = np.mean(current_chunk_y1, axis=1)
+            y2_CM_i = np.mean(current_chunk_y2, axis=1)
+            total_CM_i = (y1_CM_i + y2_CM_i) / 2
+
+            sf_width = np.mean(current_chunk_y1 - current_chunk_y2, axis=1)
+
+            if len(total_CM_i) > 2:
+                v_cm_i = np.gradient(total_CM_i, self.dt)
+
+                self.avg_v_cm_history.append(v_cm_i)        # Save velocity for later use
+                self.avg_stacking_fault_history.append(sf_width)
+
+                accel_cm_i = np.gradient(v_cm_i, self.dt)
+
+                if np.mean(np.abs(accel_cm_i)) < tolerance:
+                    relaxed = True
+                    self.y1 = current_chunk_y1
+                    self.y2 = current_chunk_y2
+                    self.used_timesteps = current_chunk_timesteps
+                    break # end the simulation here.
+
+        if not relaxed:
+            # If not relaxed after max_time, run one more chunk as per original logic
+            start_t = total_time_so_far
+            end_t = total_time_so_far + chunk_size
+            sol = solve_ivp(self.rhs, [start_t, end_t], last_y0.flatten(), method='RK45', 
+                                t_eval=np.arange(start_t, end_t, self.dt),
+                                rtol=self.rtol)
+            
+            sol.y = sol.y.reshape(2, self.bigN, -1)
+            self.y1 = sol.y[0].T
+            self.y2 = sol.y[1].T
+            self.used_timesteps = sol.t[1:] - sol.t[:-1]
+
+        self.y1 = np.array(self.y1) # Convert to numpy array
+        self.y2 = np.array(self.y2)
+        self.timesteps = len(self.y1)
+        
+        self.has_simulation_been_run = True
+
+        if timeit:
+            t1 = time.time()
+            print(f"Time taken for simulation: {t1 - t0}")
+        
+        return relaxed
+
     def getLineProfiles(self):
         start = 0
 
@@ -249,3 +344,9 @@ class PartialDislocationsSimulation(Simulation):
             raise Exception('simulation has probably not been run')
         
         return self.used_timesteps
+    
+    def getSFhist(self):
+        return np.array(self.avg_stacking_fault_history)
+    
+    def getVCMhist(self):
+        return np.array(self.avg_v_cm_history)
