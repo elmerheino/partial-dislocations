@@ -407,8 +407,8 @@ def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and parti
 
     pass
 
-def makeBetaPlot(results_root : Path):
-    with open(results_root.joinpath("noise-data/perfect-noises.csv"), "r") as fp:
+def makeBetaPlot(ax, csv_path : Path, color, label):
+    with open(csv_path, "r") as fp:
         header = fp.readline().strip().split(',')
         loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
         pass
@@ -422,8 +422,7 @@ def makeBetaPlot(results_root : Path):
     deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
     betas = np.nanmean(loaded[:, 31:41], axis=1)
 
-    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
-    ax.scatter(noises, betas, marker="o", s=0.5)
+    ax.scatter(noises, betas, marker="o", s=0.5, color=color, label=label)
 
     ax.set_xlabel("$\\Delta R$")
     ax.set_ylabel("$\\beta$")
@@ -431,11 +430,7 @@ def makeBetaPlot(results_root : Path):
     ax.set_title("$\\beta$ vs Noise")
     ax.set_xscale('log')
     ax.grid(True)
-    fig.tight_layout()
 
-    save_path = results_root.joinpath("beta-vs-noise.pdf")
-    fig.savefig(save_path)
-    plt.close()
     pass
 
 def makeAveragedDepnningPlots(dir_path, opt=False):
@@ -526,5 +521,15 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         print("No perfect depinning dumps")
 
 if __name__ == "__main__":
-    root = "/Volumes/contenttii/2025-06-08-merged-final"
-    makeBetaPlot(Path(root))
+    root = Path("/Volumes/contenttii/2025-06-08-merged-final")
+
+    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
+
+    makeBetaPlot(ax, root.joinpath("noise-data/perfect-noises.csv"), color="blue", label="Perfect")
+    makeBetaPlot(ax, root.joinpath("noise-data/partial-noises.csv"), color="red", label="Partial")
+
+    save_path = root.joinpath("beta-vs-noise.pdf")
+
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(save_path)
