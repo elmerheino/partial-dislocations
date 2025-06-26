@@ -220,7 +220,7 @@ def makeCommonNoisePlot(root_dir : Path):
     fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
     pass
 
-def makeDislocationPlots(folder):
+def makeDislocationPlots(folder, cmap='viridis'):
     # First plot all perfect dislocations
     path_partial = Path(folder).joinpath("single-dislocation/dislocations-last")
     dest_folder = Path(folder).joinpath("single-dislocation/dislocations-last-pictures")
@@ -272,11 +272,11 @@ def makeDislocationPlots(folder):
                     ylim_max = 50
                     plt.ylim(ylim_min,ylim_max)
                     relevantPart = stressField[:,ylim_min:ylim_max]*10
-                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, ylim_min, ylim_max], origin='lower', aspect='auto', label="stress field")
+                    plt.imshow(np.transpose(relevantPart), extent=[0, bigN, ylim_min, ylim_max], origin='lower', aspect='auto', label="stress field", cmap=cmap)
                     dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/perfect-{tauExt*1e3}-1e-3-tau-dislocation-R-{deltaR:.4f}-seed-{seed}.pdf")
                 else:
                     relevantPart = stressField[:,min_y:max_y]*10
-                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")                
+                    plt.imshow(np.transpose(relevantPart), extent=[0, bigN, min_y, max_y], origin='lower', aspect='auto', label="stress field", cmap=cmap)                
                     dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/{tauExt*1e3}-1e-3-tau-dislocation.pdf")
 
                 plt.xlabel("$x$")
@@ -285,7 +285,10 @@ def makeDislocationPlots(folder):
                 plt.plot(x, y, color='blue')
 
                 dest_file.parent.mkdir(exist_ok=True, parents=True)
-                plt.savefig(dest_file, dpi=600, bbox_inches='tight')
+                plt.savefig(dest_file, bbox_inches='tight')
+
+                if f"{tauExt*1e3:.2f}" == "22.32":
+                    shutil.copy(dest_file, "/Users/elmerheino/Documents/kandi-repo/figures/dislocation-pictures")
 
                 plt.close()
         pass
@@ -344,11 +347,11 @@ def makeDislocationPlots(folder):
                     plt.ylim(30,80)
 
                     relevantPart = stressField[:,30:80]*10
-                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, 30, 80], origin='lower', aspect='auto', label="stress field")
+                    plt.imshow(np.transpose(relevantPart), extent=[0, bigN, 30, 80], origin='lower', aspect='auto', label="stress field", cmap=cmap)
                     dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/partial-{tauExt*1e3}-1e-3-tau-dislocation-R-{deltaR:.4f}-seed-{seed}.pdf")
                 else:
                     relevantPart = stressField[:,min_y:max_y]*10
-                    plt.imshow(np.transpose(relevantPart), extent=[0, 1024, min_y, max_y], origin='lower', aspect='auto', label="stress field")
+                    plt.imshow(np.transpose(relevantPart), extent=[0, bigN, min_y, max_y], origin='lower', aspect='auto', label="stress field", cmap=cmap)
                     dest_file = dest_folder.joinpath(f"noise-{deltaR:.4f}/seed-{seed:.4f}/{tauExt*1e3}-1e-3-tau-dislocation.pdf")
 
 
@@ -356,12 +359,14 @@ def makeDislocationPlots(folder):
                 plt.ylabel("$y(x)$")
 
                 plt.plot(x, y1, color='blue')
-                plt.plot(x, y2, color='red')
+                plt.plot(x, y2, color='magenta')
                 plt.plot(x, (y1 + y2)/2, color='yellow', linestyle='--')
 
 
                 dest_file.parent.mkdir(exist_ok=True, parents=True)
-                plt.savefig(dest_file, dpi=600, bbox_inches='tight')
+                plt.savefig(dest_file, bbox_inches='tight')
+                if f"{tauExt*1e3:.2f}" == "22.26":
+                    shutil.copy(dest_file, "/Users/elmerheino/Documents/kandi-repo/figures/dislocation-pictures")
                 plt.close()
             pass
         pass
