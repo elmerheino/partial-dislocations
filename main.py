@@ -48,7 +48,7 @@ def map_id_to_grid(array_task_id, seeds, array_length):
     return deltaR
 
 def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int,
-                time : int, timestep : float, points, cores : int, partial : bool,
+                time : int, timestep : float, points, cores : int, partial : bool, length,
                 folder, sequential = False):
     # k = time.time()
 
@@ -84,9 +84,9 @@ def grid_search(rmin, rmax, array_task_id : int, seeds : int, array_length : int
         cores = cores
 
     if partial:
-        partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential)
+        partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, length, folder, sequential)
     elif not partial:
-        perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential)
+        perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, length, folder, sequential)
     else:
         raise Exception("Not specified which type of dislocation must be simulated.")
 
@@ -157,7 +157,7 @@ def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, core
 
     return tau_min, tau_max
 
-def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
+def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, length, folder, sequential=False):
         # tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=True)
 
         if 0 <= deltaR <= 0.1:
@@ -179,7 +179,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
 
         depinning = DepinningPartial(tau_min=tau_min_opt, tau_max=tau_max_opt, points=points,
                     time=time, dt=timestep, seed=seed,
-                    folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
+                    folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR, length=length, bigN=length)
     
         v1, v2, vcm_rel, l_range, avg_w12s, y1_last, y2_last, v_cms, parameters = depinning.run()
 
@@ -237,7 +237,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         np.savez(vel_save_path, **v_cms_over_time )
 
 
-def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
+def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, length, folder, sequential=False):
     # Searching for better limits to find critical force
     #tau_min_opt, tau_max_opt = search_tau_c(tau_min, tau_max, deltaR, time, timestep, seed, folder, cores, partial=False)
     if 0 < deltaR <= 0.1:
@@ -258,7 +258,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         tau_max_opt = tau_c*4
 
     depinning = DepinningSingle(tau_min=tau_min_opt, tau_max=tau_max_opt, points=int(points),
-                time=float(time), dt=float(timestep), seed=seed, 
+                time=float(time), dt=float(timestep), seed=seed, length=length, bigN=length,
                 folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     
     v_rel, l_range, roughnesses, y_last, v_cms, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
@@ -346,6 +346,7 @@ if __name__ == "__main__":
     parser.add_argument('-dt', '--timestep', help='Timestep size in (s).', required=True, type=float)
     parser.add_argument('-t', '--time', help='Total simulation time in (s).', required=True, type=int)
     parser.add_argument('-p', '--points', help='How many points to consider between tau_min and tau_max', required=True, type=int)
+    parser.add_argument("-L", "--length", help="Length of the system to be simulated st. L=N", type=int)
 
     parser.add_argument('-c', '--cores', help='Cores to use in multiprocessing pool. Is not specified, use all available.', type=int)
     parser.add_argument('--partial', help='Simulate a partial dislocation.', action="store_true")
@@ -383,15 +384,15 @@ if __name__ == "__main__":
         elif parsed.single:
             partial_ = False
 
-        grid_search(parsed.rmin, parsed.rmax, parsed.array_task_id, parsed.seeds, parsed.array_length, parsed.time, parsed.timestep, parsed.points, parsed.cores, partial_, parsed.folder, 
-                    parsed.seq)
+        grid_search(parsed.rmin, parsed.rmax, parsed.array_task_id, parsed.seeds, parsed.array_length, parsed.time, 
+                    parsed.timestep, parsed.points, parsed.cores, partial_, parsed.length, parsed.folder, parsed.seq)
     elif parsed.command == "pinning":
         if parsed.partial:
-            partial_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
-                                          parsed.folder, parsed.seq)
+            partial_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, 
+                                          parsed.points, parsed.time, parsed.timestep, parsed.length, parsed.folder, parsed.seq)
         if parsed.single:
-            perfect_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r, parsed.points, parsed.time, parsed.timestep,
-                                          parsed.folder, parsed.seq)
+            perfect_dislocation_depinning(parsed.tau_min, parsed.tau_max, parsed.cores, parsed.seed, parsed.delta_r,
+                                          parsed.points, parsed.time, parsed.timestep, parsed.length, parsed.folder, parsed.seq)
         pass
     elif parsed.command == "single":
         run_single_partial_dislocation(parsed.tau_ext, parsed.noise, parsed.time, parsed.timestep, parsed.folder)

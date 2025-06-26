@@ -26,9 +26,10 @@ SEEDS=1         # Seed count is array-max/noise points, so how many seeds per no
 
 TIME=10000
 DT=0.1
+L=1024
 
 TAU_POINTS=100   # How many external forces are tried per noise level to find the critical force
 
 # Job step perfect dislocation
-srun python3 main.py -p ${TAU_POINTS} -dt ${DT} -t ${TIME} --single -f ${WRKDIR}/${NAME}/single-dislocation -c ${CORES} \
+srun python3 main.py -p ${TAU_POINTS} -dt ${DT} -t ${TIME} --length ${L} --single -f ${WRKDIR}/${NAME}/single-dislocation -c ${CORES} \
     grid --array-task-id ${SLURM_ARRAY_TASK_ID} --rmin ${NOISE_MIN} --rmax ${NOISE_MAX} --array-length ${ARRAY_LEN} --seeds ${SEEDS}
