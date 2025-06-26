@@ -67,10 +67,11 @@ class DepinningPartial(Depinning):
         hex_dig = hash_object.hexdigest()
 
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{hex_dig}")
+        backup_file.parent.mkdir(exist_ok=True, parents=True)
 
         chunk_size = self.time/10
 
-        is_relaxed = simulation.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size, tolerance=1e9)
+        is_relaxed = simulation.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size, tolerance=1e-7)
         print(f"Dislocaiation was relaxed? {is_relaxed}")
 
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
@@ -128,7 +129,7 @@ class DepinningSingle(Depinning):
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
-        v_cm_over_time = np.gradient(sim.getCM(), self.dt)
+        v_cm_over_time = sim.getVCMhist()
 
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")

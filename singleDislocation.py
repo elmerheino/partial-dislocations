@@ -30,6 +30,8 @@ class DislocationSimulation(Simulation):
         self.used_timesteps = 0
         self.rtol = rtol
 
+        self.v_cm_history = list()
+
         pass
     
     def funktio(self, y1, t):
@@ -166,7 +168,9 @@ class DislocationSimulation(Simulation):
             v_cm_i = np.gradient(cm_i, self.dt)
             accel_cm_i = np.gradient(cm_i)
 
-            if np.mean(accel_cm_i) < tolerance:
+            self.v_cm_history.append(v_cm_i)
+
+            if np.mean(np.abs(accel_cm_i)) < tolerance:
                 relaxed = True
                 break # end the simulation here.
 
@@ -198,9 +202,7 @@ class DislocationSimulation(Simulation):
         if timeit:
             t1 = time.time()
             print(f"Time taken for simulation: {t1 - t0}")
-        pass
-
-        pass
+        return relaxed
     
     def getLineProfiles(self):
         start = 0
@@ -288,6 +290,10 @@ class DislocationSimulation(Simulation):
         params_str = np.array2string(params)  # Convert array to string
         hash_object = hashlib.sha256(params_str.encode())
         hex_dig = hash_object.hexdigest()
+        return hex_dig
+    
+    def getVCMhist(self):
+        return np.array(self.v_cm_history).flatten()
 
 
 # For debugging
