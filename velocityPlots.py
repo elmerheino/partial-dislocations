@@ -1,3 +1,5 @@
+import os
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 import json
@@ -429,7 +431,7 @@ def makeBetaPlot(ax, csv_path : Path, color, label):
     ax.set_xlabel("$\\Delta R$")
     ax.set_ylabel("$\\beta$")
 
-    ax.set_title("$\\beta$ vs Noise")
+    # ax.set_title("$\\beta$ vs Noise")
     ax.set_xscale('log')
     ax.grid(True)
 
@@ -522,6 +524,25 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
     else:
         print("No perfect depinning dumps")
 
+def copy_all_files(from_path, to_path):
+    # Get a list of all files and directories in the source directory
+    items = os.listdir(from_path)
+
+    # Iterate over the items
+    for item in items:
+        # Create the full path to the item in the source directory
+        s = os.path.join(from_path, item)
+        # Create the full path to the item in the destination directory
+        d = os.path.join(to_path, item)
+        
+        # If the item is a directory, copy it recursively
+        if os.path.isdir(s):
+            shutil.copytree(s, d, dirs_exist_ok=True)
+        # Otherwise, copy the file
+        else:
+            shutil.copy2(s, d)
+    pass
+
 if __name__ == "__main__":
     root = Path("/Volumes/contenttii/2025-06-08-merged-final")
 
@@ -532,6 +553,8 @@ if __name__ == "__main__":
 
     save_path = root.joinpath("beta-vs-noise.pdf")
 
+    shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
+    
     ax.legend()
     fig.tight_layout()
     fig.savefig(save_path)

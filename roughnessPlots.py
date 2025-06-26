@@ -12,6 +12,7 @@ import csv
 import matplotlib as mpl
 from velocityPlots import confidence_interval_lower
 from velocityPlots import confidence_interval_upper
+import os
 
 linewidth = 5.59164
 
@@ -754,7 +755,7 @@ def selectedCorrelationPlots(path, root_dir, save_path, perfect, unique_noises):
     correlation = data[:,5]
     const = data[:,6]
 
-    colors = ["red", "green", "blue", "orange", "purple"]
+    colors = ["red", "magenta", "blue", "orange", "purple"]
 
     fig, ax, normalized_binned_data = None, None, None
 
@@ -861,7 +862,7 @@ def selectedZetaPlots(path, root_dir, save_path, perfect, unique_noises):
     loaded = np.load(path)
     data = loaded["data"]
 
-    colors = ["red", "green", "blue", "orange", "purple"]
+    colors = ["red", "magenta", "blue", "orange", "purple"]
 
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
     fig_std, ax_std = plt.subplots(figsize=(linewidth/2,linewidth/2))
@@ -1139,7 +1140,7 @@ def makeSelectedRoughessPlots():
     # Plot perfect dislocations
     fig, ax_perfect = plt.subplots(figsize=(linewidth/2, linewidth/2))
     perfect_files = [perfect_01, perfect_10, perfect_1000]
-    colors = ["red", "green", "blue"]
+    colors = ["red", "magenta", "blue"]
 
     for file_path, color in zip(perfect_files, colors):
         plot_and_fit_roughness(ax_perfect, file_path, color)
@@ -1168,7 +1169,7 @@ def makeSelectedRoughessPlots():
     ax_perfect.grid(True)
     fig.tight_layout()
 
-    save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/roughness-plots")
+    save_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/selected-roughness-plots")
     save_path.mkdir(parents=True, exist_ok=True)
     fig.savefig(save_path.joinpath("roughness-perfect-selected.pdf"))
     plt.close()
@@ -1204,7 +1205,39 @@ def makeSelectedRoughessPlots():
     plt.close()
     pass
 
+def copy_all_files(from_path, to_path):
+    # Get a list of all files and directories in the source directory
+    items = os.listdir(from_path)
+
+    # Iterate over the items
+    for item in items:
+        # Create the full path to the item in the source directory
+        s = os.path.join(from_path, item)
+        # Create the full path to the item in the destination directory
+        d = os.path.join(to_path, item)
+        
+        # If the item is a directory, copy it recursively
+        if os.path.isdir(s):
+            shutil.copytree(s, d, dirs_exist_ok=True)
+        # Otherwise, copy the file
+        else:
+            shutil.copy2(s, d)
+    pass
 if __name__ == "__main__":
-    # makeSelectedRoughessPlots()
+    makeSelectedRoughessPlots()
     makeAllSelectedParamPlots()
+
+    from_path = "/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/selected-zeta-plots"
+    to_path = "/Users/elmerheino/Documents/kandi-repo/figures/selected-zeta-plots"
+    copy_all_files(from_path, to_path)
+
+    from_path1 = "/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/correlation-plots"
+    to_path1 = "/Users/elmerheino/Documents/kandi-repo/figures/selected-correlations"
+    copy_all_files(from_path1, to_path1)
+
+    copy_all_files(
+        "/Users/elmerheino/Documents/partial-dislocations/results/2025-06-08-merged-final/selected-roughness-plots",
+        "/Users/elmerheino/Documents/kandi-repo/figures/roughness-plots"
+        )
+
     pass
