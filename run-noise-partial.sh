@@ -27,7 +27,7 @@ SEEDS=1         # Seed count is array-max/noise points
 
 TIME=300000
 DT=10
-L=256
+L=128
 
 TAU_POINTS=20   # How many external forces are tried per noise level to find the critical force
 
