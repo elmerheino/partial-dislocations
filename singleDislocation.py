@@ -166,11 +166,9 @@ class DislocationSimulation(Simulation):
 
             cm_i = np.mean(y_i, axis=1)
             v_cm_i = np.gradient(cm_i, self.dt)
-            accel_cm_i = np.gradient(cm_i)
-
             self.v_cm_history.append(v_cm_i)
 
-            if np.mean(np.abs(accel_cm_i)) < tolerance:
+            if self.is_relaxed(v_cm_i, tolerance=tolerance):
                 relaxed = True
                 break # end the simulation here.
 

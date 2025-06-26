@@ -203,9 +203,7 @@ class PartialDislocationsSimulation(Simulation):
                 self.avg_v_cm_history.append(v_cm_i)        # Save velocity for later use
                 self.avg_stacking_fault_history.append(sf_width)
 
-                accel_cm_i = np.gradient(v_cm_i, self.dt)
-
-                if np.mean(np.abs(accel_cm_i)) < tolerance:
+                if self.is_relaxed(v_cm_i, tolerance=tolerance):
                     relaxed = True
                     self.y1 = current_chunk_y1
                     self.y2 = current_chunk_y2

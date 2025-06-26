@@ -66,6 +66,10 @@ class Simulation(object):
     def tau_interpolated(self, y): # This should be the fastest possible way to do this w/ 29.201507568359375 mu s
         return self.tau(y)
     
+    def is_relaxed(self, velocities, tolerance=1e-7):
+        accel_cm_i = np.gradient(velocities)
+        return np.mean(np.abs(accel_cm_i)) < tolerance
+    
     @staticmethod
     @jit(nopython=True)
     def tau_interpolated_static(y, bigN, stressField, x_points): # Takes around 1639.9  mu s, which is faster than the two other options
