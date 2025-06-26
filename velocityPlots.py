@@ -354,12 +354,14 @@ def makeOneBinnedPlot(x,y, ax, tau_c, color, label, bins=100, conf_level=0.9):
     else:
         ax.errorbar(bin_centers, bin_means, yerr=[bin_means - lower_confidence, upper_confidence - bin_means], color=color, fmt="s", ms=2, capsize=2,  linewidth=0.5, label=label)
 
-def binning(data : dict, res_dir, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
+def binning(data : dict, res_dir : Path, conf_level, bins=100): # non-partial and partial dislocation global data, respectively
     """
     Make binned depinning plots from the data. The data is binned and the mean and confidence intervals are calculated.
 
     Here dict is a dictionary containing all the normalized data for each noise level.
     """
+
+    res_dir = Path(res_dir)
 
     with open(res_dir.joinpath("binning-data/tau_c_perfect.json"), "r") as fp:
         data_tau_perfect = json.load(fp)

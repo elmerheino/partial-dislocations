@@ -67,16 +67,17 @@ class DepinningPartial(Depinning):
         hex_dig = hash_object.hexdigest()
 
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{hex_dig}")
+        backup_file.parent.mkdir(exist_ok=True, parents=True)
 
         chunk_size = self.time/10
 
-        simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
+        is_relaxed = simulation.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size, tolerance=1e-7)
+        print(f"Dislocaiation was relaxed? {is_relaxed}")
 
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
         y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
         l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
-        y1, y2, cm = simulation.getCM()
-        v_cm = np.gradient(cm, self.dt)
+        v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
 
         return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, v_cm, simulation.getParameters())
     
@@ -119,21 +120,16 @@ class DepinningSingle(Depinning):
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
         
-        # Get simulation parameters and hash them
-        params = sim.getParameteters()
-        params_str = np.array2string(params)  # Convert array to string
-        hash_object = hashlib.sha256(params_str.encode())
-        hex_dig = hash_object.hexdigest()
-
-        backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{hex_dig}")
+        # Name a backup file where to save checkpoints
+        backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{sim.getUniqueHashString()}")
 
         chunk_size = self.time/10
 
-        sim.run_in_chucks(backup_file=backup_file, chunk_size=chunk_size)
+        sim.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size)
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
-        v_cm_over_time = np.gradient(sim.getCM(), self.dt)
+        v_cm_over_time = sim.getVCMhist()
 
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")

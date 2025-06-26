@@ -224,18 +224,17 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
             np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
             pass
 
-        # Save the velocity of the CM from the last 10% of simulation time
-        v_cms_over_time = list()
+        # Save the velocity of the CM from the entire duration of simulation
+        v_cms_over_time = dict()
         for v_cm, params in zip(v_cms, parameters):
             deltaR_i = params[4]
             tauExt_i = params[11]
-            row = np.insert(v_cm, 0, tauExt_i)
-            v_cms_over_time.append(row)
+            v_cms_over_time[f"{tauExt_i}"] = v_cm
         
-        v_cms_over_time = np.array(v_cms_over_time)
+        # v_cms_over_time = np.array(v_cms_over_time)
         vel_save_path = Path(folder).joinpath(f"velocties/noise-{deltaR}-seed-{depinning.seed}-v_cm.npz")
         vel_save_path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(vel_save_path, columns=["tau_ext", "t"], data=v_cms_over_time )
+        np.savez(vel_save_path, **v_cms_over_time )
 
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, folder, sequential=False):
@@ -302,17 +301,16 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         np.savez(p0, y=y_i, parameters=params)
 
     # Save the velocity of the CM from the last 10% of simulation time
-    v_cms_over_time = list()
+    v_cms_over_time = dict()
     for v_cm, params in zip(v_cms, parameters):
         deltaR_i = params[4]
         tauExt_i = params[9]
-        row = np.insert(v_cm, 0, tauExt_i)
-        v_cms_over_time.append(row)
+
+        v_cms_over_time[f"{tauExt_i}"] = v_cm
     
-    v_cms_over_time = np.array(v_cms_over_time)
     vel_save_path = Path(folder).joinpath(f"velocties/noise-{deltaR}-seed-{depinning.seed}-v_cm.npz")
     vel_save_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(vel_save_path, columns=["tau_ext", "t"], data=v_cms_over_time )
+    np.savez(vel_save_path, **v_cms_over_time)
 
 
 def run_single_partial_dislocation(tau_ext, noise, time, dt, save_folder : Path):
