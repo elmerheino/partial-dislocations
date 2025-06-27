@@ -57,7 +57,7 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         fit_params, pcov = optimize.curve_fit(
             lambda x, a, b: a*x**b,
             x, y)
-        fit_x = np.linspace(data[0,0], data[region1_index,0], 100)
+        fit_x = np.linspace(data[region0_index,0], data[region1_index,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
         ax.plot(fit_x, fit_y, color=fit_color, linewidth=2)
         ax.text(fit_x[1], fit_y[1], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='left', va='top')
