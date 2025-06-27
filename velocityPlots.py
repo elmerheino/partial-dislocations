@@ -8,6 +8,7 @@ from scipy import stats, optimize
 from functools import partial
 import csv
 import matplotlib as mpl
+from sklearn.cluster import KMeans
 
 linewidth = 5.59164
 
@@ -428,14 +429,23 @@ def makeBetaPlot(ax, csv_path : Path, color, label):
 
     ax.scatter(noises, betas, marker="o", s=0.5, color=color, label=label)
 
+    mask = betas < 0.75
+
+    noises2 = noises[mask]
+    betas2 = betas[mask]
+    mean_beta2 = np.mean(betas2)
+
     ax.set_xlabel("$\\Delta R$")
     ax.set_ylabel("$\\beta$")
+
+    x_mean = np.linspace(min(noises2), max(noises2), 10)
+    ax.plot(x_mean, np.ones(len(x_mean))*mean_beta2, color=color, linestyle='--', linewidth=0.5 )
 
     # ax.set_title("$\\beta$ vs Noise")
     ax.set_xscale('log')
     ax.grid(True)
 
-    pass
+    return {"mean-beta":mean_beta2}
 
 def makeAveragedDepnningPlots(dir_path, opt=False):
     print("Making averaged depinning plots.")
@@ -548,13 +558,25 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
 
-    makeBetaPlot(ax, root.joinpath("noise-data/perfect-noises.csv"), color="blue", label="Perfect")
-    makeBetaPlot(ax, root.joinpath("noise-data/partial-noises.csv"), color="red", label="Partial")
+    res_perfect = makeBetaPlot(ax, root.joinpath("noise-data/perfect-noises.csv"), color="blue", label="Perfect")
+    res_partial = makeBetaPlot(ax, root.joinpath("noise-data/partial-noises.csv"), color="red", label="Partial")
 
     save_path = root.joinpath("beta-vs-noise.pdf")
 
-    shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
-    
     ax.legend()
     fig.tight_layout()
-    fig.savefig(save_path)
+
+    # Add PDF metadata with notes using PdfPages
+    from matplotlib.backends.backend_pdf import PdfPages
+    notes = f"Beta vs noise plot. Generated on 2025-06-27. Toisen klusterin meanit on perfect {res_perfect['mean-beta']} and partial {res_partial['mean-beta']}"
+    with PdfPages(save_path) as pdf:
+        metadata = pdf.infodict()
+        metadata["Title"] = "Beta vs Noise"
+        metadata["Author"] = "velocityPlots.py script"
+        metadata["Subject"] = "Depinning analysis"
+        metadata["Keywords"] = "depinning, beta, noise, dislocation, matplotlib"
+        metadata["Comments"] = notes
+        pdf.savefig(fig)
+    print(notes)
+
+    # shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
