@@ -3,6 +3,7 @@ import numpy as np
 import math
 from numba import jit
 from scipy.ndimage import map_coordinates
+from scipy.stats import linregress
 
 class Simulation(object):
     def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, mu, tauExt, seed=None):
@@ -66,9 +67,16 @@ class Simulation(object):
     def tau_interpolated(self, y): # This should be the fastest possible way to do this w/ 29.201507568359375 mu s
         return self.tau(y)
     
-    def is_relaxed(self, velocities, tolerance=1e-7):
-        accel_cm_i = np.gradient(velocities)
-        return np.mean(np.abs(accel_cm_i)) < tolerance
+    def is_relaxed(self, velocities, tolerance=1e-9):
+        # accel_cm_i = np.gradient(velocities)
+        # return np.mean(np.abs(accel_cm_i)) < tolerance
+
+        t = np.arange(len(velocities))*self.dt
+        slope, intercept, r_value, p_value, std_err = linregress(t, velocities)
+
+        # return slope < tolerance
+        return False
+        
     
     @staticmethod
     @jit(nopython=True)
