@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --time=02:30:00
-#SBATCH --job-name=per-sys256
+#SBATCH --job-name=per-sys128
 #SBATCH --mem-per-cpu=700M
-#SBATCH --output=2025-06-26-sys-128-perfect.out
+#SBATCH --output=2025-06-27-sys-128-perfect.out
 #SBATCH --array=1-10
 #SBATCH --cpus-per-task=20
 #SBATCH --mail-type=ALL
