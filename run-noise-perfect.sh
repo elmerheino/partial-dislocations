@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=01:30:00
+#SBATCH --time=02:30:00
 #SBATCH --job-name=per-sys256
 #SBATCH --mem-per-cpu=700M
 #SBATCH --output=2025-06-26-sys-128-perfect.out
@@ -11,7 +11,7 @@
 
 DATE=$(date +"%Y-%m-%d")
 echo $DATE
-NAME=2025-06-26-sys-128
+NAME=2025-06-27-sys-128
 
 CORES=20
 
@@ -24,7 +24,7 @@ NOISE_MAX=-1
 ARRAY_LEN=10   # SEEDS*NOISES=ARRAY_LEN for a square grid
 SEEDS=1         # Seed count is array-max/noise points, so how many seeds per noise level
 
-TIME=300000
+TIME=600000
 DT=10
 L=128
 
