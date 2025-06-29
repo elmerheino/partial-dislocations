@@ -33,7 +33,7 @@ def velocity_fit(tau_ext, tau_crit, beta, a):
     return v_res
 
 
-def getWindow(tauExt_np, vCm_np, initial_t_c_arvaus, window_width=10):
+def getWindow(tauExt_np, vCm_np, initial_t_c_arvaus, window_width=4):
     """
     Performs a window search on tauExt and vCm to find the critical force.
     """
@@ -180,15 +180,19 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
             xnew_all = np.array([])
             ynew_all = np.array([])
 
-            if float(noise) > 0.1:
+            if float(noise) > 0.01:
                 bounds = None
                 tauCrit, beta, a = None, None, None
 
                 refined_t_c, _, bounds = getWindow(np.array(tauExt), np.array(vCm), t_c_arvaus)
                 print(f"bounds {bounds} and refined_t_c = {refined_t_c}")
 
-                start_ = bounds[0] + 4
-                end_ = bounds[1] + 6
+                if not bounds == None:
+                    start_ = bounds[0] + 4
+                    end_ = bounds[1] + 6
+                else:
+                    start_ = 0
+                    end_ = -1
 
                 x_closeup = tauExt[start_:end_]
                 y_closeup = vCm[start_:end_]
