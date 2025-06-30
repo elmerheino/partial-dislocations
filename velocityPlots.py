@@ -553,7 +553,26 @@ def copy_all_files(from_path, to_path):
             shutil.copy2(s, d)
     pass
 
-if __name__ == "__main__":
+def makeVelocityHistoryPlots(root_dir):
+    for file in Path(root_dir).joinpath("velocties").iterdir():
+        data = np.load(file)
+        for tau_ext in data.files:
+            # Make a velocity plot form data with v = data[tau_ext]
+            v = data[tau_ext]
+            fig, ax = plt.subplots(figsize=(linewidth,linewidth/2))
+            ax.plot(v)
+            ax.set_title(f"Velocity history for tau_ext = {tau_ext}")
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Velocity")
+            save_path = Path(root_dir).joinpath(f"velocity-history-plots/{file.stem}")
+            save_path.mkdir(exist_ok=True, parents=True)
+            fig.savefig(save_path.joinpath(f"velocity-history-{float(tau_ext)*1e4:.2f}-1e-4.pdf"))
+            plt.close(fig)
+
+            pass
+    pass
+
+def vanha_maini():
     root = Path("/Volumes/contenttii/2025-06-08-merged-final")
 
     fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
@@ -580,3 +599,6 @@ if __name__ == "__main__":
     print(notes)
 
     # shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
+
+if __name__ == "__main__":
+    makeVelocityHistoryPlots("results/pienemmat-systeemit-600k/2025-06-27-sys-128/single-dislocation")
