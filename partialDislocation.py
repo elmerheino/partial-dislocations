@@ -1,3 +1,4 @@
+import hashlib
 import numpy as np
 from simulation import Simulation
 from scipy.integrate import solve_ivp
@@ -16,6 +17,8 @@ class PartialDislocationsSimulation(Simulation):
         self.d0 = d0                            # Initial distance separating the partials
         self.b_p = b_p
 
+        self.y0 = np.ones((2, self.bigN), dtype=float)*self.d0
+
         self.y2 = list()
         self.y1 = list()
 
@@ -26,6 +29,16 @@ class PartialDislocationsSimulation(Simulation):
 
         self.avg_v_cm_history = list()
         self.avg_stacking_fault_history = list()
+    
+    def setInitialY0Config(self, y1_0, y2_0):
+        """
+        Sets the intial arrays y1 and y2 at time t=0.
+        """
+        if len(y1_0) != self.bigN or len(y2_0) != self.bigN :
+            print(f"Length of input array is invalid len(y1_0) = {len(y1_0)} != {self.bigN}")
+            print(y1_0)
+        self.y0 = np.vstack([y1_0, y2_0])
+        pass
         
     def force1(self, y1,y2):
         #return -np.average(y1-y2)*np.ones(bigN)
@@ -74,7 +87,7 @@ class PartialDislocationsSimulation(Simulation):
 
     def run_simulation(self, evaluate_from=0.1):                                # By default only evaluate from the last 10 % of simulation time
 
-        y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+        y0 = self.y0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
 
         time_evals = np.arange(self.time*(1 - evaluate_from),self.time, self.dt) # Evaluate the solution only from the last 10% of the time every dt
 
@@ -99,10 +112,12 @@ class PartialDislocationsSimulation(Simulation):
         if timeit:
             t0 = time.time()
 
-        y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
+        y0 = self.y0
 
         total_time_so_far = 0
         last_y0 = y0
+
+        last_y = y0
 
         backup_file = Path(backup_file)
         backup_file.parent.mkdir(exist_ok=True, parents=True)
@@ -111,29 +126,41 @@ class PartialDislocationsSimulation(Simulation):
             print(f"self.time % chunk_size = {self.time % chunk_size} should equal 0")
             raise Exception("invalid chunk size")
         
-        while total_time_so_far < self.time*(1 - 0.1):
+        while total_time_so_far < self.time:
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
 
             sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
-                            t_eval=[end_i],
+                            t_eval=np.arange(start_i, end_i, self.dt),
                             rtol=self.rtol)
             
             y_i = sol_i.y.reshape(2, self.bigN, -1)
 
+            current_chunk_y1 = y_i[0].T
+            current_chunk_y2 = y_i[1].T
+
+            last_y = y_i
+
             last_y0 = y_i[:, :, -1]
             np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i)
             total_time_so_far += chunk_size
+
+            y1_CM_i = np.mean(current_chunk_y1, axis=1)
+            y2_CM_i = np.mean(current_chunk_y2, axis=1)
+            total_CM_i = (y1_CM_i + y2_CM_i) / 2
+
+            sf_width = np.mean(current_chunk_y1 - current_chunk_y2, axis=1)
+            self.avg_stacking_fault_history.append(sf_width)
+
+
+            try:
+                v_cm_i = np.gradient(total_CM_i, self.dt)
+                self.avg_v_cm_history.append(v_cm_i)
+            except:
+                print(total_CM_i)
         
-        sol = solve_ivp(self.rhs, [self.time*(1 - 0.1), self.time], last_y0.flatten(), method='RK45', 
-                            t_eval=np.arange(self.time*(1 - 0.1), self.time, self.dt),
-                            rtol=self.rtol)
-
-        sol.y = sol.y.reshape(2, self.bigN, -1) # Reshape the solution to have 2 lines
-        self.y1 = sol.y[0].T
-        self.y2 = sol.y[1].T
-
-        self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
+        self.y1 = last_y[0].T
+        self.y2 = last_y[1].T
 
         self.y1 = np.array(self.y1) # Convert to numpy array
         self.y2 = np.array(self.y2)
@@ -164,7 +191,7 @@ class PartialDislocationsSimulation(Simulation):
         backup_file = Path(backup_file)
         backup_file.parent.mkdir(exist_ok=True, parents=True)
 
-        y0 = np.ones((2, self.bigN), dtype=float)*self.d0 # Initial condition for two partials
+        y0 = self.y0 # Initial condition for two partials
         last_y0 = y0
 
         total_time_so_far = 0
@@ -198,7 +225,7 @@ class PartialDislocationsSimulation(Simulation):
             sf_width = np.mean(current_chunk_y1 - current_chunk_y2, axis=1)
 
             if len(total_CM_i) > 2:
-                v_cm_i = np.gradient(total_CM_i, self.dt)
+                v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
 
                 self.avg_v_cm_history.append(v_cm_i)        # Save velocity for later use
                 self.avg_stacking_fault_history.append(sf_width)
@@ -236,15 +263,14 @@ class PartialDislocationsSimulation(Simulation):
         return relaxed
 
     def getLineProfiles(self):
-        start = 0
-
-        start = self.timesteps - 1
-
+        """
+        Always returns the line shape at the end of the simulation.
+        """
         if self.has_simulation_been_run:
-            return (self.y1[start:], self.y2[start:])
+            return (self.y1[-1], self.y2[-1])
         
         print("Simulation has not been run yet.")
-        return (self.y1, self.y2) # Retuns empty lists
+        return (self.y1, self.y2)
     
     def getAverageDistances(self):
         return np.average(self.y1, axis=1) - np.average(self.y2, axis=1)
@@ -344,7 +370,14 @@ class PartialDislocationsSimulation(Simulation):
         return self.used_timesteps
     
     def getSFhist(self):
-        return np.array(self.avg_stacking_fault_history)
+        return np.array(self.avg_stacking_fault_history).flatten()
     
     def getVCMhist(self):
-        return np.array(self.avg_v_cm_history)
+        return np.array(self.avg_v_cm_history).flatten()
+    
+    def getUniqueHash(self):
+        params = self.getParameters()
+        params_str = np.array2string(params)  # Convert array to string
+        hash_object = hashlib.sha256(params_str.encode())
+        hex_dig = hash_object.hexdigest()
+        return hex_dig
