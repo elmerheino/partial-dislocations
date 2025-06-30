@@ -203,19 +203,14 @@ class DislocationSimulation(Simulation):
         return relaxed
     
     def getLineProfiles(self):
-        start = 0
-
-        start = self.timesteps - 1
-        # Otherwise return the last 10% of the simulation
-
+        """
+        Always returns the last state of the dislocation.
+        """
         if self.has_simulation_been_run:
-            return self.y1[start:].flatten()
+            return self.y1[-1].flatten()
         else:
             raise Exception("Simulation has not been run.")
-        
-        print("Simulation has not been run yet.")
-        return self.y1 # Retuns empty lists
-    
+
     def getAverageDistances(self):
         # Returns the average distance from y=0
         return np.average(self.y1, axis=1)
@@ -292,19 +287,80 @@ class DislocationSimulation(Simulation):
     
     def getVCMhist(self):
         return np.array(self.v_cm_history).flatten()
+    
+    @classmethod
+    def from_dict(cls, params):
+        """Create a DislocationSimulation from a dictionary of parameters"""
+        return cls(
+            bigN=params['bigN'],
+            length=params['length'],
+            time=params['time'],
+            dt=params['dt'],
+            deltaR=params['deltaR'],
+            bigB=params['bigB'],
+            smallB=params['smallB'],
+            mu=params['mu'],
+            tauExt=params['tauExt'],
+            cLT1=params.get('cLT1', 2),
+            seed=params.get('seed', None),
+            d0=params.get('d0', 10),
+            rtol=params.get('rtol', 1e-6)
+        )
+    
+    @classmethod
+    def from_backup(cls, backup_file):
+        """Create a DislocationSimulation from a backup file"""
+        data = np.load(backup_file)
+        params = data['params']
+        # Parameters are stored in the order defined in getParameteters()
+        return cls(
+            bigN=int(params[0]),
+            length=params[1],
+            time=params[2],
+            dt=params[3],
+            deltaR=params[4],
+            bigB=params[5],
+            smallB=params[6],
+            cLT1=params[7],
+            mu=params[8],
+            tauExt=params[9],
+            d0=params[10],
+            seed=None if params[11] == 0 else int(params[11]),
+            rtol=1e-6
+        )
 
 
 # For debugging
 if __name__ == "__main__":
-    dislocation = DislocationSimulation( deltaR = 0.01,
-                seed=0, bigN=256, length=256, d0=1,
-                bigB=1,
-                smallB=1,         # b^2 = a^2 / 2 = 1 => a^2 = 2
-                mu=1,
-                cLT1=1,
-                time=1000, dt=2, tauExt=0)
-    backup_path = Path("debug").joinpath(f"failsafe/dislocaition-debug.npz")
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    # Method 1: Using the regular constructor
+    dislocation1 = DislocationSimulation(
+        deltaR=0.01, seed=0, bigN=256, length=256, d0=1,
+        bigB=1, smallB=1, mu=1, cLT1=1, time=1000, dt=2, tauExt=0
+    )
 
-    dislocation.run_until_relaxed(chunk_size=1000/10, backup_file=backup_path)
+    # Method 2: Using the dictionary constructor
+    params = {
+        'deltaR': 0.01,
+        'seed': 0,
+        'bigN': 256,
+        'length': 256,
+        'd0': 1,
+        'bigB': 1,
+        'smallB': 1,
+        'mu': 1,
+        'cLT1': 1,
+        'time': 1000,
+        'dt': 2,
+        'tauExt': 0
+    }
+    dislocation2 = DislocationSimulation.from_dict(params)
+
+    # Run simulation with first instance and save backup
+    backup_path = Path("results/2025-06-21-region-1/single-dislocation/failsafe/dislocaition-0ddd6fbd5897758a4a42670a0c7b1e49f83b7d63e675944f41fd1dbf4a8b0b90.npz")
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    dislocation1.run_until_relaxed(chunk_size=1000/10, backup_file=backup_path)
+
+    # Method 3: Load from backup file
+    dislocation3 = DislocationSimulation.from_backup(backup_path)
+    dislocation3.run_until_relaxed(backup_path, dislocation3.time/10)
     pass
