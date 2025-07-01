@@ -173,7 +173,7 @@ class PartialDislocationsSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         pass
 
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6):   
+    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, method='BDF'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -203,7 +203,7 @@ class PartialDislocationsSimulation(Simulation):
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
             
-            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
+            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
                             t_eval=np.arange(start_i, end_i, self.dt),
                             rtol=self.rtol)
             
@@ -241,7 +241,7 @@ class PartialDislocationsSimulation(Simulation):
             # If not relaxed after max_time, run one more chunk as per original logic
             start_t = total_time_so_far
             end_t = total_time_so_far + chunk_size
-            sol = solve_ivp(self.rhs, [start_t, end_t], last_y0.flatten(), method='RK45', 
+            sol = solve_ivp(self.rhs, [start_t, end_t], last_y0.flatten(), method=method, 
                                 t_eval=np.arange(start_t, end_t, self.dt),
                                 rtol=self.rtol)
             

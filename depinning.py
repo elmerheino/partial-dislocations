@@ -65,7 +65,7 @@ class DepinningPartial(Depinning):
         """
         sim = PartialDislocationsSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB, b_p=self.b_p, 
                                             mu=self.mu, tauExt=0, bigN=self.bigN, length=self.length, 
-                                            dt=self.dt, time=1e6, d0=self.d0, c_gamma=self.c_gamma,
+                                            dt=self.dt, time=1e5, d0=self.d0, c_gamma=self.c_gamma,
                                             cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
         
         rel_backup_path = Path(self.folder_name).joinpath(f"initial-relaxations/initial-relaxation-{sim.getUniqueHash()}.npz")
@@ -73,7 +73,7 @@ class DepinningPartial(Depinning):
         
         relaxed = sim.run_until_relaxed(rel_backup_path, sim.time/10)
 
-        print(f"Initial relaxation condition filled: {relaxed}")
+        print(f"Initial relaxation fulfilled criterion: {relaxed}")
 
         y1_0, y2_0 = sim.getLineProfiles()
         return y1_0, y2_0
@@ -143,7 +143,7 @@ class DepinningSingle(Depinning):
 
         self.y0_rel = None
 
-    def initialRelaxation(self, relaxation_time = 1e6):
+    def initialRelaxation(self, relaxation_time = 1e4):
         sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                             mu=self.mu, tauExt=0, bigN=self.bigN, length=self.length, 
                             dt=self.dt, time=relaxation_time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
@@ -152,6 +152,8 @@ class DepinningSingle(Depinning):
         rel_backup_path.parent.mkdir(exist_ok=True, parents=True)
 
         realaxed = sim.run_until_relaxed(rel_backup_path, chunk_size=sim.time/10)
+
+        print(f"Initial relaxation fulfilled criterion: {realaxed}")
 
         return sim.getLineProfiles()
 
