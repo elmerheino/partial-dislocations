@@ -141,17 +141,33 @@ class DepinningSingle(Depinning):
         self.cLT1 = cLT1
         self.rtol = rtol
 
+        self.y0_rel = None
+
+    def initialRelaxation(self, relaxation_time = 1e6):
+        sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
+                            mu=self.mu, tauExt=0, bigN=self.bigN, length=self.length, 
+                            dt=self.dt, time=relaxation_time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
+        
+        rel_backup_path = Path(self.folder_name).joinpath(f"initial-relaxations/initial-relaxation-{sim.getUniqueHashString()}.npz")
+        rel_backup_path.parent.mkdir(exist_ok=True, parents=True)
+
+        realaxed = sim.run_until_relaxed(rel_backup_path, chunk_size=sim.time/10)
+
+        return sim.getLineProfiles()
+
     def studyConstantStress(self, tauExt):
         sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
+        
+        sim.setInitialY0Config(self.y0_rel)
         
         # Name a backup file where to save checkpoints
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{sim.getUniqueHashString()}")
 
         chunk_size = self.time/10
 
-        sim.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size)
+        sim.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
@@ -173,6 +189,8 @@ class DepinningSingle(Depinning):
 
     def run(self):
         velocities = list()
+
+        self.y0_rel = self.initialRelaxation()
 
         if self.sequential: # Sequential does not work
             for s in self.stresses:
