@@ -1103,7 +1103,7 @@ def plot_and_fit_roughness(ax, file_path, color):
         c, zeta = np.exp(intercept), slope
         power_law_plot, = ax.plot(dekadi_l, exp_beheavior(dekadi_l, c, zeta), color="black", linestyle='--')
 
-        ax.annotate(f"$\\zeta$", (dekadi_l[2], exp_beheavior(dekadi_l[2], c, zeta)), textcoords="offset points", xytext=(5,7), ha='center', color='black')
+        ax.annotate(f"$L^\\zeta$", (dekadi_l[2], exp_beheavior(dekadi_l[2], c, zeta)), textcoords="offset points", xytext=(5,7), ha='center', color='black')
 
     # Fit for the constant part
     start_const = int(round(len(l_range) / 4))

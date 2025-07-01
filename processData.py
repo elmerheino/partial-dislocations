@@ -60,7 +60,7 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         fit_x = np.linspace(data[region0_index,0], data[region1_index,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
         ax.plot(fit_x, fit_y, color=fit_color, linewidth=2)
-        ax.text(fit_x[1], fit_y[1], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='left', va='top')
+        ax.text(fit_x[1], fit_y[1], f"$ \\tau_c \\propto \\Delta R^{{{fit_params[1]:.3f} }}$", ha='left', va='top')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except Exception as e:
         print(f"No data in first region of data. {e}")
@@ -78,7 +78,7 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         ax.plot(fit_x, fit_y,
                 color='black', linestyle='--', linewidth=2
                 )
-        ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
+        ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto \\Delta R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in second region of data.")
@@ -94,7 +94,7 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         fit_x = np.linspace(data[region1_end,0], data[-1,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
         ax.plot(fit_x, fit_y, color=fit_color, linestyle=':', linewidth=2)
-        ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
+        ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto \\Delta R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
         print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
         print("No data in third region of data.")
@@ -197,8 +197,24 @@ def makeCommonNoisePlot(root_dir : Path):
     
     ax.errorbar(data_perfect[:,0], data_perfect[:,1], yerr=data_perfect[:,2],
                  fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+    
+    # Add reference lines with slopes 1, 4/3, and 1
+    x_ref = np.logspace(-2, 3, 100)
+
+    y_ref2 = 0.1 * x_ref**(4/3)  # Second slope = 4/3
+    low_limit = 10**-1
+    ax.plot(x_ref[(x_ref >= low_limit) & (x_ref < 10**1.4)], 
+        y_ref2[(x_ref >= low_limit) & (x_ref < 10**1.4)], 
+        'k--', alpha=0.5, linewidth=1)
+    ax.text(10**0, 0.15, '$\\tau_c \\propto \\Delta R^{4/3}$', rotation=0)
+
+    y_ref3 = 0.3 * x_ref  # Third slope = 1
+    low_limit = 10**1.45
+    ax.plot(x_ref[x_ref >= low_limit], y_ref3[x_ref >= low_limit], 'k--', alpha=0.5, linewidth=1)
+    ax.text(10**1.7, 3, '$\\tau_c \\propto \\Delta R$', rotation=0)
+
         
-    ax.set_xlabel("R")
+    ax.set_xlabel("$ \\Delta R $")
     ax.set_ylabel("$ \\tau_c $")
     ax.legend()
     fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both-w-error.pdf"), bbox_inches='tight')
@@ -213,11 +229,28 @@ def makeCommonNoisePlot(root_dir : Path):
     
     ax.plot(data_perfect[:,0], data_perfect[:,1],
                  's', markersize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
+    
+    y_ref2 = 0.1 * x_ref**(4/3)  # Second slope = 4/3
+    low_limit = 10**-1
+    ax.plot(x_ref[(x_ref >= low_limit) & (x_ref < 10**1.4)], 
+        y_ref2[(x_ref >= low_limit) & (x_ref < 10**1.4)], 
+        'k--', linewidth=1)
+    ax.text(10**-1, 10**-3, '$\\tau_c \\propto \\Delta R^{4/3}$', rotation=45)
+
+    y_ref3 = 0.3 * x_ref  # Third slope = 1
+    low_limit = 10**1.45
+    ax.plot(x_ref[x_ref >= low_limit], y_ref3[x_ref >= low_limit], 'k--', linewidth=1)
+    ax.text(10**1.7, 3, '$\\tau_c \\propto \\Delta R$', rotation=40)
+
         
-    ax.set_xlabel("R")
+    ax.set_xlabel("$ \\Delta R $")
     ax.set_ylabel("$ \\tau_c $")
     ax.legend()
     fig.savefig(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), bbox_inches='tight')
+    # Copy noise plots to thesis repository
+    plt.close()
+    shutil.copy(root_dir.joinpath("noise-plots/noise-tau_c-both.pdf"), "/Users/elmerheino/Documents/kandi-repo/figures/tau-noise-plots")
+    shutil.copy(root_dir.joinpath("noise-plots/noise-tau_c-both-w-error.pdf"), "/Users/elmerheino/Documents/kandi-repo/figures/tau-noise-plots")
     pass
 
 def makeDislocationPlots(folder, cmap='viridis'):
