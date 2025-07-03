@@ -242,7 +242,24 @@ def makeCommonNoisePlot(root_dir : Path):
     ax.plot(x_ref[x_ref >= low_limit], y_ref3[x_ref >= low_limit], 'k--', linewidth=1)
     ax.text(10**1.7, 3, '$\\tau_c \\propto \\Delta R$', rotation=40)
 
-        
+    # Add region labels with arrows
+    # Region I: x < 10^-1
+    # Region I arrow spans from start to 10^-1
+    # Region I arrow and label
+    ax.annotate('', xy=(10**-2.5, 10**-4), xytext=(10**-1, 10**-4),
+                arrowprops=dict(arrowstyle='<->', color='black'), ha='center')
+    ax.annotate('I', xy=(10**-1.75, 10**-4.6), ha='center')
+    
+    # Region II arrow and label
+    ax.annotate('', xy=(10**-1, 10**-4), xytext=(10**1.0, 10**-4),
+                arrowprops=dict(arrowstyle='<->', color='black'), ha='center')
+    ax.annotate('II', xy=(10**0, 10**-4.6), ha='center')
+    
+    # Region III arrow and label 
+    ax.annotate('', xy=(10**1.0, 10**-4), xytext=(10**3, 10**-4),
+                arrowprops=dict(arrowstyle='<->', color='black'), ha='center', va='bottom')
+    ax.annotate('III', xy=(10**2.0, 10**-4.6), ha='center')
+
     ax.set_xlabel("$ \\Delta R $")
     ax.set_ylabel("$ \\tau_c $")
     ax.legend()
