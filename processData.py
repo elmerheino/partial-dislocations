@@ -76,7 +76,7 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
         fit_x = np.linspace(data[region1_index,0], data[region1_end,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
         ax.plot(fit_x, fit_y,
-                color='black', linestyle='--', linewidth=2
+                color='yellow', linestyle='--', linewidth=2
                 )
         ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto \\Delta R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
         print(f"Noise fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
@@ -93,7 +93,7 @@ def makeNoisePlot(noises, tau_c_means, point_0, point_1, point_2, y_error, color
             x, y)
         fit_x = np.linspace(data[region1_end,0], data[-1,0], 100)
         fit_y = fit_params[0]*fit_x**fit_params[1]
-        ax.plot(fit_x, fit_y, color=fit_color, linestyle=':', linewidth=2)
+        ax.plot(fit_x, fit_y, color=fit_color, linestyle='--', linewidth=2)
         ax.text(fit_x[len(fit_x)//4], fit_y[len(fit_y)//4], f"$ \\tau_c \\propto \\Delta R^{{{fit_params[1]:.3f} }}$", ha='right', va='bottom')
         print(f"Perfect dislocation fit: {fit_params[0]:.3f} * R^{fit_params[1]:.3f} on interval {min(x)} to {max(x)}")
     except:
@@ -130,6 +130,7 @@ def makePerfectNoisePlot(results_root : Path, save_path):
 
     fig.tight_layout()
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    shutil.copy(save_path, "/Users/elmerheino/Documents/kandi-repo/figures/tau-noise-plots")
     plt.close()
 
 def makePartialNoisePlot(res_root : Path, save_path):
@@ -160,7 +161,7 @@ def makePartialNoisePlot(res_root : Path, save_path):
 
     fig.tight_layout()
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
-
+    shutil.copy(save_path, "/Users/elmerheino/Documents/kandi-repo/figures/tau-noise-plots")
     plt.close()
 
 def makeCommonNoisePlot(root_dir : Path):
@@ -199,7 +200,7 @@ def makeCommonNoisePlot(root_dir : Path):
                  fmt='s', markersize=2, capsize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
     
     # Add reference lines with slopes 1, 4/3, and 1
-    x_ref = np.logspace(-2, 3, 100)
+    x_ref = np.logspace(-4, 3, 100)
 
     y_ref2 = 0.1 * x_ref**(4/3)  # Second slope = 4/3
     low_limit = 10**-1
@@ -230,9 +231,17 @@ def makeCommonNoisePlot(root_dir : Path):
     ax.plot(data_perfect[:,0], data_perfect[:,1],
                  's', markersize=2, label="Perfect", color="blue", linewidth=0.2, zorder=0)
     
+    y_ref1 = 0.1 * x_ref**(1)  # Second slope = 4/3
+    low_limit = 10**-3
+    ax.plot(x_ref[(x_ref >= low_limit) & (x_ref < 10**(-1))], 
+        y_ref1[(x_ref >= low_limit) & (x_ref < 10**(-1))], 
+        'k--', linewidth=1)
+    ax.text(10**-2.9, 10**-3.2, '$\\tau_c \\propto \\Delta R^{1}$', rotation=45)
+
+    
     y_ref2 = 0.1 * x_ref**(4/3)  # Second slope = 4/3
     low_limit = 10**-1
-    ax.plot(x_ref[(x_ref >= low_limit) & (x_ref < 10**1.4)], 
+    ax.plot(x_ref[(x_ref >= low_limit) & (x_ref < 10**1.4)],
         y_ref2[(x_ref >= low_limit) & (x_ref < 10**1.4)], 
         'k--', linewidth=1)
     ax.text(10**-1, 10**-3, '$\\tau_c \\propto \\Delta R^{4/3}$', rotation=45)
