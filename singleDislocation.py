@@ -271,6 +271,15 @@ class DislocationSimulation(Simulation):
             self.y0[0], self.seed, self.tau_cutoff          # 10 - 12
         ])
         return parameters
+    
+    @staticmethod
+    def paramListToDict(param_list):
+        bigN, length, time, dt, deltaR, bigB, smallB, cLT1, mu, tauExt, y0, seed, tau_cutoff = param_list 
+
+        return {
+            'bigN': bigN, 'length': length, 'time': time, 'dt': dt, 'deltaR': deltaR, 'bigB': bigB, 'smallB': smallB,
+            'cLT1': cLT1, 'mu': mu, 'tauExt': tauExt, 'y0': y0, 'seed': seed, 'tau_cutoff': tau_cutoff
+        }
 
     def getAveragedRoughness(self):
         start = 0 # Consider only the last 10% of the simulation

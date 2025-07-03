@@ -10,6 +10,9 @@ import csv
 import matplotlib as mpl
 from sklearn.cluster import KMeans
 
+from partialDislocation import PartialDislocationsSimulation
+from singleDislocation import DislocationSimulation
+
 linewidth = 5.59164
 
 mpl.rcParams.update({
@@ -142,7 +145,7 @@ def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_sa
         # if not n % 10 == 0:
         #     continue
         
-        noise = noise_path.name.split("-")[1]
+        noise = "".join(noise_path.name.split("-")[1:])
 
         truncated_key = str(f"{float(noise):.6f}") # Using 6 decimal places, minimum to distinguish values from np.logspace(-3,3,100) would be 4
 
@@ -461,7 +464,9 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
         for noise_dir in partial_depinning_path.iterdir():
             if not noise_dir.is_dir():
                 continue
-            noise = noise_dir.name.split("-")[1]
+
+            noise = "".join(noise_dir.name.split("-")[1:])
+
             velocities = list()
             stresses = None
             seed = None
@@ -483,13 +488,17 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
             plt.title(f"Depinning noise = {noise}")
             plt.xlabel("$\\tau_{ext}$")
             plt.ylabel("$v_{CM}$")
+            plt.tight_layout()
 
-            dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/{float(noise)*1e3}-noise")
+            try:
+                dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/{float(noise)*1e3}-1e-3-noise")
+            except:
+                print(f"{depining_file} and {noise_dir}")
             dest.mkdir(parents=True, exist_ok=True)
             if opt:
                 plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
             else:
-                plt.savefig(dest.joinpath(f"depinning-noise.png"))
+                plt.savefig(dest.joinpath(f"depinning-noise.pdf"))
             pass
             plt.close()
     else:
@@ -601,5 +610,16 @@ def vanha_maini():
 
     shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
 
+def processInitalRelaxations(path):
+    for velocity_file in Path(path).joinpath("initial-relaxations").iterdir():
+        loaded = np.load(velocity_file)
+        params = PartialDislocationsSimulation.paramListToDict(loaded['params'])
+        y_last = loaded['y_last']
+        plt.plot(y_last[0])
+        plt.show()
+        pass
+    pass
+
 if __name__ == "__main__":
-    makeVelocityHistoryPlots("debug/partial-dislocation")
+    # makeVelocityHistoryPlots("results/2025-07-03-pikkusysteemi/partial-dislocation")
+    processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")

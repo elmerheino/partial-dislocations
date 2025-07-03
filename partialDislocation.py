@@ -337,6 +337,29 @@ class PartialDislocationsSimulation(Simulation):
         ])
         return parameters
     
+    @staticmethod
+    def paramListToDict(params_list):
+        bigN, length, time, dt,   deltaR,  bigB,  smallB,  b_p,   cLT1,  cLT2,  mu,  tauExt,  c_gamma,   d0,  seed,  tau_cutoff  = params_list
+        return {
+            'bigN': bigN,
+            'length': length,
+            'time': time, 
+            'dt': dt,
+            'deltaR': deltaR,
+            'bigB': bigB,
+            'smallB': smallB,
+            'b_p': b_p,
+            'cLT1': cLT1,
+            'cLT2': cLT2,
+            'mu': mu,
+            'tauExt': tauExt,
+            'c_gamma': c_gamma,
+            'd0': d0,
+            'seed': seed,
+            'tau_cutoff': tau_cutoff
+        }
+
+    
     def calculateC_gamma(self, v=1, theta=np.pi/2):
         # Calulcates the C_{\gamma} parameter based on dislocation character
         # according to Vaid et al. (12)
