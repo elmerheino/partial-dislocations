@@ -1,4 +1,5 @@
 import json
+import pickle
 import numpy as np
 import multiprocessing as mp
 from functools import partial
@@ -54,7 +55,7 @@ class DepinningPartial(Depinning):
         self.cLT1 = cLT1
         self.cLT2 = cLT2
         self.c_gamma =c_gamma
-        self.results = list()
+        self.results = None
         self.b_p = b_p
 
         self.y1_0 = None
@@ -103,7 +104,9 @@ class DepinningPartial(Depinning):
         v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
         sfHist = simulation.getSFhist()
 
-        return (rV1, rV2, totV2, l_range, avg_w, y1_last, y2_last, v_cm, sfHist, simulation.getParameters())
+        return {'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
+                'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
+        }
     
     def run(self):
         # Multiprocessing compatible version of a single depinning study, here the studies
@@ -121,14 +124,95 @@ class DepinningPartial(Depinning):
         else:
             with mp.Pool(self.cores) as pool:
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
-        
-
-        v1_rel, v2_rel, v_cm_rel, l_ranges, avg_w12s, y1_last, y2_last, v_cms, sf_hists, params = zip(*self.results)
-
-        return v1_rel, v2_rel, v_cm_rel, l_ranges[0], avg_w12s, y1_last, y2_last, v_cms, sf_hists, params
-    
+            
     def getStresses(self):
         return self.stresses
+    
+    def save_results(self, folder_path):
+        """
+        Saves the results in a directeory structure of files and folders.
+        """
+        v1_rel = [r['v1'] for r in self.results]
+        v2_rel = [r['v2'] for r in self.results]
+        v_cm_rel = [r['v_cm'] for r in self.results]
+        l_ranges = [r['l_range'] for r in self.results]
+        avg_w12s = [r['avg_w'] for r in self.results]
+        y1_last = [r['y1_last'] for r in self.results]
+        y2_last = [r['y2_last'] for r in self.results]
+        v_cms = [r['v_cm_hist'] for r in self.results]
+        sf_hists = [r['sf_hist'] for r in self.results]
+        parameters = [r['params'] for r in self.results]
+
+        tau_min_ = min(self.stresses.tolist())
+        tau_max_ = max(self.stresses.tolist())
+        points = len(self.stresses.tolist())
+
+        # Save the depinning to a .json file
+        depining_path = Path(folder_path)
+        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{self.deltaR}")
+        depining_path.mkdir(exist_ok=True, parents=True)
+        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{self.time}-s-{self.seed}-R-{self.deltaR}.json")
+
+        with open(str(depining_path), 'w') as fp:
+            json.dump({
+                "stresses": self.stresses.tolist(),
+                "v_rel": v_cm_rel,
+                "seed":self.seed,
+                "time":self.time,
+                "dt":self.dt,
+                "v_1" : v1_rel,
+                "v_2" : v2_rel
+            },fp)
+        
+        # Save the roughnesses in an organized way
+        l_range = l_ranges[0]
+        for tau, avg_w12, params in zip(self.stresses, avg_w12s, parameters):
+            tauExt_i = params[11]
+            deltaR_i = params[4]
+            p = Path(folder_path).joinpath(f"averaged-roughnesses").joinpath(f"noise-{self.deltaR}").joinpath(f"seed-{self.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p = p.joinpath(f"roughness-tau-{tau}-R-{self.deltaR}.npz")
+            
+            np.savez(p, l_range=l_range, avg_w=avg_w12, parameters=params)
+        
+        # Save the dislocation at the end of simulation in an organized way
+        for y1_i, y2_i, params in zip(y1_last, y2_last, parameters):
+            tauExt_i = params[11]
+            deltaR_i = params[4]
+            p = Path(folder_path).joinpath(f"dislocations-last").joinpath(f"noise-{self.deltaR}").joinpath(f"seed-{self.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i}-R-{deltaR_i}.npz")
+            np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
+            pass
+
+        # Save the velocity of the CM from the entire duration of simulation
+        v_cms_over_time = dict()
+        for v_cm, params in zip(v_cms, parameters):
+            deltaR_i = params[4]
+            tauExt_i = params[11]
+            v_cms_over_time[f"{tauExt_i}"] = v_cm
+        
+        # v_cms_over_time = np.array(v_cms_over_time)
+        vel_save_path = Path(folder_path).joinpath(f"velocties/noise-{self.deltaR}-seed-{self.seed}-v_cm.npz")
+        vel_save_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(vel_save_path, **v_cms_over_time )
+
+        # Save stacking faults over time
+        sf_stacking_faults_over_time = dict()
+        for sf_hist, params in zip(sf_hists, parameters):
+            tauExt_i = params[11]
+            sf_stacking_faults_over_time[f"{tauExt_i}"] = sf_hist
+
+        sf_save_path = Path(folder_path).joinpath(f"stacking-faults/noise-{self.deltaR}-seed-{self.seed}-sf.npz")
+        sf_save_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(sf_save_path, **sf_stacking_faults_over_time)
+    
+    def dump_res_to_pickle(self, folder):
+        dump_path = Path(folder).joinpath(f"result-dump-deltaR-{self.deltaR}-seed-{self.seed}.pickle")
+        dump_path.parent.mkdir(exist_ok=True, parents=True)
+        with open(dump_path, "wb") as fp:
+            pickle.dump(self.results, fp)
+        pass
 
 class DepinningSingle(Depinning):
 
@@ -209,9 +293,9 @@ class DepinningSingle(Depinning):
                 results = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
                 self.results = results
 
-                velocities, l_ranges, w_avgs, y_last, v_cms, params = zip(*results)
+                # velocities, l_ranges, w_avgs, y_last, v_cms, params = zip(*results)
         
-        return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
+        # return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
     
     def getParameteters(self):
         parameters = np.array([
@@ -286,3 +370,9 @@ class DepinningSingle(Depinning):
         vel_save_path = Path(folder_path).joinpath(f"velocties/noise-{self.deltaR}-seed-{self.seed}-v_cm.npz")
         vel_save_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(vel_save_path, **v_cms_over_time)
+
+    def dump_res_to_pickle(self, folder):
+        dump_path = Path(folder).joinpath(f"result-dump-deltaR-{self.deltaR}-seed-{self.seed}.pickle")
+        dump_path.parent.mkdir(exist_ok=True, parents=True)
+        with open(dump_path, "wb") as fp:
+            pickle.dump(self.results, fp)

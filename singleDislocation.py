@@ -134,14 +134,14 @@ class DislocationSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         pass
 
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6):   
+    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, ):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunk_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
         getRoughness, etc.
 
         So when using this method, these other variables will not be computed from the "last 10%" of simulation time, unless
-        chunk_size is one tenth of it and it so happened that exactly ten chunks is used to achieve relaxation.
+        chunk_size is one tenth of simulation time and it so happened that exactly ten chunks is used to achieve relaxation.
         """
 
         if timeit:

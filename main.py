@@ -181,70 +181,10 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
                     time=time, dt=timestep, seed=seed,
                     folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR, length=length, bigN=length)
     
-        v1, v2, vcm_rel, l_range, avg_w12s, y1_last, y2_last, v_cms, sf_hists, parameters = depinning.run()
+        depinning.run()
+        depinning.save_results(Path(folder))
+        depinning.dump_res_to_pickle(Path(folder))
 
-        tau_min_ = min(depinning.stresses.tolist())
-        tau_max_ = max(depinning.stresses.tolist())
-        points = len(depinning.stresses.tolist())
-
-        # Save the depinning to a .json file
-        depining_path = Path(folder)
-        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR}")
-        depining_path.mkdir(exist_ok=True, parents=True)
-        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{time}-s-{seed}-R-{deltaR}.json")
-
-        with open(str(depining_path), 'w') as fp:
-            json.dump({
-                "stresses": depinning.stresses.tolist(),
-                "v_rel": vcm_rel,
-                "seed":depinning.seed,
-                "time":depinning.time,
-                "dt":depinning.dt,
-                "v_1" : v1,
-                "v_2" : v2
-            },fp)
-        
-        # Save the roughnesses in an organized way
-        for tau, avg_w12, params in zip(depinning.stresses, avg_w12s, parameters):
-            tauExt_i = params[11]
-            deltaR_i = params[4]
-            p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
-            p.mkdir(exist_ok=True, parents=True)
-            p = p.joinpath(f"roughness-tau-{tau}-R-{deltaR}.npz")
-            
-            np.savez(p, l_range=l_range, avg_w=avg_w12, parameters=params)
-        
-        # Save the dislocation at the end of simulation in an organized way
-        for y1_i, y2_i, params in zip(y1_last, y2_last, parameters):
-            tauExt_i = params[11]
-            deltaR_i = params[4]
-            p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
-            p.mkdir(exist_ok=True, parents=True)
-            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt_i}-R-{deltaR_i}.npz")
-            np.savez(p0, y1=y1_i, y2=y2_i, parameters=params)
-            pass
-
-        # Save the velocity of the CM from the entire duration of simulation
-        v_cms_over_time = dict()
-        for v_cm, params in zip(v_cms, parameters):
-            deltaR_i = params[4]
-            tauExt_i = params[11]
-            v_cms_over_time[f"{tauExt_i}"] = v_cm
-        
-        # v_cms_over_time = np.array(v_cms_over_time)
-        vel_save_path = Path(folder).joinpath(f"velocties/noise-{deltaR}-seed-{depinning.seed}-v_cm.npz")
-        vel_save_path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(vel_save_path, **v_cms_over_time )
-
-        # Save stacking faults over time
-        sf_stacking_faults_over_time = dict()
-        for sf_hist, params in zip(sf_hists, parameters):
-            tauExt_i = params[11]
-            sf_stacking_faults_over_time[f"{tauExt_i}"] = sf_hist
-
-        sf_save_path = Path(folder).joinpath(f"stacking-faults/noise-{deltaR}-seed-{depinning.seed}-sf.npz")
-        sf_save_path.parent.mkdir(parents=True, exist_ok=True) 
-        np.savez(sf_save_path, **sf_stacking_faults_over_time)
 
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, length, folder, sequential=False):
@@ -271,7 +211,7 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
                 time=float(time), dt=float(timestep), seed=seed, length=length, bigN=length,
                 folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR)
     
-    v_rel, l_range, roughnesses, y_last, v_cms, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
+    depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
 
     # Save the results to a given directory
     depinning.save_results(Path(folder))
