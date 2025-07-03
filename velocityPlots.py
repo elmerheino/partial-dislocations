@@ -338,7 +338,7 @@ def makeOneBinnedPlot(x,y, ax, tau_c, color, label, bins=100, conf_level=0.9):
 
     # print(f'Total of {sum(bin_counts)} datapoints. The bins have {" ".join(bin_counts.astype(str))} points respectively.')
 
-    ax.set_xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
+    ax.set_xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{c}}$")
     ax.set_ylabel("$v_{{CM}}$")
 
     bin_width = (bin_edges[1] - bin_edges[0])
@@ -598,7 +598,7 @@ def vanha_maini():
         pdf.savefig(fig)
     print(notes)
 
-    # shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
+    shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
 
 if __name__ == "__main__":
-    makeVelocityHistoryPlots("results/pienemmat-systeemit-600k/2025-06-27-sys-128/single-dislocation")
+    vanha_maini()
