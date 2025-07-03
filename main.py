@@ -108,9 +108,9 @@ def search_tau_c(tau_min_0, tau_max_0, deltaR, time, timestep, seed,folder, core
             depinning = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=5,
                     time=float(time), dt=float(timestep), seed=seed,
                     folder_name=folder, cores=cores, sequential=False, deltaR=deltaR)
-            v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last,v_cms_over_time, parameters = depinning.run()
+            v1, v2, vcm, l_range, avg_w12s, y1_last, y2_last,v_cms_over_time, sf_hists, parameters = depinning.run()
         else:
-            vcm, l_range, roughnesses, y_last, v_cms_over_time, parameters = depinning.run()
+            vcm, l_range, roughnesses, y_last, v_cms_over_time, sf_hists, parameters = depinning.run()
         
         t_c_arvio = ( max(depinning.stresses) - min(depinning.stresses) ) / 2
         try:
@@ -181,7 +181,7 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
                     time=time, dt=timestep, seed=seed,
                     folder_name=folder, cores=cores, sequential=sequential, deltaR=deltaR, length=length, bigN=length)
     
-        v1, v2, vcm_rel, l_range, avg_w12s, y1_last, y2_last, v_cms, parameters = depinning.run()
+        v1, v2, vcm_rel, l_range, avg_w12s, y1_last, y2_last, v_cms, sf_hists, parameters = depinning.run()
 
         tau_min_ = min(depinning.stresses.tolist())
         tau_max_ = max(depinning.stresses.tolist())
@@ -235,6 +235,16 @@ def partial_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
         vel_save_path = Path(folder).joinpath(f"velocties/noise-{deltaR}-seed-{depinning.seed}-v_cm.npz")
         vel_save_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(vel_save_path, **v_cms_over_time )
+
+        # Save stacking faults over time
+        sf_stacking_faults_over_time = dict()
+        for sf_hist, params in zip(sf_hists, parameters):
+            tauExt_i = params[11]
+            sf_stacking_faults_over_time[f"{tauExt_i}"] = sf_hist
+
+        sf_save_path = Path(folder).joinpath(f"stacking-faults/noise-{deltaR}-seed-{depinning.seed}-sf.npz")
+        sf_save_path.parent.mkdir(parents=True, exist_ok=True) 
+        np.savez(sf_save_path, **sf_stacking_faults_over_time)
 
 
 def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points, time, timestep, length, folder, sequential=False):

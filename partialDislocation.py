@@ -344,7 +344,7 @@ class PartialDislocationsSimulation(Simulation):
         return self.used_timesteps
     
     def getSFhist(self):
-        return np.array(self.avg_stacking_fault_history)
+        return np.array(self.avg_stacking_fault_history).flatten()
     
     def getVCMhist(self):
-        return np.array(self.avg_v_cm_history)
+        return np.array(self.avg_v_cm_history).flatten()
