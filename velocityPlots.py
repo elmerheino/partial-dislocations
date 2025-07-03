@@ -559,6 +559,7 @@ def makeVelocityHistoryPlots(root_dir):
         for tau_ext in data.files:
             # Make a velocity plot form data with v = data[tau_ext]
             v = data[tau_ext]
+            print(v.shape)
             fig, ax = plt.subplots(figsize=(linewidth,linewidth/2))
             ax.plot(v)
             ax.set_title(f"Velocity history for tau_ext = {tau_ext}")
@@ -601,4 +602,4 @@ def vanha_maini():
     shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
 
 if __name__ == "__main__":
-    vanha_maini()
+    makeVelocityHistoryPlots("debug/partial-dislocation")
