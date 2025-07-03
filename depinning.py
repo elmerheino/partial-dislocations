@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import multiprocessing as mp
 from functools import partial
@@ -143,8 +144,9 @@ class DepinningSingle(Depinning):
         self.rtol = rtol
 
         self.y0_rel = None
+        self.results = None
 
-    def initialRelaxation(self, relaxation_time = 5e6):
+    def initialRelaxation(self, relaxation_time = 50):
         sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                             mu=self.mu, tauExt=0, bigN=self.bigN, length=self.length, 
                             dt=self.dt, time=relaxation_time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
@@ -188,7 +190,10 @@ class DepinningSingle(Depinning):
                 with open(error_log, 'w') as f:
                     f.write(f"{tauExt}\t{self.deltaR} \n")
 
-        return v_rel, l_range, avg_w, y_last, v_cm_over_time, sim.getParameteters()
+        return {
+            'v_rel': v_rel, 'l_range': l_range, 'avg_w': avg_w, 'y_last': y_last, 'v_cm': v_cm_over_time,
+            'params': sim.getParameteters()
+        }
 
     def run(self):
         velocities = list()
@@ -202,6 +207,8 @@ class DepinningSingle(Depinning):
         else:
             with mp.Pool(self.cores) as pool:
                 results = pool.map(partial(DepinningSingle.studyConstantStress, self), self.stresses)
+                self.results = results
+
                 velocities, l_ranges, w_avgs, y_last, v_cms, params = zip(*results)
         
         return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
@@ -217,3 +224,65 @@ class DepinningSingle(Depinning):
     
     def getStresses(self):
         return self.stresses
+    
+    def save_results(self, folder_path):
+
+        if self.results is None:
+            raise ValueError("No results to save. Run the simulation first.")
+
+        parameters = [r['params'] for r in self.results]
+
+        depining_path = Path(folder_path)
+        depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{self.deltaR}")
+        depining_path.mkdir(exist_ok=True, parents=True)
+
+        tau_min_ = min(self.stresses.tolist())
+        tau_max_ = max(self.stresses.tolist())
+        points = len(self.stresses.tolist())
+        depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{self.time}-s-{self.seed}-R-{self.deltaR}.json")
+
+        v_rels = [r['v_rel'] for r in self.results]
+        with open(str(depining_path), 'w') as fp:
+            json.dump({
+                "stresses":self.stresses.tolist(),
+                "v_rel":v_rels,
+                "seed":self.seed,
+                "time":self.time,
+                "dt":self.dt
+            },fp)
+
+        # Save all the roughnesses
+        roughnesses = [r['avg_w'] for r in self.results]
+        l_ranges = [r['l_range'] for r in self.results]
+        l_range = l_ranges[0]
+        for tau, avg_w, params in zip(self.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
+            deltaR_i = params[4]
+            p = Path(folder_path).joinpath(f"averaged-roughnesses").joinpath(f"noise-{self.deltaR}").joinpath(f"seed-{self.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p = p.joinpath(f"roughness-tau-{tau}-R-{deltaR_i}.npz")
+            
+            np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
+            pass
+
+        # Save all the relaxed dislocation profiles at the end of simulation
+        y_last = [r['y_last'] for r in self.results]
+        for y_i, params in zip(y_last, parameters):
+            tauExt = params[9]
+            deltaR_i = params[4]
+            p = Path(folder_path).joinpath(f"dislocations-last").joinpath(f"noise-{self.deltaR}").joinpath(f"seed-{self.seed}")
+            p.mkdir(exist_ok=True, parents=True)
+            p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt}-R-{self.deltaR}.npz")
+            np.savez(p0, y=y_i, parameters=params)
+
+        # Save the velocity of the CM from the last 10% of simulation time
+        v_cms = [r['v_cm'] for r in self.results]
+        v_cms_over_time = dict()
+        for v_cm, params in zip(v_cms, parameters):
+            deltaR_i = params[4]
+            tauExt_i = params[9]
+
+            v_cms_over_time[f"{tauExt_i}"] = v_cm
+        
+        vel_save_path = Path(folder_path).joinpath(f"velocties/noise-{self.deltaR}-seed-{self.seed}-v_cm.npz")
+        vel_save_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(vel_save_path, **v_cms_over_time)

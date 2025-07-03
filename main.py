@@ -273,54 +273,8 @@ def perfect_dislocation_depinning(tau_min, tau_max, cores, seed, deltaR, points,
     
     v_rel, l_range, roughnesses, y_last, v_cms, parameters = depinning.run() # Velocity of center of mass, the l_range for roughness, all roughnesses and parameters for each simulation
 
-    # Save the results to a .json file
-    depining_path = Path(folder)
-    depining_path = depining_path.joinpath("depinning-dumps").joinpath(f"noise-{deltaR}")
-    depining_path.mkdir(exist_ok=True, parents=True)
-
-    tau_min_ = min(depinning.stresses.tolist())
-    tau_max_ = max(depinning.stresses.tolist())
-    points = len(depinning.stresses.tolist())
-    depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{depinning.time}-s-{depinning.seed}-R-{deltaR}.json")
-    with open(str(depining_path), 'w') as fp:
-        json.dump({
-            "stresses":depinning.stresses.tolist(),
-            "v_rel":v_rel,
-            "seed":depinning.seed,
-            "time":depinning.time,
-            "dt":depinning.dt
-        },fp)
-
-    # Save all the roughnesses
-    for tau, avg_w, params in zip(depinning.stresses, roughnesses, parameters): # Loop through tau as well to save it along data
-        deltaR_i = params[4]
-        p = Path(folder).joinpath(f"averaged-roughnesses").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
-        p.mkdir(exist_ok=True, parents=True)
-        p = p.joinpath(f"roughness-tau-{tau}-R-{deltaR_i}.npz")
-        
-        np.savez(p, l_range=l_range, avg_w=avg_w, parameters=params)
-        pass
-
-    # Save all the relaxed dislocation profiles at the end of simulation
-    for y_i, params in zip(y_last, parameters):
-        tauExt = params[9]
-        deltaR_i = params[4]
-        p = Path(folder).joinpath(f"dislocations-last").joinpath(f"noise-{deltaR}").joinpath(f"seed-{depinning.seed}")
-        p.mkdir(exist_ok=True, parents=True)
-        p0 = p.joinpath(f"dislocation-shapes-tau-{tauExt}-R-{deltaR}.npz")
-        np.savez(p0, y=y_i, parameters=params)
-
-    # Save the velocity of the CM from the last 10% of simulation time
-    v_cms_over_time = dict()
-    for v_cm, params in zip(v_cms, parameters):
-        deltaR_i = params[4]
-        tauExt_i = params[9]
-
-        v_cms_over_time[f"{tauExt_i}"] = v_cm
-    
-    vel_save_path = Path(folder).joinpath(f"velocties/noise-{deltaR}-seed-{depinning.seed}-v_cm.npz")
-    vel_save_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(vel_save_path, **v_cms_over_time)
+    # Save the results to a given directory
+    depinning.save_results(Path(folder))
 
 
 def run_single_partial_dislocation(tau_ext, noise, time, dt, save_folder : Path):
