@@ -18,6 +18,10 @@ class PartialDislocationsSimulation(Simulation):
         self.b_p = b_p
 
         self.y0 = np.ones((2, self.bigN), dtype=float)*self.d0
+        self.y0 = np.vstack((
+            np.ones(self.bigN)*self.d0,     # y1
+            np.zeros(self.bigN)             # y2 ensure that in the beginning y1 > y2
+        ))
 
         self.y2 = list()
         self.y1 = list()
