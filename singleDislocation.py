@@ -15,7 +15,6 @@ class DislocationSimulation(Simulation):
         # Initialize default y0 as flat line at y=0
         self.y0 = np.zeros(self.bigN, dtype=float)
         
-        # Pre-allocate memory here
         self.y1 = list() # List of arrays
 
         # y1 is a matrix that looks like this:
@@ -32,6 +31,10 @@ class DislocationSimulation(Simulation):
         self.rtol = rtol
 
         self.v_cm_history = list()
+
+        self.shape_save_freq = 10           # The frequency when the whole dislocation line shape is saved in the format
+                                            # of every self.shape_save_freq:th self.dt
+        self.selected_y_shapes = list()
 
         pass
     
@@ -82,7 +85,11 @@ class DislocationSimulation(Simulation):
             t1 = time.time()
             print(f"Time taken for simulation: {t1 - t0}")
     
-    def run_in_chunks(self, backup_file, chunk_size = 100, timeit=False):
+    def run_in_chunks(self, backup_file, shape_save_freq, chunk_size = 100, timeit=False):
+        """
+        runs the simulatio in chunks
+        if shape_save_freq == chunck_size, then 
+        """
         if timeit:
             t0 = time.time()
 
@@ -101,12 +108,21 @@ class DislocationSimulation(Simulation):
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
 
+            t_evals = np.arange(start_i, end_i, self.dt)
+
             sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
-                            t_eval=np.arange(start_i, end_i, self.dt),
+                            t_eval=t_evals,
                             rtol=self.rtol)
             
             y_i = sol_i.y.T
             current_chunk_y1 = y_i
+
+            # Save selected shapes according to shape_save_freq
+            indices = np.arange(0, len(current_chunk_y1), shape_save_freq)
+            selected_times = t_evals[indices]
+            selected_ys = current_chunk_y1[indices]
+
+            self.selected_y_shapes.extend(zip(selected_times, selected_ys))
 
             last_y = y_i
             last_y0 = y_i[-1]
@@ -134,7 +150,7 @@ class DislocationSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         pass
 
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, method='RK45'):
+    def run_until_relaxed(self, backup_file, chunk_size : int, shape_save_freq, timeit=False, tolerance=1e-6, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunk_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -167,13 +183,22 @@ class DislocationSimulation(Simulation):
 
             last_y0 = last_y[-1]
             
+            t_evals = np.arange(start_i, end_i, self.dt)
             sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
-                            t_eval=np.arange(start_i, end_i, self.dt),
+                            t_eval=t_evals,
                             rtol=self.rtol)
             y_i = sol_i.y.T
             self.used_timesteps = self.used_timesteps + sol_i.t[1:] - sol_i.t[:-1] # Get the time steps used
 
             last_y = y_i
+
+            # Save selected shapes according to shape_save_freq
+            indices = np.arange(0, len(y_i), shape_save_freq) # If shape save freq=len(y_i) then only one shape per chunck is saved
+            selected_times = t_evals[indices]
+            selected_ys = y_i[indices]
+
+            self.selected_y_shapes.extend(zip(selected_times, selected_ys))
+
             np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), time=end_i)
             total_time_so_far = total_time_so_far + chunk_size
 
@@ -310,6 +335,11 @@ class DislocationSimulation(Simulation):
     def getVCMhist(self):
         return np.array(self.v_cm_history).flatten()
     
+    def getSelectedYshapes(self):
+        """
+        self.selected_y_shapes is a list of tuples with form (time, dislocation shape)
+        """
+        return self.selected_y_shapes
     @classmethod
     def from_dict(cls, params):
         """Create a DislocationSimulation from a dictionary of parameters"""
@@ -387,6 +417,10 @@ if __name__ == "__main__":
     backup_path = Path("results/2025-06-21-region-1/single-dislocation/failsafe/dislocaition-0ddd6fbd5897758a4a42670a0c7b1e49f83b7d63e675944f41fd1dbf4a8b0b90.npz")
     backup_path.parent.mkdir(parents=True, exist_ok=True)
     dislocation1.run_until_relaxed(chunk_size=1000/10, backup_file=backup_path)
+
+    print(dislocation1.getVCMhist())
+
+    print(dislocation1.getLineProfiles())
 
     # Method 3: Load from backup file
     dislocation3 = DislocationSimulation.from_backup(backup_path)
