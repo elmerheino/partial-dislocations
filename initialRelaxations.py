@@ -34,7 +34,7 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder):
     backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
     backup_file.parent.mkdir(parents=True, exist_ok=True)
 
-    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=10, method='RK45')
+    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=10000, method='RK45')
 
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
