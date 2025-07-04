@@ -111,7 +111,7 @@ class PartialDislocationsSimulation(Simulation):
 
         self.has_simulation_been_run = True
 
-    def run_in_chunks(self, backup_file, chunk_size = 100, timeit=False):
+    def run_in_chunks(self, backup_file, chunk_size = 100, timeit=False, method='RK45'):
 
         if timeit:
             t0 = time.time()
@@ -134,9 +134,12 @@ class PartialDislocationsSimulation(Simulation):
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
 
-            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
+            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
                             t_eval=np.arange(start_i, end_i, self.dt),
-                            rtol=self.rtol)
+                            rtol=self.rtol, atol=1e-14)
+            
+            if not sol_i.success:
+                raise RuntimeError(f"solve_ivp failed: {sol_i.message}")
             
             y_i = sol_i.y.reshape(2, self.bigN, -1)
 
@@ -156,12 +159,11 @@ class PartialDislocationsSimulation(Simulation):
             sf_width = np.mean(current_chunk_y1 - current_chunk_y2, axis=1)
             self.avg_stacking_fault_history.append(sf_width)
 
-
-            try:
+            if len(total_CM_i) > 2:
                 v_cm_i = np.gradient(total_CM_i, self.dt)
                 self.avg_v_cm_history.append(v_cm_i)
-            except:
-                print(total_CM_i)
+            else:
+                print(f"not true len(total_cm_i) > 2, total_cm_i = {total_CM_i}, start_i = {start_i}, end_i = {end_i}")
         
         self.y1 = last_y[0].T
         self.y2 = last_y[1].T
@@ -242,7 +244,7 @@ class PartialDislocationsSimulation(Simulation):
                     break # end the simulation here.
 
         if not relaxed:
-            # If not relaxed after max_time, run one more chunk as per original logic
+            # If not relaxed after max_time, run one more chunk
             start_t = total_time_so_far
             end_t = total_time_so_far + chunk_size
             sol = solve_ivp(self.rhs, [start_t, end_t], last_y0.flatten(), method=method, 
@@ -397,7 +399,7 @@ class PartialDislocationsSimulation(Simulation):
         return self.used_timesteps
     
     def getSFhist(self):
-        return np.array(self.avg_stacking_fault_history).flatten()
+        return np.array(self.avg_stacking_fault_history)
     
     def getVCMhist(self):
         return np.array(self.avg_v_cm_history).flatten()
@@ -408,3 +410,21 @@ class PartialDislocationsSimulation(Simulation):
         hash_object = hashlib.sha256(params_str.encode())
         hex_dig = hash_object.hexdigest()
         return hex_dig
+
+
+if __name__ == "__main__":
+    # Example usage of the PartialDislocationsSimulation class
+    sim = PartialDislocationsSimulation(
+        bigN=2,           # Number of points
+        length=2,        # Length of dislocation
+        time=100,          # Total simulation time
+        dt=1,            # Time step
+        deltaR=1.0,         # Random force correlation length
+        bigB=1.0,          # Drag coefficient
+        smallB=1.0,         # Burgers vector
+        b_p=1.0,           # Partial Burgers vector
+        mu=1.0,            # Shear modulus
+        tauExt=1.0         # External stress
+    )
+    # sim.run_simulation()
+    sim.run_in_chunks("debug/jtn.npz", chunk_size=sim.time/10, timeit=True, method='BDF')

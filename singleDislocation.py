@@ -134,7 +134,7 @@ class DislocationSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         pass
 
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, ):
+    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunk_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -167,7 +167,7 @@ class DislocationSimulation(Simulation):
 
             last_y0 = last_y[-1]
             
-            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method='RK45', 
+            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
                             t_eval=np.arange(start_i, end_i, self.dt),
                             rtol=self.rtol)
             y_i = sol_i.y.T
@@ -194,7 +194,7 @@ class DislocationSimulation(Simulation):
             self.y1 = last_y
             # print(f"relaxed shape {self.y1.shape}, len/time = {self.y1.shape[0]/self.time*100:2f}")
         else: # If not relaxed run one more chuck
-            sol = solve_ivp(self.rhs, [total_time_so_far, total_time_so_far + chunk_size], last_y[-1].flatten(), method='RK45', 
+            sol = solve_ivp(self.rhs, [total_time_so_far, total_time_so_far + chunk_size], last_y[-1].flatten(), method=method, 
                                 t_eval=np.arange(total_time_so_far, total_time_so_far + chunk_size, self.dt),
                                 rtol=self.rtol)
             

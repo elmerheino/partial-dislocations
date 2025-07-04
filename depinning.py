@@ -74,6 +74,9 @@ class DepinningPartial(Depinning):
         rel_backup_path.parent.mkdir(exist_ok=True, parents=True)
         
         relaxed = sim.run_until_relaxed(rel_backup_path, sim.time/10)
+        v_cm_hist = sim.getVCMhist()
+
+        np.savez(rel_backup_path, v_cm_hist=v_cm_hist)
 
         print(f"Initial relaxation fulfilled criterion: {relaxed}")
 
