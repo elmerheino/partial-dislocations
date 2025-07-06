@@ -71,8 +71,8 @@ class Simulation(object):
         # accel_cm_i = np.gradient(velocities)
         # return np.mean(np.abs(accel_cm_i)) < tolerance
 
-        t = np.arange(len(velocities))*self.dt
-        slope, intercept, r_value, p_value, std_err = linregress(t, velocities)
+        # t = np.arange(len(velocities))*self.dt
+        # slope, intercept, r_value, p_value, std_err = linregress(t, velocities)
 
         # return slope < tolerance
         return False
