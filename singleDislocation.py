@@ -205,7 +205,8 @@ class DislocationSimulation(Simulation):
 
             # Save a backup
 
-            np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), last_success_time=end_i, og_time=self.time)
+            np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), last_success_time=end_i, og_time=self.time,
+                     v_cm_hist=self.getVCMhist())
             total_time_so_far = total_time_so_far + chunk_size
 
             cm_i = np.mean(y_i, axis=1)

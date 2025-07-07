@@ -56,35 +56,32 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder):
     # where time is the simulation time and y1 to yN represent the dislocation shape at that time, N being the bigN used
     in the simulation
     """
-    try:
-        deltaR, seed = deltaRseed
-        sim = DislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
-                                    cLT1=1, seed=seed)
-        
-        backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
-        backup_file.parent.mkdir(parents=True, exist_ok=True)
+    deltaR, seed = deltaRseed
+    sim = DislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
+                                cLT1=1, seed=seed)
+    
+    backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
+    backup_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Save three dislocation shapes from each chunk
-        sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
+    # Save three dislocation shapes from each chunk
+    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
 
-        results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
-        results_save_path.parent.mkdir(exist_ok=True, parents=True)
+    results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
+    results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
-        v_cm_hist = sim.getVCMhist()
-        y_t = sim.getLineProfiles()
-        parameters = sim.getParameteters()
-        selected_ys = sim.getSelectedYshapes()
+    v_cm_hist = sim.getVCMhist()
+    y_t = sim.getLineProfiles()
+    parameters = sim.getParameteters()
+    selected_ys = sim.getSelectedYshapes()
 
-        np.savez(results_save_path, v_cm_hist=v_cm_hist, y_last=y_t, 
-                 selected_ys=selected_ys,
-                 params=parameters)
+    np.savez(results_save_path, v_cm_hist=v_cm_hist, y_last=y_t, 
+                selected_ys=selected_ys,
+                params=parameters)
 
-        max_retries = 5
-        retry_delay = 1
+    max_retries = 5
+    retry_delay = 1
 
-        params_file = Path(folder).joinpath("run_params.json")
-    except:
-        raise
+    params_file = Path(folder).joinpath("run_params.json")
 
     for attempt in range(max_retries):
         try:
@@ -115,7 +112,8 @@ def main_w_args():
         "rpoints" : args.rpoints,
         "successful noises" : list(),
         "noise spacing":"log",
-        "noise gen command":f"np.logspace({args.rmin}, {args.rmax}, {args.rpoints})"
+        "noise gen command":f"np.logspace({args.rmin}, {args.rmax}, {args.rpoints})",
+        "args used":vars(args)
     }
 
     params_file = Path(args.folder).joinpath("run_params.json")
@@ -125,11 +123,8 @@ def main_w_args():
 
     noise_seed_pairs = [(noise, seed) for noise in noises for seed in range(args.seeds)]
 
-    # with mp.Pool(args.cores) as pool:
-    #     pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
-    for pair in noise_seed_pairs:
-        fn = partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n)
-        fn(pair)
+    with mp.Pool(args.cores) as pool:
+        pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
 
 if __name__ == '__main__':
     main_w_args()
