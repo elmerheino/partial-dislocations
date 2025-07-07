@@ -14,6 +14,7 @@ class DislocationSimulation(Simulation):
         
         # Initialize default y0 as flat line at y=0
         self.y0 = np.zeros(self.bigN, dtype=float)
+        self.t0 = 0
         
         self.y1 = list() # List of arrays
 
@@ -38,13 +39,14 @@ class DislocationSimulation(Simulation):
 
         pass
     
-    def setInitialY0Config(self, y0):
+    def setInitialY0Config(self, y0, t0):
         """
         Sets the initial array y0 at time t=0.
         """
         if len(y0) != self.bigN:
             raise Exception(f"Length of input array is invalid len(y0) = {len(y0)} != {self.bigN}")
         self.y0 = np.array(y0, dtype=float)  # Store as numpy array
+        self.t0 = t0
         pass
 
     def funktio(self, y1, t):
@@ -158,6 +160,8 @@ class DislocationSimulation(Simulation):
 
         So when using this method, these other variables will not be computed from the "last 10%" of simulation time, unless
         chunk_size is one tenth of simulation time and it so happened that exactly ten chunks is used to achieve relaxation.
+
+        Shape save freq is the number of dislocations saved from each chunk.
         """
 
         if timeit:
@@ -171,7 +175,7 @@ class DislocationSimulation(Simulation):
         backup_file = Path(backup_file)
         backup_file.parent.mkdir(exist_ok=True, parents=True)
 
-        total_time_so_far = 0
+        total_time_so_far = self.t0
         last_y = [self.y0]
         max_time = self.time
 
@@ -193,13 +197,15 @@ class DislocationSimulation(Simulation):
             last_y = y_i
 
             # Save selected shapes according to shape_save_freq
-            indices = np.arange(0, len(y_i), shape_save_freq) # If shape save freq=len(y_i) then only one shape per chunck is saved
+            indices = np.linspace(0, len(y_i) - 1, shape_save_freq, dtype=int)
             selected_times = t_evals[indices]
             selected_ys = y_i[indices]
 
             self.selected_y_shapes.extend(zip(selected_times, selected_ys))
 
-            np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), time=end_i)
+            # Save a backup
+
+            np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), last_success_time=end_i, og_time=self.time)
             total_time_so_far = total_time_so_far + chunk_size
 
             cm_i = np.mean(y_i, axis=1)
@@ -337,9 +343,40 @@ class DislocationSimulation(Simulation):
     
     def getSelectedYshapes(self):
         """
-        self.selected_y_shapes is a list of tuples with form (time, dislocation shape)
+        Returns a matrix of selected dislocation shapes over time.
+
+        The `self.selected_y_shapes` list contains tuples of (time, dislocation shape).
+        This function transforms this list into a NumPy array where each row represents
+        a time point and the corresponding dislocation shape.
+
+        The output matrix has the following structure:
+
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+        | ...  | ...  | ...  | ...  | ... | ...  |
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+
+        Where `time` is the time at which the dislocation shape was recorded, and
+        `y1`, `y2`, ..., `yN` are the y-coordinates representing the shape of the
+        dislocation at that time.
+
+        Returns:
+            np.ndarray: A NumPy array representing the selected dislocation shapes over time with the structure:
         """
-        return self.selected_y_shapes
+
+        times = np.array([i[0] for i in self.selected_y_shapes])
+        shapes = np.array([i[1] for i in self.selected_y_shapes])
+        times = times.reshape(-1,1)
+        selected_ys = np.hstack((times, shapes))
+
+        return selected_ys
     @classmethod
     def from_dict(cls, params):
         """Create a DislocationSimulation from a dictionary of parameters"""
@@ -365,7 +402,14 @@ class DislocationSimulation(Simulation):
     def from_backup(cls, backup_file):
         """Create a DislocationSimulation from a backup file"""
         data = np.load(backup_file)
+        
         params = data['params']
+        paramsDict = DislocationSimulation.paramListToDict(params)
+
+        og_time = paramsDict['time']
+        fail_time = data['time']
+        fail_y = data['y_last']
+
         # Parameters are stored in the order defined in getParameteters()
         sim = cls(
             bigN=int(params[0]),
@@ -383,46 +427,17 @@ class DislocationSimulation(Simulation):
         )
         # Set the last state as initial condition if available
         if 'y_last' in data:
-            sim.setInitialY0Config(data['y_last'])
+            sim.setInitialY0Config(fail_y, fail_time)
         return sim
 
 
 # For debugging
 if __name__ == "__main__":
-    # Method 1: Using the regular constructor with setInitialY0Config
-    dislocation1 = DislocationSimulation(
-        deltaR=0.01, seed=0, bigN=256, length=256,
-        bigB=1, smallB=1, mu=1, cLT1=1, time=1000, dt=2, tauExt=0
-    )
-    dislocation1.setInitialY0Config(np.ones(256))  # Set initial configuration to ones
-
-    # Method 2: Using the dictionary constructor
-    params = {
-        'deltaR': 0.01,
-        'seed': 0,
-        'bigN': 256,
-        'length': 256,
-        'bigB': 1,
-        'smallB': 1,
-        'mu': 1,
-        'cLT1': 1,
-        'time': 1000,
-        'dt': 2,
-        'tauExt': 0,
-        'y0': np.ones(256)  # Initial configuration as parameter
-    }
-    dislocation2 = DislocationSimulation.from_dict(params)
-
     # Run simulation with first instance and save backup
-    backup_path = Path("results/2025-06-21-region-1/single-dislocation/failsafe/dislocaition-0ddd6fbd5897758a4a42670a0c7b1e49f83b7d63e675944f41fd1dbf4a8b0b90.npz")
+    backup_path = Path("results/6-7-relaksaatio/perfect/failsafes/backup-003de01563295a1bff2f54a185cb832ad25e8da27f27d50f670f2abc7b1a7af1.npz")
     backup_path.parent.mkdir(parents=True, exist_ok=True)
-    dislocation1.run_until_relaxed(chunk_size=1000/10, backup_file=backup_path)
 
-    print(dislocation1.getVCMhist())
-
-    print(dislocation1.getLineProfiles())
-
-    # Method 3: Load from backup file
+    # Load from backup file
     dislocation3 = DislocationSimulation.from_backup(backup_path)
-    dislocation3.run_until_relaxed(backup_path, dislocation3.time/10)
+    dislocation3.run_until_relaxed(backup_path, dislocation3.time/10, shape_save_freq=10000)
     pass
