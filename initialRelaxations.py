@@ -7,6 +7,7 @@ from functools import partial
 import json
 import fcntl
 import time
+from partialDislocation import PartialDislocationSimulation
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find relaxed configurations for some noise levels.')
@@ -100,6 +101,83 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder):
             if attempt == max_retries - 1:
                 raise
             time.sleep(retry_delay)
+
+def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder):
+    """
+    Simulates the relaxation of a dislocation under given parameters and saves the results.
+    Args:
+        deltaRseed (tuple): A tuple containing the noise amplitude (deltaR) and the random seed.
+        time (float): The total simulation time.
+        dt (float): The time step for the simulation.
+        length (int): The length of the simulation domain.
+        bigN (int): The number of points used to discretize the dislocation line.
+        folder (str): The folder path to save the simulation results and backup files.
+    Returns:
+        None
+    Raises:
+        Exception: If any error occurs during the simulation or saving process.
+    Saves:
+        - Backup files during the simulation to `folder/failsafes/`.
+        - Final relaxed dislocation configurations, VCM history, line profiles, and parameters to `folder/relaxed-configurations/`.
+        - `run_params.json` is updated with successful noise amplitudes.
+    # selected_ys matrix shape:
+    # [[time, y1, y2, y3, ..., yN],
+    #  [time, y1, y2, y3, ..., yN],
+    #  [time, y1, y2, y3, ..., yN],
+    #  ...,
+    #  [time, y1, y2, y3, ..., yN]]
+    # where time is the simulation time and y1 to yN represent the dislocation shape at that time, N being the bigN used
+    in the simulation
+    """
+    deltaR, seed = deltaRseed
+    sim = PartialDislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
+                                cLT1=1, seed=seed)
+    
+    backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
+    backup_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Save three dislocation shapes from each chunk
+    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
+
+    results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
+    results_save_path.parent.mkdir(exist_ok=True, parents=True)
+
+    v_cm_hist = sim.getVCMhist()
+    y_t = sim.getLineProfiles()
+    parameters = sim.getParameteters()
+    selected_ys = sim.getSelectedYshapes()
+
+    np.savez(results_save_path, v_cm_hist=v_cm_hist, y_last=y_t, 
+                selected_ys=selected_ys,
+                params=parameters)
+
+    max_retries = 5
+    retry_delay = 1
+
+    params_file = Path(folder).joinpath("run_params.json")
+
+    for attempt in range(max_retries):
+        try:
+            with open(params_file, 'r+') as f:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                try:
+                    params = json.load(f)
+                    params["successful noises"].append(deltaR.astype(float))
+                    f.seek(0)
+                    json.dump(params, f, indent=4)
+                    f.truncate()
+                finally:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            break
+        except (IOError, BlockingIOError) as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(retry_delay)
+
+
+def pickup_where_left():
+    pass
+
 
 def main_w_args():
     args = parse_args()
