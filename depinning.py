@@ -252,14 +252,14 @@ class DepinningSingle(Depinning):
                                     mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                     dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
         
-        sim.setInitialY0Config(self.y0_rel)
+        sim.setInitialY0Config(self.y0_rel, 0)
         
         # Name a backup file where to save checkpoints
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{sim.getUniqueHashString()}")
 
         chunk_size = self.time/10
 
-        sim.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
+        sim.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size, shape_save_freq=2)
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
@@ -282,10 +282,12 @@ class DepinningSingle(Depinning):
             'params': sim.getParameteters()
         }
 
-    def run(self):
+    def run(self, y0_rel=None):
         velocities = list()
-
-        self.y0_rel = self.initialRelaxation()
+        if type(y0_rel) == type(None):
+            self.y0_rel = self.initialRelaxation()
+        else:
+            self.y0_rel = y0_rel
 
         if self.sequential: # Sequential does not work
             for s in self.stresses:
@@ -328,14 +330,14 @@ class DepinningSingle(Depinning):
         points = len(self.stresses.tolist())
         depining_path = depining_path.joinpath(f"depinning-tau-{tau_min_}-{tau_max_}-p-{points}-t-{self.time}-s-{self.seed}-R-{self.deltaR}.json")
 
-        v_rels = [r['v_rel'] for r in self.results]
+        v_rels = [r['v_rel'].astype(float) for r in self.results]
         with open(str(depining_path), 'w') as fp:
             json.dump({
-                "stresses":self.stresses.tolist(),
-                "v_rel":v_rels,
-                "seed":self.seed,
-                "time":self.time,
-                "dt":self.dt
+            "stresses": [float(s) for s in self.stresses.tolist()],
+            "v_rel": [float(v) for v in v_rels],
+            "seed": int(self.seed),
+            "time": float(self.time),
+            "dt": float(self.dt)
             },fp)
 
         # Save all the roughnesses

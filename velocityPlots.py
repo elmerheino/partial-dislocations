@@ -496,7 +496,7 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
                 print(f"{depining_file} and {noise_dir}")
             dest.mkdir(parents=True, exist_ok=True)
             if opt:
-                plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
+                plt.savefig(dest.joinpath(f"depinning-noise-opt.pdf"))
             else:
                 plt.savefig(dest.joinpath(f"depinning-noise.pdf"))
             pass
@@ -531,13 +531,14 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
             plt.title(f"Depinning noise = {noise}")
             plt.xlabel("$\\tau_{ext}$")
             plt.ylabel("$v_{CM}$")
+            plt.tight_layout()
 
             dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
             dest.mkdir(parents=True, exist_ok=True)
             if opt:
-                plt.savefig(dest.joinpath(f"depinning-noise-opt.png"))
+                plt.savefig(dest.joinpath(f"depinning-noise-opt.pdf"))
             else:
-                plt.savefig(dest.joinpath(f"depinning-noise.png"))
+                plt.savefig(dest.joinpath(f"depinning-noise.pdf"))
             pass
             plt.close()
     else:
@@ -576,6 +577,7 @@ def makeVelocityHistoryPlots(root_dir):
             ax.set_ylabel("Velocity")
             save_path = Path(root_dir).joinpath(f"velocity-history-plots/{file.stem}")
             save_path.mkdir(exist_ok=True, parents=True)
+            fig.tight_layout()
             fig.savefig(save_path.joinpath(f"velocity-history-{float(tau_ext)*1e4:.2f}-1e-4.pdf"))
             plt.close(fig)
 
@@ -621,5 +623,5 @@ def processInitalRelaxations(path):
     pass
 
 if __name__ == "__main__":
-    # makeVelocityHistoryPlots("results/2025-07-03-pikkusysteemi/partial-dislocation")
-    processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")
+    makeVelocityHistoryPlots("debug/single-dislocation")
+    # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")
