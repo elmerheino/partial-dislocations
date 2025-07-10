@@ -66,10 +66,13 @@ class DislocationSimulation(Simulation):
         # Flatten the result back to a 1D array
         return dudt.flatten()
 
-    def run_simulation(self, timeit=False):
+    def run_simulation(self, y0=None, timeit=False):
         if timeit:
             t0 = time.time()
-
+        
+        if type(y0) != type(None):
+            self.y0 = y0
+            
         sol = solve_ivp(self.rhs, [0, self.time], self.y0.flatten(), method='RK45', 
                         t_eval=np.arange(self.time*(1 - 0.1), self.time, self.dt),
                         rtol=self.rtol, atol=1e-10) # Use a very small atol to avoid NaNs in the solution

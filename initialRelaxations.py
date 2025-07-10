@@ -7,7 +7,7 @@ from functools import partial
 import json
 import fcntl
 import time
-from partialDislocation import PartialDislocationSimulation
+from partialDislocation import PartialDislocationsSimulation
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find relaxed configurations for some noise levels.')
@@ -30,7 +30,7 @@ def parse_args():
 
     return parser.parse_args()
 
-def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder):
+def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, t0=None):
     """
     Simulates the relaxation of a dislocation under given parameters and saves the results.
     Args:
@@ -60,79 +60,11 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder):
     deltaR, seed = deltaRseed
     sim = DislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
                                 cLT1=1, seed=seed)
-    
-    backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
-    backup_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Save three dislocation shapes from each chunk
-    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
+    if (type(y0) != type(None)) and (type(t0) != type(None)):
+        sim.setInitialY0Config(y0=y0, t0=t0)
+        sim.setTauCutoff(0)
 
-    results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
-    results_save_path.parent.mkdir(exist_ok=True, parents=True)
-
-    v_cm_hist = sim.getVCMhist()
-    y_t = sim.getLineProfiles()
-    parameters = sim.getParameteters()
-    selected_ys = sim.getSelectedYshapes()
-
-    np.savez(results_save_path, v_cm_hist=v_cm_hist, y_last=y_t, 
-                selected_ys=selected_ys,
-                params=parameters)
-
-    max_retries = 5
-    retry_delay = 1
-
-    params_file = Path(folder).joinpath("run_params.json")
-
-    for attempt in range(max_retries):
-        try:
-            with open(params_file, 'r+') as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    params = json.load(f)
-                    params["successful noises"].append(deltaR.astype(float))
-                    f.seek(0)
-                    json.dump(params, f, indent=4)
-                    f.truncate()
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-            break
-        except (IOError, BlockingIOError) as e:
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(retry_delay)
-
-def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder):
-    """
-    Simulates the relaxation of a dislocation under given parameters and saves the results.
-    Args:
-        deltaRseed (tuple): A tuple containing the noise amplitude (deltaR) and the random seed.
-        time (float): The total simulation time.
-        dt (float): The time step for the simulation.
-        length (int): The length of the simulation domain.
-        bigN (int): The number of points used to discretize the dislocation line.
-        folder (str): The folder path to save the simulation results and backup files.
-    Returns:
-        None
-    Raises:
-        Exception: If any error occurs during the simulation or saving process.
-    Saves:
-        - Backup files during the simulation to `folder/failsafes/`.
-        - Final relaxed dislocation configurations, VCM history, line profiles, and parameters to `folder/relaxed-configurations/`.
-        - `run_params.json` is updated with successful noise amplitudes.
-    # selected_ys matrix shape:
-    # [[time, y1, y2, y3, ..., yN],
-    #  [time, y1, y2, y3, ..., yN],
-    #  [time, y1, y2, y3, ..., yN],
-    #  ...,
-    #  [time, y1, y2, y3, ..., yN]]
-    # where time is the simulation time and y1 to yN represent the dislocation shape at that time, N being the bigN used
-    in the simulation
-    """
-    deltaR, seed = deltaRseed
-    sim = PartialDislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
-                                cLT1=1, seed=seed)
-    
     backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
     backup_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -175,8 +107,69 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder):
             time.sleep(retry_delay)
 
 
-def pickup_where_left():
-    pass
+def fn(x, folder):
+    print(f"Relaxing dislcoation w/ noise = {x[3]['deltaR'].astype(float)} seed = {x[3]['seed'].astype(int)} from t_0 = {x[2]} to t_n = {x[1]} ")
+    relax_one_dislocations( ( x[3]['deltaR'].astype(float),  x[3]['seed'].astype(int) ), x[1], x[3]['dt'].astype(float), x[3]['length'].astype(int), 
+                                        x[3]['bigN'].astype(int), Path(folder), x[0], x[2] )
+    
+def pickup_where_left(folder, cores=8):
+    # Load parameters of the previous run to dict
+    with open(Path(folder).joinpath("run_params.json"), "r") as fp:
+        params = json.load(fp)
+    
+    # Find out which noises have already been relaxed
+    succesfull_noises = params['successful noises']
+    total_noises = params['noises']
+
+    seeds = params["args used"]["seeds"]
+    bigN = params["args used"]["n"]
+    bigL = params["args used"]["length"]
+    dt = params["args used"]["dt"]
+    bigTime = params["args used"]["time"]
+
+    unsuccesfull_noises = list(set(total_noises) - set(succesfull_noises))
+
+    # Next find out if any good failsafe files exist for these noises, and gather the relevant parameters.
+    failsafe_path = Path(folder).joinpath("failsafes")
+
+    unsuccessful_failsafes = list() # The shape profiles of unsuccessful failsafes
+    fail_times = list()     # Time left to integrate until max
+    og_times = list()
+    unsuccesfull_params = list()    # List of dicts
+
+    for failsafe in failsafe_path.iterdir():
+        failsafe = np.load(failsafe)
+        params_i = DislocationSimulation.paramListToDict(failsafe['params'])
+        y0_i = failsafe['y_last']               # The shape of dislocation line where if ended
+        t_f = failsafe['last_success_time']     # The time where if failed, if it did so
+        t_og = failsafe['og_time']              # The time it was meant to run
+
+        deltaR_i = params_i['deltaR']
+
+        time_to_integrate = t_og - t_f
+
+        if deltaR_i in unsuccesfull_noises:
+            unsuccessful_failsafes.append(y0_i)
+            unsuccesfull_params.append(params_i)
+            fail_times.append(t_f)
+            og_times.append(t_og)
+            
+    
+    # Next check if there are some noise levels, which don't have any failsafes
+    failsafe_noises = map(lambda x : x['deltaR'], unsuccesfull_params)
+    no_failsafe_noises = list(set(unsuccesfull_noises) - set(failsafe_noises))
+
+    # Then relax these dislocations until end, and save the results, first the ones with failsafe, then rest
+
+    with mp.Pool(cores) as pool:
+        pool.map(partial(fn, folder=Path(folder)), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
+    
+    # Then start relaxing the ones w/o failsafe:
+    print(f"Found dislocation w/ no failsafe at noises { ','.join(no_failsafe_noises) }")
+    noise_seed_pairs = [(noise, seed) for noise in no_failsafe_noises for seed in range(seeds)]
+    with mp.Pool(cores) as pool:
+        pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), noise_seed_pairs)
+
 
 
 def main_w_args():
@@ -196,13 +189,17 @@ def main_w_args():
 
     params_file = Path(args.folder).joinpath("run_params.json")
     params_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(params_file, 'w') as f:
-        json.dump(params_dict, f, indent=4)
 
-    noise_seed_pairs = [(noise, seed) for noise in noises for seed in range(args.seeds)]
+    if params_file.exists():
+        pickup_where_left(Path(args.folder), args.cores)
+    else:
+        with open(params_file, 'w') as f:
+            json.dump(params_dict, f, indent=4)
 
-    with mp.Pool(args.cores) as pool:
-        pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
+        noise_seed_pairs = [(noise, seed) for noise in noises for seed in range(args.seeds)]
+
+        with mp.Pool(args.cores) as pool:
+            pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
 
 if __name__ == '__main__':
     main_w_args()

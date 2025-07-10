@@ -165,5 +165,10 @@ class Simulation(object):
     def getXValues(self):
         # Retuns the correct distance on x axis.
         return np.arange(self.bigN)*self.deltaL
-
+    
+    def setTauCutoff(self, new_cutoff):
+        """
+        Sets the cutoff time when self.tau_ext is switched on.
+        """
+        self.tau_cutoff = new_cutoff
     pass
