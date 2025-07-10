@@ -108,9 +108,12 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
 
 
 def fn(x, folder):
-    print(f"Relaxing dislcoation w/ noise = {x[3]['deltaR'].astype(float)} seed = {x[3]['seed'].astype(int)} from t_0 = {x[2]} to t_n = {x[1]} ")
-    relax_one_dislocations( ( x[3]['deltaR'].astype(float),  x[3]['seed'].astype(int) ), x[1], x[3]['dt'].astype(float), x[3]['length'].astype(int), 
-                                        x[3]['bigN'].astype(int), Path(folder), x[0], x[2] )
+    t0  = x[2]
+    t_n = x[1]
+
+    print(f"Relaxing dislcoation w/ noise = {x[3]['deltaR'].astype(float)} seed = {x[3]['seed'].astype(int)} from t_0 = {t0} to t_n = {t_n} ")
+    relax_one_dislocations( ( x[3]['deltaR'].astype(float),  x[3]['seed'].astype(int) ), t_n, x[3]['dt'].astype(float), x[3]['length'].astype(int), 
+                                        x[3]['bigN'].astype(int), Path(folder), x[0], t0 )
     
 def pickup_where_left(folder, cores=8):
     # Load parameters of the previous run to dict
@@ -165,7 +168,7 @@ def pickup_where_left(folder, cores=8):
         pool.map(partial(fn, folder=Path(folder)), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
     
     # Then start relaxing the ones w/o failsafe:
-    print(f"Found dislocation w/ no failsafe at noises { ','.join(no_failsafe_noises) }")
+    print(f"Found dislocation w/ no failsafe at noises {no_failsafe_noises}")
     noise_seed_pairs = [(noise, seed) for noise in no_failsafe_noises for seed in range(seeds)]
     with mp.Pool(cores) as pool:
         pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), noise_seed_pairs)
