@@ -53,20 +53,13 @@ class Simulation(object):
             return self.tauExt
         else:
             return 0
-    
-    def tau_no_interpolation(self,y): # Takes around 22.31 mu s
-        yDisc = np.remainder(np.round(y), self.bigN).astype(np.int32) # Round the y coordinate to an integer and wrap around bigN
-        return self.stressField[np.arange(self.bigN), yDisc] # x is discrete anyways here
-    
+        
     def tau(self, y): # This should be the fastest possible way to do this w/ 29.201507568359375 mu s
         # tau_res = [ np.interp(y[x], self.x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in self.x_points ]
         coords = np.array([self.x_indices, y])
-        stress_data = self.stressField[:, :self.bigN]
+        stress_data = self.stressField[:, :]
         return map_coordinates(stress_data, coords, order=1, mode='wrap')
-    
-    def tau_interpolated(self, y): # This should be the fastest possible way to do this w/ 29.201507568359375 mu s
-        return self.tau(y)
-    
+        
     def is_relaxed(self, velocities, tolerance=1e-9):
         # accel_cm_i = np.gradient(velocities)
         # return np.mean(np.abs(accel_cm_i)) < tolerance
@@ -77,35 +70,6 @@ class Simulation(object):
         # return slope < tolerance
         return False
         
-    
-    @staticmethod
-    @jit(nopython=True)
-    def tau_interpolated_static(y, bigN, stressField, x_points): # Takes around 1639.9  mu s, which is faster than the two other options
-        # tau_res = [ np.interp(y[x], self.x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in self.x_points ]
-
-        tau_res = np.empty(bigN)
-        for x in x_points:
-            col = stressField[x,0:bigN]
-            y_x = y[x]
-
-            x1 = math.floor(y_x)
-            x2 = math.ceil(y_x)
-
-            y1 = col[x1 % bigN]
-            y2 = col[x2 % bigN]
-
-            if (x2 - x1) == 0: # handle the case where 
-                # print(f"y_x={y_x} y1={y1}=col[x1]  y2={y2}=col[x2] k={k} ")
-                tau_res[x] = y1
-                continue
-
-            k = (y2 - y1)/(x2 - x1)
-            b = y1 - k*x1
-
-            tau_res[x] = k*y_x + b
-
-        return tau_res
-
     @staticmethod
     @jit(nopython=True)
     def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
@@ -122,31 +86,6 @@ class Simulation(object):
             # res = [ ( y[i] - y[ (i+l) % y.size ] )**2 for i in np.arange(y.size) ]
 
             res = res/y_size
-            c = np.sqrt(res)
-            roughness[l] = c
-
-        return l_range, roughness
-
-    @staticmethod
-    @jit(nopython=True)
-    def roughnessW12(y1, y2, bigN): # Calculated the cross correlation W_12(L) between the dislocations
-        avgY1 = sum(y1)/len(y1)
-        avgY2 = sum(y2)/len(y2)
-
-        l_range = np.arange(0,int(bigN))    # TODO: Use range parameter instead
-        roughness = np.empty(int(bigN))
-
-        y2_size = len(y2)   # TODO: check if len(y1) = bigN ?
-        y1_size = len(y1)
-        
-        for l in l_range:
-            res = 0
-            for i in range(0,y1_size):
-                res += ( y1[i] - avgY1 - (y2[ (i+l) % y2_size ] - avgY2) )**2
-
-            # res = [ ( y1[i] - avgY1 - (y2[ (i+l) % y2_size ] - avgY2) )**2 for i in range(0,y1_size) ] # TODO: check fomula here
-
-            res = res/y1_size # len(range(0,y1_size)) = y1_size = len(res)
             c = np.sqrt(res)
             roughness[l] = c
 
