@@ -406,7 +406,7 @@ if __name__ == "__main__":
     seed = ivp_params['seed'].astype(int)
     bigN = ivp_params['bigN'].astype(int)
 
-    depinning = DepinningSingle(0, noise/10, 10, 400000, 1, 8, "luonnokset/depinning-w-ivp/single-dislocation", noise, seed, bigN, bigN)
+    depinning = DepinningSingle(0, 2*noise/10, 10, 400000, 1, 8, "luonnokset/depinning-w-ivp/single-dislocation", noise, seed, bigN, bigN)
     depinning.run(y0_rel=y_ivp)
     v_rels = depinning.save_results("luonnokset/depinning-w-ivp/single-dislocation")
     pass

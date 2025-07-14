@@ -12,6 +12,7 @@ from sklearn.cluster import KMeans
 
 from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import DislocationSimulation
+import sys
 
 linewidth = 5.59164
 
@@ -623,5 +624,9 @@ def processInitalRelaxations(path):
     pass
 
 if __name__ == "__main__":
-    makeVelocityHistoryPlots("luonnokset/depinning-w-ivp/single-dislocation")
+    if len(sys.argv) > 1:
+        dir_path = sys.argv[1]
+    else:
+        dir_path = "luonnokset/depinning-w-ivp/single-dislocation"
+    makeVelocityHistoryPlots(dir_path)
     # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")

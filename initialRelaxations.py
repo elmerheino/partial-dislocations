@@ -169,7 +169,6 @@ def pickup_where_left(folder, cores=8):
     no_failsafe_noises = list(set(unsuccesfull_noises) - set(failsafe_noises))
 
     # Then relax these dislocations until end, and save the results, first the ones with failsafe, then rest
-
     with mp.Pool(cores) as pool:
         pool.map(partial(fn, folder=Path(folder)), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
     
