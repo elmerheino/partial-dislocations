@@ -623,5 +623,5 @@ def processInitalRelaxations(path):
     pass
 
 if __name__ == "__main__":
-    makeVelocityHistoryPlots("luonnokset/single-dislocation")
+    makeVelocityHistoryPlots("luonnokset/depinning-w-ivp/single-dislocation")
     # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")

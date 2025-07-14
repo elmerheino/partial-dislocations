@@ -385,17 +385,28 @@ class DepinningSingle(Depinning):
             pickle.dump(self.results, fp)
 
 if __name__ == "__main__":
-    initial_confs = np.load("initial_confs.npy")
+    # Get intial config from FIRE
+    # initial_confs = np.load("initial_confs.npy")
 
-    y0 = initial_confs[0]
+    # y0 = initial_confs[0]
 
-    noise = y0[0].astype(float)
-    seed = y0[1].astype(int)
+    # noise = y0[0].astype(float)
+    # seed = y0[1].astype(int)
 
-    y0 = y0[2:]
-    bigN = len(y0)
+    # y0 = y0[2:]
+    # bigN = len(y0)
 
-    depinning = DepinningSingle(0, noise/10, 10, 400000, 1, 8, "luonnokset/single-dislocation", noise, seed, bigN, bigN)
-    depinning.run(y0_rel=y0)
-    v_rels = depinning.save_results("luonnokset/single-dislocation")
+    # Get intial config from IVP
+    ivp_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/7-7-relaksaatio/perfect/relaxed-configurations/dislocation-noise-0.0001-seed-0.npz")
+    ivp = np.load(ivp_path)
+    ivp_params = DislocationSimulation.paramListToDict(ivp['params'])
+
+    y_ivp = ivp['y_last'].flatten()
+    noise = ivp_params['deltaR'].astype(float)
+    seed = ivp_params['seed'].astype(int)
+    bigN = ivp_params['bigN'].astype(int)
+
+    depinning = DepinningSingle(0, noise/10, 10, 400000, 1, 8, "luonnokset/depinning-w-ivp/single-dislocation", noise, seed, bigN, bigN)
+    depinning.run(y0_rel=y_ivp)
+    v_rels = depinning.save_results("luonnokset/depinning-w-ivp/single-dislocation")
     pass
