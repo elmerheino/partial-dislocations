@@ -241,7 +241,7 @@ class DepinningSingle(Depinning):
         rel_backup_path = Path(self.folder_name).joinpath(f"initial-relaxations/initial-relaxation-{sim.getUniqueHashString()}.npz")
         rel_backup_path.parent.mkdir(exist_ok=True, parents=True)
 
-        realaxed = sim.run_until_relaxed(rel_backup_path, chunk_size=sim.time/10)
+        realaxed = sim.run_until_relaxed(rel_backup_path, chunk_size=sim.time/10, shape_save_freq=1)
 
         print(f"Initial relaxation fulfilled criterion: {realaxed}")
 
@@ -288,6 +288,8 @@ class DepinningSingle(Depinning):
             self.y0_rel = self.initialRelaxation()
         else:
             self.y0_rel = y0_rel
+            self.y0_rel = self.initialRelaxation(relaxation_time=1000) # Briefly integrate the given ininitial condition
+
 
         if self.sequential: # Sequential does not work
             for s in self.stresses:
@@ -381,3 +383,19 @@ class DepinningSingle(Depinning):
         dump_path.parent.mkdir(exist_ok=True, parents=True)
         with open(dump_path, "wb") as fp:
             pickle.dump(self.results, fp)
+
+if __name__ == "__main__":
+    initial_confs = np.load("initial_confs.npy")
+
+    y0 = initial_confs[0]
+
+    noise = y0[0].astype(float)
+    seed = y0[1].astype(int)
+
+    y0 = y0[2:]
+    bigN = len(y0)
+
+    depinning = DepinningSingle(0, noise/10, 10, 400000, 1, 8, "luonnokset/single-dislocation", noise, seed, bigN, bigN)
+    depinning.run(y0_rel=y0)
+    v_rels = depinning.save_results("luonnokset/single-dislocation")
+    pass

@@ -578,7 +578,7 @@ def makeVelocityHistoryPlots(root_dir):
             save_path = Path(root_dir).joinpath(f"velocity-history-plots/{file.stem}")
             save_path.mkdir(exist_ok=True, parents=True)
             fig.tight_layout()
-            fig.savefig(save_path.joinpath(f"velocity-history-{float(tau_ext)*1e4:.2f}-1e-4.pdf"))
+            fig.savefig(save_path.joinpath(f"velocity-history-{float(tau_ext)*1e6:.2f}-1e-6.pdf"))
             plt.close(fig)
 
             pass
@@ -623,5 +623,5 @@ def processInitalRelaxations(path):
     pass
 
 if __name__ == "__main__":
-    makeVelocityHistoryPlots("debug/single-dislocation")
+    makeVelocityHistoryPlots("luonnokset/single-dislocation")
     # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")

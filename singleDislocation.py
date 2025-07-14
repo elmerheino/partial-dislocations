@@ -7,13 +7,13 @@ import hashlib
 
 class DislocationSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1=2, seed=None, rtol=1e-6):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1, seed=None, rtol=1e-6):
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1}
         
         # Initialize default y0 as flat line at y=0
-        self.y0 = np.zeros(self.bigN, dtype=float)
+        self.y0 = np.zeros(self.bigN, dtype=np.float64)
         self.t0 = 0
         
         self.y1 = list() # List of arrays
@@ -45,7 +45,7 @@ class DislocationSimulation(Simulation):
         """
         if len(y0) != self.bigN:
             raise Exception(f"Length of input array is invalid len(y0) = {len(y0)} != {self.bigN}")
-        self.y0 = np.array(y0, dtype=float)  # Store as numpy array
+        self.y0 = np.array(y0, dtype=np.float64)  # Store as numpy array
         self.t0 = t0
         pass
 
@@ -130,7 +130,8 @@ class DislocationSimulation(Simulation):
             self.selected_y_shapes.extend(zip(selected_times, selected_ys))
 
             last_y = y_i
-            last_y0 = y_i[-1]
+            last_y0 = y_i[-1].T
+
             np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), time=end_i)
             total_time_so_far += chunk_size
 
@@ -139,7 +140,7 @@ class DislocationSimulation(Simulation):
                 v_cm_i = np.gradient(cm_i, self.dt)
                 self.v_cm_history.append(v_cm_i)
             except:
-                print(cm_i)
+                print(f"Failed to compute the gradient of centre of mass : {cm_i}")
         
         self.y1 = last_y
 
@@ -224,6 +225,9 @@ class DislocationSimulation(Simulation):
         
         # print(f"total time so far = {total_time_so_far} max time = {max_time} and total/max_time {total_time_so_far / max_time}")
         # print(f"Relaxed {relaxed}")
+
+        # Remove the backup file
+        backup_file.unlink(missing_ok=True)
 
         if relaxed:
             self.y1 = last_y

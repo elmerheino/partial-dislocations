@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import shutil
 import numpy as np
 from singleDislocation import DislocationSimulation
 import multiprocessing as mp
@@ -140,8 +141,8 @@ def pickup_where_left(folder, cores=8):
     og_times = list()
     unsuccesfull_params = list()    # List of dicts
 
-    for failsafe in failsafe_path.iterdir():
-        failsafe = np.load(failsafe)
+    for failsafe_path in failsafe_path.iterdir():
+        failsafe = np.load(failsafe_path)
         params_i = DislocationSimulation.paramListToDict(failsafe['params'])
         y0_i = failsafe['y_last']               # The shape of dislocation line where if ended
         t_f = failsafe['last_success_time']     # The time where if failed, if it did so
@@ -156,6 +157,11 @@ def pickup_where_left(folder, cores=8):
             unsuccesfull_params.append(params_i)
             fail_times.append(t_f)
             og_times.append(t_og)
+        
+        # Move the failsafe file to archive to prevent failsafe duplication.
+        archive_path = Path(folder).joinpath("archive-failsafes/")
+        archive_path.parent.mkdir(exist_ok=True, parents=True)
+        shutil.move(failsafe_path, archive_path)
             
     
     # Next check if there are some noise levels, which don't have any failsafes
@@ -169,7 +175,7 @@ def pickup_where_left(folder, cores=8):
     
     # Then start relaxing the ones w/o failsafe:
     print(f"Found dislocation w/ no failsafe at noises {no_failsafe_noises}")
-    noise_seed_pairs = [(noise, seed) for noise in no_failsafe_noises for seed in range(seeds)]
+    noise_seed_pairs = [(float(noise), seed) for noise in no_failsafe_noises for seed in range(seeds)]
     with mp.Pool(cores) as pool:
         pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), noise_seed_pairs)
 
@@ -199,7 +205,7 @@ def main_w_args():
         with open(params_file, 'w') as f:
             json.dump(params_dict, f, indent=4)
 
-        noise_seed_pairs = [(noise, seed) for noise in noises for seed in range(args.seeds)]
+        noise_seed_pairs = [(float(noise), seed) for noise in noises for seed in range(args.seeds)]
 
         with mp.Pool(args.cores) as pool:
             pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
