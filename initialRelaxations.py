@@ -101,7 +101,13 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 try:
                     params = json.load(f)
-                    params["successful noises"].append(float(deltaR))
+
+                    deltaR = float(deltaR)
+                    seed = int(seed)
+
+                    noise_seed_pair = [deltaR, seed]
+
+                    params["successful noise-seeds"].append(noise_seed_pair)
                     f.seek(0)
                     json.dump(params, f, indent=4)
                     f.truncate()
@@ -128,8 +134,8 @@ def pickup_where_left(folder, cores=8):
         params = json.load(fp)
     
     # Find out which noises have already been relaxed
-    succesfull_noises = params['successful noises']
-    total_noises = params['noises']
+    succesfull_noises = [(i,j) for i,j in params['successful noise-seeds']]
+    total_noises = [(i,j) for i,j in params['noise-seeds']]
 
     seeds = params["args used"]["seeds"]
     bigN = params["args used"]["n"]
@@ -155,17 +161,18 @@ def pickup_where_left(folder, cores=8):
         t_og = failsafe['og_time']              # The time it was meant to run
 
         deltaR_i = params_i['deltaR']
+        seed_i = params_i['seed']
 
         time_to_integrate = t_og - t_f
 
-        if deltaR_i in unsuccesfull_noises:
+        if (deltaR_i, seed_i) in unsuccesfull_noises:
             unsuccessful_failsafes.append(y0_i)
             unsuccesfull_params.append(params_i)
             fail_times.append(t_f)
             og_times.append(t_og)
         
         # Move the failsafe file to archive to prevent failsafe duplication.
-        archive_path = Path(folder).joinpath("archive-failsafes/")
+        archive_path = Path(folder).joinpath(f"archive-failsafes/{failsafe_path.name}")
         archive_path.parent.mkdir(exist_ok=True, parents=True)
         shutil.move(failsafe_path, archive_path)
             
@@ -180,7 +187,7 @@ def pickup_where_left(folder, cores=8):
     
     # Then start relaxing the ones w/o failsafe:
     print(f"Found dislocation w/ no failsafe at noises {no_failsafe_noises}")
-    noise_seed_pairs = [(float(noise), seed) for noise in no_failsafe_noises for seed in range(seeds)]
+    noise_seed_pairs = [(float(noise), int(seed)) for noise, seed in no_failsafe_noises]
     with mp.Pool(cores) as pool:
         pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), noise_seed_pairs)
 
@@ -189,13 +196,14 @@ def pickup_where_left(folder, cores=8):
 def main_w_args():
     args = parse_args()
     noises = np.logspace(args.rmin,args.rmax, args.rpoints)
+    noise_seed_pairs = [(float(noise), seed) for noise in noises for seed in range(args.seeds)]
 
     params_dict = {
-        "noises" : noises.tolist(),
+        "noise-seeds" : noise_seed_pairs,
         "rmin" : args.rmin,
         "rmax" : args.rmax,
         "rpoints" : args.rpoints,
-        "successful noises" : list(),
+        "successful noise-seeds" : list(),
         "noise spacing":"log",
         "noise gen command":f"np.logspace({args.rmin}, {args.rmax}, {args.rpoints})",
         "args used":vars(args)
@@ -210,7 +218,6 @@ def main_w_args():
         with open(params_file, 'w') as f:
             json.dump(params_dict, f, indent=4)
 
-        noise_seed_pairs = [(float(noise), seed) for noise in noises for seed in range(args.seeds)]
 
         with mp.Pool(args.cores) as pool:
             pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
