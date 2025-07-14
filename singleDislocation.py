@@ -346,6 +346,7 @@ class DislocationSimulation(Simulation):
                 break
         else:
             print("⚠️ Maximum steps reached without convergence.")
+            return None
 
         return h
     

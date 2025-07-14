@@ -69,6 +69,12 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
     backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
     backup_file.parent.mkdir(parents=True, exist_ok=True)
 
+    # Find a minima using FIRE, and set it as y0
+    y0_fire = sim.relax_w_FIRE()
+    if type(y0_fire) != type(None):
+        # If successsull, set it as the y0 of the integrator
+        sim.setInitialY0Config(y0_fire, sim.t0)
+
     # Save three dislocation shapes from each chunk
     sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
 
@@ -95,7 +101,7 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 try:
                     params = json.load(f)
-                    params["successful noises"].append(deltaR.astype(float))
+                    params["successful noises"].append(float(deltaR))
                     f.seek(0)
                     json.dump(params, f, indent=4)
                     f.truncate()
