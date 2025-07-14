@@ -4,7 +4,8 @@ from simulation import Simulation
 from scipy.integrate import solve_ivp
 from pathlib import Path
 import hashlib
-
+from scipy.interpolate import CubicSpline
+from scipy import fft
 class DislocationSimulation(Simulation):
 
     def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, cLT1, seed=None, rtol=1e-6):
@@ -36,6 +37,26 @@ class DislocationSimulation(Simulation):
         self.shape_save_freq = 10           # The frequency when the whole dislocation line shape is saved in the format
                                             # of every self.shape_save_freq:th self.dt
         self.selected_y_shapes = list()
+
+        # --- System Parameters for FIRE---
+        self.N = self.bigN
+        self.L = self.length
+
+        # --- FIRE Algorithm Parameters ---
+        self.DT_INITIAL = 0.01
+        self.DT_MAX = 0.1
+        self.N_MIN = 5
+        self.F_INC = 1.1
+        self.F_DEC = 0.5
+        self.ALPHA_START = 0.1
+        self.F_ALPHA = 0.99
+        self.MAX_STEPS = 500000
+        self.CONVERGENCE_FORCE = 1e-10
+
+        # --- Noise Parameters ---
+        self.h_max_noise = self.bigN*2
+        self.num_noise_points_h = self.bigN
+        self.splines = self.setup_splines()
 
         pass
     
@@ -254,6 +275,80 @@ class DislocationSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         return relaxed
     
+    def setup_splines(self):
+        """Creates cubic spline interpolators for the generated random noise."""
+        # Define grid for the potential
+        h_grid = np.linspace(0, 2*self.bigN, 2*self.bigN)
+        
+        # Generate random force values at grid points
+        force_grid = self.stressField
+        force_grid[:,-1] = force_grid[:,0]
+        
+        # Create a list of cubic spline interpolators, one for each x position
+        splines = [CubicSpline(h_grid, force_grid[i, :], bc_type='periodic') for i in range(self.bigN)]
+
+        return splines
+
+    def calculate_forces(self, h):
+        k = fft.rfftfreq(self.N, d=self.deltaL) * 2 * np.pi  # Wavevectors
+        h_k = fft.rfft(h)
+        laplacian_k = -(k**2) * h_k         # Second derivative in Fourier space
+        line_tension_force = self.cLT1*self.mu*(self.smallB**2) * fft.irfft(laplacian_k, n=self.bigN)
+
+        noise_force = np.array([self.splines[i](h[i]) for i in range(self.N)])
+
+        return line_tension_force + noise_force
+
+    def relax_w_FIRE(self):
+        """
+        Performs the FIRE relaxation of the dislocation line.
+        """
+        # Initialize dislocation line (e.g., as a straight line) and velocity
+        h = np.zeros(self.bigN)
+        v = np.zeros(self.bigN)
+
+        # Initialize FIRE parameters
+        dt = self.DT_INITIAL
+        alpha = self.ALPHA_START
+        steps_since_negative_power = 0
+
+        print("Starting FIRE relaxation...")
+        for step in range(self.MAX_STEPS):
+            force = self.calculate_forces(h)
+
+            # Check for convergence
+            if np.linalg.norm(force) / np.sqrt(self.N) < self.CONVERGENCE_FORCE:
+                print(f"✅ Converged after {step} steps.")
+                break
+
+            # FIRE dynamics
+            if step > 0:
+                power = np.dot(force, v)
+                if power > 0:
+                    steps_since_negative_power += 1
+                    if steps_since_negative_power > self.N_MIN:
+                        dt = min(dt * self.F_INC, self.DT_MAX)
+                        alpha *= self.F_ALPHA
+                else:
+                    steps_since_negative_power = 0
+                    dt *= self.F_DEC
+                    v[:] = 0.0  # Reset velocity
+                    alpha = self.ALPHA_START
+
+            # Update velocity and position
+            v = (1.0 - alpha) * v + alpha * (force / np.linalg.norm(force)) * np.linalg.norm(v)
+            v += force * dt
+            h += v * dt
+
+            # Simple check to prevent divergence
+            if np.any(np.isnan(h)):
+                print("🛑 Simulation diverged. Halting.")
+                break
+        else:
+            print("⚠️ Maximum steps reached without convergence.")
+
+        return h
+    
     def getLineProfiles(self):
         """
         Always returns the last state of the dislocation.
@@ -415,7 +510,7 @@ class DislocationSimulation(Simulation):
         paramsDict = DislocationSimulation.paramListToDict(params)
 
         og_time = paramsDict['time']
-        fail_time = data['time']
+        fail_time = data['last_success_time']
         fail_y = data['y_last']
 
         # Parameters are stored in the order defined in getParameteters()
@@ -442,10 +537,13 @@ class DislocationSimulation(Simulation):
 # For debugging
 if __name__ == "__main__":
     # Run simulation with first instance and save backup
-    backup_path = Path("results/6-7-relaksaatio/perfect/failsafes/backup-003de01563295a1bff2f54a185cb832ad25e8da27f27d50f670f2abc7b1a7af1.npz")
+    backup_path = Path("results/7-7-relaksaatio/perfect/failsafes/backup-90dc59a8385e7a1e33cda3a0a7be94dc8add9552152da2016c6c49fffeb1d303.npz")
     backup_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Load from backup file
-    dislocation3 = DislocationSimulation.from_backup(backup_path)
-    dislocation3.run_until_relaxed(backup_path, dislocation3.time/10, shape_save_freq=10000)
+    dislocation = DislocationSimulation(128, 128, 100, 1, 1000, 1, 1, 1, 1, 1)
+    relaxed_h = dislocation.relax_w_FIRE()
+    dislocation.setInitialY0Config(relaxed_h, 0)
+    dislocation.run_until_relaxed("remove_me", 100/10, 1, True)
+
     pass
