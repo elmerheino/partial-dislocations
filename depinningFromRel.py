@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from depinning import *
 import numpy as np
 import multiprocessing as mp
@@ -6,50 +7,75 @@ from pathlib import Path
 from singleDislocation import DislocationSimulation
 
 def getTauLimits(noise):
-    return (0, noise/10)
+    return (0, noise)
 
-def perfect_depinning_worker(y0, params, points, limits, folder):
-    try:
-        tau_min, tau_max = limits
-        depinning = DepinningSingle(tau_min, tau_max, points, 1000, 1, cores=0, folder_name=folder, 
-                                    deltaR=params['deltaR'], seed=int(params['seed']), bigB=params['bigN'], 
-                                    length=params['length'], sequential=True)
-        depinning.run(y0_rel=y0)
-        depinning.dump_res_to_pickle(folder.parent.joinpath(f"depinning-{tau_min}-{tau_max}-{points}"))
-    except Exception as e:
-        print(e)
-    # depinning.save_results(folder.parent.joinpath(f"depinning-{tau_min}-{tau_max}-{points}"))
-    pass
+def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : int, points, time):
+    # Read metadata that is left to dir from last run to figure out range of allowed params and print helpful info
+    with open(perfect_folder.joinpath("run_params.json"), "r") as fp:
+        metadata = json.load(fp)
+        noise_count = metadata['args used']['rpoints']
+        seed_count = metadata['args used']['seeds']
+    
+    max_task_id = noise_count*seed_count - 1
+    if not ( (0 <= task_id) and (task_id <= max_task_id) ):     # Ensure that 0 < task_id < max_task_id
+        print(f"Task id should be within range {0} <= task-id <= {max_task_id} now it is {task_id}")
+        return
 
-def perfect_depinning(folder : Path, cores, points):
-    folder_relaxed = folder.joinpath("relaxed-configurations")
-    with mp.Pool(cores) as pool:
-        async_results = []
+    # Find all the relaxed configurations preesent in the passed dir
+    rel_folder = perfect_folder.joinpath("relaxed-configurations")
+    paths_list = [str(i) for i in rel_folder.iterdir()]
 
-        for intial_conf in folder_relaxed.iterdir():
-            data_i = np.load(intial_conf)
-            y0 = data_i['y_last']
-            params = DislocationSimulation.paramListToDict(data_i['params'])
+    # Load a file keeping track of all the relaxed configurations in the file, create it if it doesn't exist
+    paths_file = perfect_folder.joinpath("paths_index.json")
+    if paths_file.exists():
+        with open(paths_file, "r") as fp:
+            paths_data = json.load(fp)
+        paths = paths_data["paths"]
+    else:
+        with open(paths_file, "w+") as fp:
+            json.dump({"paths" : paths_list, "len" : len(paths_list)}, fp) # Len should be = seeds * (no. of noises)
+        paths = paths_list
+    
+    # Load the relaxed configuration at hand
+    initial_config_path = paths[task_id]
+    initial_config = np.load(initial_config_path)
 
-            limits = getTauLimits(params['deltaR'])
+    print(initial_config.files)
+    y0 = initial_config['y_last']
+    params = DislocationSimulation.paramListToDict(initial_config['params'])
 
-            res_async = pool.apply_async(perfect_depinning_worker, args=(y0, params, points, limits, folder))
-            async_results.append(res_async)
-        
-        for i, res in enumerate(async_results):
-            try:
-                result = res.get()
-            except:
-                print(f"Error getting result from task {i+1}")
+    # Create the approproate depinning object
+    tau_min, tau_max = getTauLimits(params['deltaR'])
 
+    depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=5, cores=cores,
+                                        folder_name=perfect_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
+                                        bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
+    depinning_perfect.run(y0_rel=y0)
+    # depinning_perfect.dump_res_to_pickle(perfect_folder.joinpath(f"depinning-pickle-dumps"))
+    depinning_perfect.save_results(perfect_folder.joinpath('single-dislocation'))
     pass
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="A script to run simulations.")
-    parser.add_argument('--folder', type=str, required=True, help='Folder where the initially relaxed configurations are.')
+    parser = argparse.ArgumentParser(
+        description="""
+        A script to run simulations. The array requested in triton should be from 0-(seed*noises - 1) since it will be passed
+        as index to a list containing all the file paths in the directory
+        """
+        )
+    parser.add_argument('--folder', type=str, required=True, 
+                        help="""
+                        Folder where the initially relaxed configurations are. should be be the one which containts folder 
+                        intitial-relaxations
+                        """
+                        )
     parser.add_argument('--partial', action='store_true', help='Partial dislocation.')
     parser.add_argument('--perfect', action='store_true', help='Perfect dislocation.')
     parser.add_argument('--cores', type=int, required=True, help='Perfect dislocation.')
+    parser.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from triton. ')
+    parser.add_argument('--points', type=int, required=True, help='Number of tau_exts to be integrated.')
+    parser.add_argument('--time', type=int, required=True, help='Time to integrate each simulation.')
+
+
 
     args = parser.parse_args()
 
@@ -60,6 +86,4 @@ if __name__ == "__main__":
     
     if args.perfect:
         print(f"Depinnign for perfect dislocation")
-        perfect_depinning(rel_path, args.cores, 10)
-
-    print(f"Relaxed intial configurations are in folder {args.folder}")
+        compute_depinnings_from_dir(perfect_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time)
