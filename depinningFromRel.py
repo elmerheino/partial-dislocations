@@ -9,12 +9,10 @@ from singleDislocation import DislocationSimulation
 def getTauLimits(noise):
     if noise < 0.01:
         return (0, noise/10)
-    elif noise < 0.001:
-        return (0, noise/100)
     else:
         return (0, noise)
 
-def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : int, points, time : int, dt : int):
+def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder):
     # Read metadata that is left to dir from last run to figure out range of allowed params and print helpful info
     with open(perfect_folder.joinpath("run_params.json"), "r") as fp:
         metadata = json.load(fp)
@@ -57,7 +55,7 @@ def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : in
                                         bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
     depinning_perfect.run(y0_rel=y0)
     # depinning_perfect.dump_res_to_pickle(perfect_folder.joinpath(f"depinning-pickle-dumps"))
-    depinning_perfect.save_results(perfect_folder.joinpath('single-dislocation'))
+    depinning_perfect.save_results(output_folder)
     pass
 
 if __name__ == "__main__":
@@ -73,6 +71,7 @@ if __name__ == "__main__":
                         intitial-relaxations
                         """
                         )
+    parser.add_argument('--out-folder', type=str, required=True, help="Output folder of depinning.")
     parser.add_argument('--partial', action='store_true', help='Partial dislocation.')
     parser.add_argument('--perfect', action='store_true', help='Perfect dislocation.')
     parser.add_argument('--cores', type=int, required=True, help='Perfect dislocation.')
@@ -92,4 +91,4 @@ if __name__ == "__main__":
     
     if args.perfect:
         print(f"Depinnign for perfect dislocation")
-        compute_depinnings_from_dir(perfect_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt)
+        compute_depinnings_from_dir(perfect_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder))

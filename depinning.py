@@ -288,7 +288,7 @@ class DepinningSingle(Depinning):
             self.y0_rel = self.initialRelaxation()
         else:
             self.y0_rel = y0_rel
-            self.y0_rel = self.initialRelaxation(relaxation_time=1000) # Briefly integrate the given ininitial condition
+            self.y0_rel = self.initialRelaxation(relaxation_time=10000) # Briefly integrate the given ininitial condition
 
 
         if self.sequential: # Sequential does not work

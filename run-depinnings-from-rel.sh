@@ -10,4 +10,4 @@
 
 module load scicomp-python-env
 
-srun python3 depinningFromRel.py --folder ${WRKDIR}/14-7-relaksaatio-try-2/perfect --perfect --points 30 --cores 20 --task-id ${SLURM_ARRAY_TASK_ID} --time 100000 --dt 10
+srun python3 depinningFromRel.py --folder ${WRKDIR}/14-7-relaksaatio/perfect --perfect --points 30 --cores 20 --task-id ${SLURM_ARRAY_TASK_ID} --time 100000 --dt 10 --out-folder ${WRKDIR}/14-7-relaksaatio-try-3/perfect
