@@ -541,10 +541,20 @@ if __name__ == "__main__":
     backup_path = Path("results/7-7-relaksaatio/perfect/failsafes/backup-90dc59a8385e7a1e33cda3a0a7be94dc8add9552152da2016c6c49fffeb1d303.npz")
     backup_path.parent.mkdir(parents=True, exist_ok=True)
 
+    path = "luonnokset/depinning-w-ivp/single-dislocation/dislocations-last/noise-0.0001/seed-0/dislocation-shapes-tau-0.0-R-0.0001.npz"
+    data = np.load(path)
+
+    y0 = data['y']
+    params = DislocationSimulation.paramListToDict(data['parameters'])
+
     # Load from backup file
-    dislocation = DislocationSimulation(128, 128, 100, 1, 1000, 1, 1, 1, 1, 1)
-    relaxed_h = dislocation.relax_w_FIRE()
-    dislocation.setInitialY0Config(relaxed_h, 0)
+    dislocation = DislocationSimulation(512, 512, 1000, 1, 0.0001, 1, 1, 1, 0, 1, seed=int(params['seed']))
+    #relaxed_h = dislocation.relax_w_FIRE()
+    #dislocation.setInitialY0Config(relaxed_h, 0)
+    dislocation.setInitialY0Config(y0, 0)
     dislocation.run_until_relaxed("remove_me", 100/10, 1, True)
+
+    plt.plot(dislocation.getVCMhist())
+    plt.show()
 
     pass
