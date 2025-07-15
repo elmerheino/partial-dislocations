@@ -7,9 +7,14 @@ from pathlib import Path
 from singleDislocation import DislocationSimulation
 
 def getTauLimits(noise):
-    return (0, noise)
+    if noise < 0.01:
+        return (0, noise/10)
+    elif noise < 0.001:
+        return (0, noise/100)
+    else:
+        return (0, noise)
 
-def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : int, points, time):
+def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : int, points, time : int, dt : int):
     # Read metadata that is left to dir from last run to figure out range of allowed params and print helpful info
     with open(perfect_folder.joinpath("run_params.json"), "r") as fp:
         metadata = json.load(fp)
@@ -47,7 +52,7 @@ def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : in
     # Create the approproate depinning object
     tau_min, tau_max = getTauLimits(params['deltaR'])
 
-    depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=5, cores=cores,
+    depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
                                         folder_name=perfect_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                         bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
     depinning_perfect.run(y0_rel=y0)
@@ -74,6 +79,7 @@ if __name__ == "__main__":
     parser.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from triton. ')
     parser.add_argument('--points', type=int, required=True, help='Number of tau_exts to be integrated.')
     parser.add_argument('--time', type=int, required=True, help='Time to integrate each simulation.')
+    parser.add_argument('--dt', type=int, required=True, help='Timestep for sampling the solution.')
 
 
 
@@ -86,4 +92,4 @@ if __name__ == "__main__":
     
     if args.perfect:
         print(f"Depinnign for perfect dislocation")
-        compute_depinnings_from_dir(perfect_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time)
+        compute_depinnings_from_dir(perfect_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt)
