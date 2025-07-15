@@ -8,4 +8,4 @@
 
 module load scicomp-python-env
 
-srun python3 depinningFromRel.py --folder ${WRKDIR}/15-7-depinning/perfect --cores 20 --perfect
+srun python3 depinningFromRel.py --folder ${WRKDIR}/14-7-depinning/perfect --cores 20 --perfect
