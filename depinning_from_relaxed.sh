@@ -1,3 +1,4 @@
+#!/bin/bash
 #SBATCH --time=15:00:00
 #SBATCH --job-name=depinning-rel
 #SBATCH --mem-per-cpu=500M
