@@ -4,7 +4,6 @@ import math
 from pathlib import Path
 import json
 import time
-from plots import *
 import numpy as np
 from scipy import optimize
 from scipy import stats
