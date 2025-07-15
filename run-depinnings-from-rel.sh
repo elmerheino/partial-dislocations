@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --time=15:00:00
+#SBATCH --time=00:30:00
 #SBATCH --job-name=depinning-rel
 #SBATCH --mem-per-cpu=500M
 #SBATCH --output=depinning-rel.out
 #SBATCH --cpus-per-task=20
-#SBATCH --array=0-5
+#SBATCH --array=6-299
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=elmer.heino@aalto.fi
 
