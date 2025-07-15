@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=00:30:00
+#SBATCH --time=00:40:00
 #SBATCH --job-name=depinning-2
 #SBATCH --mem-per-cpu=500M
 #SBATCH --output=depinning-rel.out
