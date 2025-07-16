@@ -264,6 +264,7 @@ class DepinningSingle(Depinning):
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
         v_cm_over_time = sim.getVCMhist()
+        y_selected = sim.getSelectedYshapes()
 
         if np.isnan(np.sum(avg_w)) or np.isinf(np.sum(avg_w)):
             print(f"Warning: NaN or Inf in average roughness for tau_ext={tauExt}.")
@@ -279,7 +280,7 @@ class DepinningSingle(Depinning):
 
         return {
             'v_rel': v_rel, 'l_range': l_range, 'avg_w': avg_w, 'y_last': y_last, 'v_cm': v_cm_over_time,
-            'params': sim.getParameteters()
+            'params': sim.getParameteters(), 'y_selected' : y_selected
         }
 
     def run(self, y0_rel=None):
@@ -377,6 +378,20 @@ class DepinningSingle(Depinning):
         vel_save_path = Path(folder_path).joinpath(f"velocties/noise-{self.deltaR}-seed-{self.seed}-v_cm.npz")
         vel_save_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(vel_save_path, **v_cms_over_time)
+
+        # Save the dislocation shapes colleceted at selected times
+        y_shape_matrices = [r['y_selected'] for r in self.results]
+        selected_ys = dict()
+        for y_selected, params in zip(y_shape_matrices, parameters):
+            params_dict = DislocationSimulation.paramListToDict(params)
+            deltaR_i = params_dict['deltaR']
+            tauExt_i = params_dict['tauExt']
+
+            selected_ys[f"{tauExt_i}"] = y_selected
+
+        selected_y_sp = Path(folder_path).joinpath(f"selected-ys/{self.deltaR*1e5:.4f}-1e-5-noise-{self.seed}-tauExt.npz")
+        selected_y_sp.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(selected_y_sp, **selected_ys)
 
     def dump_res_to_pickle(self, folder):
         dump_path = Path(folder).joinpath(f"result-dump-deltaR-{self.deltaR}-seed-{self.seed}.pickle")

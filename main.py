@@ -1,6 +1,5 @@
 import multiprocessing as mp
 from argparse import ArgumentParser
-from plots import *
 from depinning import *
 import json
 from scipy import optimize
