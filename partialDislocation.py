@@ -392,13 +392,15 @@ class PartialDislocationsSimulation(Simulation):
         selected_y1, selected_y2 = self.getSelectedYshapes()
         sf_widths = self.getSFhist()
 
-        return {'v_cm_hist' : v_cm_hist, 'y_last' : y_t, "selected_y1" : selected_y1, "selected_y2" : selected_y2,
+        return { 'v_cm_hist' : v_cm_hist, 'y_last' : y_t, "selected_y1" : selected_y1, "selected_y2" : selected_y2,
                 'params' : parameters, 'sf_width' : sf_widths }
     
     def saveResults(self, path : Path):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        print(path)
         np.savez(path, **self.getResultsAsDict())
+        print("saved")
 
     
     @staticmethod
@@ -474,7 +476,7 @@ class PartialDislocationsSimulation(Simulation):
         return hex_dig
     
     def getUniqueHashString(self):
-        self.getUniqueHash()
+        return self.getUniqueHash()
 
 
 if __name__ == "__main__":

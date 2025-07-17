@@ -134,11 +134,12 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, y0
     #     sim.setInitialY0Config(y0_fire, sim.t0)
 
     # Save three dislocation shapes from each chunk
-    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
+    sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=1, method='RK45')
 
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
     sim.saveResults(results_save_path)
+    print(sim.getResultsAsDict())
 
     max_retries = 5
     retry_delay = 1
