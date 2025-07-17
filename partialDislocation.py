@@ -182,7 +182,7 @@ class PartialDislocationsSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         pass
 
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='BDF'):
+    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -242,7 +242,7 @@ class PartialDislocationsSimulation(Simulation):
             selected_y2s = current_chunk_y2[indices]
 
             self.selected_y1_shapes.extend(zip(selected_times, selected_y1s))
-            self.selected_y2_shapes.extend(zip(selected_times, selected_y1s))
+            self.selected_y2_shapes.extend(zip(selected_times, selected_y2s))
 
             if len(total_CM_i) > 2:
                 v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
@@ -256,6 +256,12 @@ class PartialDislocationsSimulation(Simulation):
                     self.y2 = current_chunk_y2
                     self.used_timesteps = current_chunk_timesteps
                     break # end the simulation here.
+
+            # If timeit is enabled print some info on progress
+            if timeit:
+                t_elapsed = time.time() - t0
+                percentage_done = (total_time_so_far / max_time) * 100
+                print(f"Progress: {percentage_done:.2f}%, Time elapsed: {t_elapsed:.2f} seconds")
 
         if not relaxed:
             # If not relaxed after max_time, run one more chunk
@@ -375,12 +381,12 @@ class PartialDislocationsSimulation(Simulation):
         """
         times1 = np.array([i[0] for i in self.selected_y1_shapes])
         shapes1 = np.array([i[1] for i in self.selected_y1_shapes])
-        times1.reshape(-1,1)
+        times1 = times1.reshape(-1,1)
         selected_y1s = np.hstack([times1, shapes1])
 
         times2 = np.array([i[0] for i in self.selected_y2_shapes])
         shapes2 = np.array([i[1] for i in self.selected_y2_shapes])
-        times2.reshape(-1,1)
+        times2 = times2.reshape(-1,1)
         selected_y2s = np.hstack([times2, shapes2])
 
         return selected_y1s, selected_y2s
@@ -494,4 +500,5 @@ if __name__ == "__main__":
         tauExt=1.0         # External stress
     )
     # sim.run_simulation()
-    sim.run_in_chunks("debug/jtn.npz", chunk_size=sim.time/10, timeit=True, method='BDF')
+    sim.run_until_relaxed("debug/jtn.npz", chunk_size=sim.time/10, shape_save_freq=1, timeit=True, method='RK45')
+    sim.saveResults("debug/jtn/tulokset.npz")
