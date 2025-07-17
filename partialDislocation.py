@@ -1,5 +1,7 @@
 import hashlib
 import numpy as np
+from scipy.fft import rfft, irfft, rfftfreq
+from scipy.interpolate import CubicSpline
 from simulation import Simulation
 from scipy.integrate import solve_ivp
 import time
@@ -36,6 +38,23 @@ class PartialDislocationsSimulation(Simulation):
 
         self.selected_y1_shapes = list()
         self.selected_y2_shapes = list()
+
+        # --- FIRE Algorithm Parameters ---
+        self.DT_INITIAL = 0.01
+        self.DT_MAX = 0.1
+        self.N_MIN = 5
+        self.F_INC = 1.1
+        self.F_DEC = 0.5
+        self.ALPHA_START = 0.1
+        self.F_ALPHA = 0.99
+        self.MAX_STEPS = 500000
+        self.CONVERGENCE_FORCE = 1e-10
+
+        # --- Noise Parameters ---
+        self.h_max_noise = self.bigN*2
+        self.num_noise_points_h = self.bigN
+        self.splines = self.setup_splines()
+
     
     def setInitialY0Config(self, y1_0, y2_0):
         """
@@ -228,7 +247,6 @@ class PartialDislocationsSimulation(Simulation):
             np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i)
             total_time_so_far += chunk_size
 
-            # Check for relaxation
             y1_CM_i = np.mean(current_chunk_y1, axis=1)
             y2_CM_i = np.mean(current_chunk_y2, axis=1)
             total_CM_i = (y1_CM_i + y2_CM_i) / 2
@@ -287,6 +305,120 @@ class PartialDislocationsSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         
         return relaxed
+    
+    # From there on define all the methods related to FIRE relaxation.
+    def setup_splines(self):
+        """Creates cubic spline interpolators for the generated random noise."""
+        # Define grid for the potential
+        h_grid = np.linspace(0, 2*self.bigN, 2*self.bigN)
+        
+        # Generate random force values at grid points
+        force_grid = self.stressField
+        force_grid[:,-1] = force_grid[:,0]
+        
+        # Create a list of cubic spline interpolators, one for each x position
+        splines = [CubicSpline(h_grid, force_grid[i, :], bc_type='periodic') for i in range(self.bigN)]
+
+        return splines
+    
+    def weak_coupling(self, h1, h2):
+        d_avg = np.abs(np.mean(h1 - h2))
+        return self.d0 / d_avg - 1
+
+    def fire_force1(self, h1, h2):
+        # return self.weak_coupling(h1, h2)
+        return self.force1(h1, h2)
+
+    def fire_force2(self, h1, h2):
+        # return self.weak_coupling(h1,h2)
+        return self.force2(h1, h2)
+    
+    def calculate_forces_FIRE(self, h1, h2):
+        """
+        Calculates forces using Fourier method for line tension and spline derivatives for noise.
+        """
+        # 1. Line Tension Force of first partial (via Fourier Domain)
+        k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
+        h1_k = rfft(h1)
+        laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
+        line_tension_force1 = self.cLT1 * irfft(laplacian_k1, n=self.bigN)
+
+        # 2. Line tension of the second partial
+        k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
+        h2_k = rfft(h2)
+        laplacian_k2 = -(k**2) * h2_k         # Second derivative in Fourier space
+        line_tension_force2 = self.cLT2 * irfft(laplacian_k2, n=self.bigN)
+
+        # 2. Quenched Noise Force (from splines)
+
+        noise_force1 = np.array([self.splines[i](h1[i]) for i in range(self.bigN)])
+        noise_force2 = np.array([self.splines[i](h2[i]) for i in range(self.bigN)])
+
+        force1_tot = line_tension_force1 + noise_force1 + self.fire_force1(h1, h2)
+        force2_tot = line_tension_force2 + noise_force2 + self.fire_force2(h1, h2)
+
+        return force1_tot, force2_tot
+
+    
+    def relax_w_FIRE(self):
+        """
+        Performs the FIRE relaxation of the dislocation line.
+        """
+        # Initialize dislocation line (e.g., as a straight line) and velocity
+        h1 = np.zeros(self.bigN)
+        h2 = np.ones(self.bigN)*self.d0
+
+        v1 = np.zeros(self.bigN)
+        v2 = np.zeros(self.bigN)
+
+        # Initialize FIRE parameters
+        dt = self.DT_INITIAL
+        alpha = self.ALPHA_START
+        steps_since_negative_power = 0
+
+        print("Starting FIRE relaxation...")
+        for step in range(self.MAX_STEPS):
+            force1, force2 = self.calculate_forces_FIRE(h1, h2)
+
+            # Check for convergence
+            if (np.linalg.norm(force1) / np.sqrt(self.bigN) < self.CONVERGENCE_FORCE) and (np.linalg.norm(force2) / np.sqrt(self.bigN) < self.CONVERGENCE_FORCE):
+                print(f"✅ Force 1 and 2 Converged after {step} steps.")
+                break
+
+            # FIRE dynamics
+            if step > 0:
+                power1 = np.dot(force1, v1)
+                power2 = np.dot(force2, v2)
+                if (power1 > 0) and (power2 > 0):
+                    steps_since_negative_power += 1
+                    if steps_since_negative_power > self.N_MIN:
+                        dt = min(dt * self.F_INC, self.DT_MAX)
+                        alpha *= self.F_ALPHA
+                else:
+                    steps_since_negative_power = 0
+                    dt *= self.F_DEC
+                    v1[:] = 0.0  # Reset velocity
+                    v2[:] = 0.0
+                    alpha = self.ALPHA_START
+
+            # Update velocity for the first equation and position
+            v1 = (1.0 - alpha) * v1 + alpha * (force1 / np.linalg.norm(force1)) * np.linalg.norm(v1)
+            v1 += force1 * dt
+            h1 += v1 * dt
+
+            v2 = (1.0 - alpha) * v2 + alpha * (force2 / np.linalg.norm(force2)) * np.linalg.norm(v2)
+            v2 += force2 * dt
+            h2 += v2 * dt
+
+            # Simple check to prevent divergence
+            if np.any(np.isnan(h1)) or np.any(np.isnan(h2)):
+                print("🛑 Simulation diverged. Halting.")
+                break
+
+        else:
+            print("⚠️ Maximum steps reached without convergence.")
+            
+        return h1, h2
 
     def getLineProfiles(self):
         """
@@ -402,6 +534,9 @@ class PartialDislocationsSimulation(Simulation):
                 'params' : parameters, 'sf_width' : sf_widths }
     
     def saveResults(self, path : Path):
+        if not self.has_simulation_been_run:
+            raise Exception('Simulation has not been run yet.')
+        
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         print(path)
@@ -500,5 +635,6 @@ if __name__ == "__main__":
         tauExt=1.0         # External stress
     )
     # sim.run_simulation()
-    sim.run_until_relaxed("debug/jtn.npz", chunk_size=sim.time/10, shape_save_freq=1, timeit=True, method='RK45')
-    sim.saveResults("debug/jtn/tulokset.npz")
+    # sim.run_until_relaxed("debug/jtn.npz", chunk_size=sim.time/10, shape_save_freq=1, timeit=True, method='RK45')
+    # sim.saveResults("debug/jtn/tulokset.npz")
+    sim.relax_w_FIRE()
