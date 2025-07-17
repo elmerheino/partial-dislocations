@@ -481,6 +481,26 @@ class DislocationSimulation(Simulation):
         selected_ys = np.hstack((times, shapes))
 
         return selected_ys
+    
+    def getResultsAsDict(self):
+        v_cm_hist = self.getVCMhist()
+        y_t = self.getLineProfiles()
+        parameters = self.getParameteters()
+        selected_ys = self.getSelectedYshapes()
+
+        return {
+            'v_cm_hist': v_cm_hist,
+            'y_last': y_t,
+            'selected_ys': selected_ys,
+            'params': parameters
+        }
+    
+    def saveResults(self, path : Path):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, **self.getResultsAsDict())
+
+    
     @classmethod
     def from_dict(cls, params):
         """Create a DislocationSimulation from a dictionary of parameters"""

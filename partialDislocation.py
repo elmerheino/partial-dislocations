@@ -33,6 +33,9 @@ class PartialDislocationsSimulation(Simulation):
 
         self.avg_v_cm_history = list()
         self.avg_stacking_fault_history = list()
+
+        self.selected_y1_shapes = list()
+        self.selected_y2_shapes = list()
     
     def setInitialY0Config(self, y1_0, y2_0):
         """
@@ -179,7 +182,7 @@ class PartialDislocationsSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         pass
 
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, method='BDF'):
+    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='BDF'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -208,9 +211,11 @@ class PartialDislocationsSimulation(Simulation):
         while total_time_so_far < max_time:
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
+
+            t_evals = np.arange(start_i, end_i, self.dt)
             
             sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
-                            t_eval=np.arange(start_i, end_i, self.dt),
+                            t_eval=t_evals,
                             rtol=self.rtol)
             
             y_i = sol_i.y.reshape(2, self.bigN, -1)
@@ -229,6 +234,15 @@ class PartialDislocationsSimulation(Simulation):
             total_CM_i = (y1_CM_i + y2_CM_i) / 2
 
             sf_width = np.mean(current_chunk_y1 - current_chunk_y2, axis=1)
+
+            # Save selected dislocation line shapes
+            indices = np.linspace(0, len(y_i) - 1, shape_save_freq, dtype=int)
+            selected_times = t_evals[indices]
+            selected_y1s = current_chunk_y1[indices]
+            selected_y2s = current_chunk_y2[indices]
+
+            self.selected_y1_shapes.extend(zip(selected_times, selected_y1s))
+            self.selected_y2_shapes.extend(zip(selected_times, selected_y1s))
 
             if len(total_CM_i) > 2:
                 v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
@@ -339,6 +353,54 @@ class PartialDislocationsSimulation(Simulation):
         ])
         return parameters
     
+    def getSelectedYshapes(self):
+        """
+        Return two matriced with the structure, one matric for each partial:
+
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+        | ...  | ...  | ...  | ...  | ... | ...  |
+        +------+------+------+------+-----+------+
+        | time |  y1  |  y2  |  y3  | ... |  yN  |
+        +------+------+------+------+-----+------+
+
+        Where `time` is the time at which the dislocation shape was recorded, and
+        `y1`, `y2`, ..., `yN` are the y-coordinates representing the shape of the
+        dislocation at that time.
+        """
+        times1 = np.array([i[0] for i in self.selected_y1_shapes])
+        shapes1 = np.array([i[1] for i in self.selected_y1_shapes])
+        times1.reshape(-1,1)
+        selected_y1s = np.hstack([times1, shapes1])
+
+        times2 = np.array([i[0] for i in self.selected_y2_shapes])
+        shapes2 = np.array([i[1] for i in self.selected_y2_shapes])
+        times2.reshape(-1,1)
+        selected_y2s = np.hstack([times2, shapes2])
+
+        return selected_y1s, selected_y2s
+    
+    def getResultsAsDict(self):
+        v_cm_hist = self.getVCMhist()
+        y_t = self.getLineProfiles()
+        parameters = self.getParameters()
+        selected_y1, selected_y2 = self.getSelectedYshapes()
+        sf_widths = self.getSFhist()
+
+        return {'v_cm_hist' : v_cm_hist, 'y_last' : y_t, "selected_y1" : selected_y1, "selected_y2" : selected_y2,
+                'params' : parameters, 'sf_width' : sf_widths }
+    
+    def saveResults(self, path : Path):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(path, **self.getResultsAsDict())
+
+    
     @staticmethod
     def paramListToDict(params_list):
         bigN, length, time, dt,   deltaR,  bigB,  smallB,  b_p,   cLT1,  cLT2,  mu,  tauExt,  c_gamma,   d0,  seed,  tau_cutoff  = params_list
@@ -410,6 +472,9 @@ class PartialDislocationsSimulation(Simulation):
         hash_object = hashlib.sha256(params_str.encode())
         hex_dig = hash_object.hexdigest()
         return hex_dig
+    
+    def getUniqueHashString(self):
+        self.getUniqueHash()
 
 
 if __name__ == "__main__":

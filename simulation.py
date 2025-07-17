@@ -1,3 +1,4 @@
+from pathlib import Path
 from scipy import fft
 import numpy as np
 import math
@@ -110,4 +111,12 @@ class Simulation(object):
         Sets the cutoff time when self.tau_ext is switched on.
         """
         self.tau_cutoff = new_cutoff
-    pass
+    
+    def saveResults(self, path : Path):
+        raise NotImplementedError()
+    
+    def getResultsAsDict(self):
+        raise NotImplementedError()
+    
+    def getUniqueHashString(self):
+        raise NotImplementedError()
