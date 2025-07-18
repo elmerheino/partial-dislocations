@@ -293,15 +293,9 @@ def partial_logic(args):
     with open(params_file, 'w') as f:
         json.dump(params_dict, f, indent=4)
 
-    # with mp.Pool(args.cores) as pool:
-    #     pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-    #                         bigN=args.n), noise_seed_pairs)
-    
-    for i in noise_seed_pairs:
-        fn = partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                            bigN=args.n)
-        fn(i)
-
+    with mp.Pool(args.cores) as pool:
+        pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
+                            bigN=args.n), noise_seed_pairs)
     pass
 
 def main_w_args():
