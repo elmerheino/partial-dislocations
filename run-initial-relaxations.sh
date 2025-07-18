@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --time=15:00:00
-#SBATCH --job-name=7-7-allkurelaksointi-testi
+#SBATCH --job-name=18-7fire-plus-ivp-partial
 #SBATCH --mem-per-cpu=500M
-#SBATCH --output=14-7-relaksointi.out
+#SBATCH --output=18-7fire-plus-ivp.out
 #SBATCH --cpus-per-task=20
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=elmer.heino@aalto.fi

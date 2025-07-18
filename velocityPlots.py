@@ -585,6 +585,32 @@ def makeVelocityHistoryPlots(root_dir):
             pass
     pass
 
+def makeVelocityHistPlotsFromRelaxedPartial(dir : Path):
+    dir = Path(dir)
+    for file in dir.joinpath("relaxed-configurations").iterdir():
+        data = np.load(file)
+        v_cm = data['v_cm_hist']
+        params = PartialDislocationsSimulation.paramListToDict(data['params'])
+
+        fig,ax = plt.subplots(figsize=(linewidth, linewidth/2))
+
+        dt = params['dt']
+        time = np.arange(0, len(v_cm) * dt, dt)
+        
+        ax.plot(time, v_cm)
+
+        ax.set_title(f"Velocity history for $\\Delta R$ = {params['deltaR']*1e4:.3f} e-4 ")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Velocity")
+
+        save_path = Path(dir).joinpath(f"velocity-history-plots")
+        save_path.mkdir(exist_ok=True, parents=True)
+        fig.tight_layout()
+        fig.savefig(save_path.joinpath(f"velocity-history-{float(params['deltaR'])*1e6:.2f}-1e-6.pdf"))
+        plt.close(fig)
+        pass
+    pass
+
 def vanha_maini():
     root = Path("/Volumes/contenttii/2025-06-08-merged-final")
 
@@ -628,5 +654,6 @@ if __name__ == "__main__":
         dir_path = sys.argv[1]
     else:
         dir_path = "luonnokset/depinning-w-ivp/single-dislocation"
-    makeVelocityHistoryPlots(dir_path)
+    # makeVelocityHistoryPlots(dir_path)
+    makeVelocityHistPlotsFromRelaxedPartial("results/17-7-relaksaatio-fire/partial")
     # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")

@@ -128,10 +128,10 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, y0
     backup_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Find a minima using FIRE, and set it as y0
-    # y0_fire = sim.relax_w_FIRE()
-    # if type(y0_fire) != type(None):
-    #     # If successsull, set it as the y0 of the integrator
-    #     sim.setInitialY0Config(y0_fire, sim.t0)
+    y1_0_fire, y2_0_fire = sim.relax_w_FIRE()
+    if type(y1_0_fire) != type(None):
+        # If successsull, set it as the y0 of the integrator
+        sim.setInitialY0Config(y1_0_fire, y2_0_fire)
 
     # Save three dislocation shapes from each chunk
     sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=1, method='RK45')
@@ -294,9 +294,14 @@ def partial_logic(args):
     with open(params_file, 'w') as f:
         json.dump(params_dict, f, indent=4)
 
-    with mp.Pool(args.cores) as pool:
-        pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                            bigN=args.n), noise_seed_pairs)
+    # with mp.Pool(args.cores) as pool:
+    #     pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
+    #                         bigN=args.n), noise_seed_pairs)
+    
+    for i in noise_seed_pairs:
+        fn = partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
+                            bigN=args.n)
+        fn(i)
 
     pass
 

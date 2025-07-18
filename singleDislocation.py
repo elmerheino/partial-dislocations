@@ -574,7 +574,4 @@ if __name__ == "__main__":
     dislocation.setInitialY0Config(y0, 0)
     dislocation.run_until_relaxed("remove_me", 100/10, 1, True)
 
-    plt.plot(dislocation.getVCMhist())
-    plt.show()
-
     pass
