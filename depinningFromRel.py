@@ -12,9 +12,9 @@ def getTauLimits(noise):
     else:
         return (0, noise)
 
-def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder):
+def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder, perfect : bool):
     # Read metadata that is left to dir from last run to figure out range of allowed params and print helpful info
-    with open(perfect_folder.joinpath("run_params.json"), "r") as fp:
+    with open(input_folder.joinpath("run_params.json"), "r") as fp:
         metadata = json.load(fp)
         noise_count = metadata['args used']['rpoints']
         seed_count = metadata['args used']['seeds']
@@ -25,11 +25,11 @@ def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : in
         return
 
     # Find all the relaxed configurations preesent in the passed dir
-    rel_folder = perfect_folder.joinpath("relaxed-configurations")
+    rel_folder = input_folder.joinpath("relaxed-configurations")
     paths_list = [str(i) for i in rel_folder.iterdir()]
 
     # Load a file keeping track of all the relaxed configurations in the file, create it if it doesn't exist
-    paths_file = perfect_folder.joinpath("paths_index.json")
+    paths_file = input_folder.joinpath("paths_index.json")
     if paths_file.exists():
         with open(paths_file, "r") as fp:
             paths_data = json.load(fp)
@@ -43,19 +43,30 @@ def compute_depinnings_from_dir(perfect_folder : Path, task_id : int, cores : in
     initial_config_path = paths[task_id]
     initial_config = np.load(initial_config_path)
 
-    print(initial_config.files)
-    y0 = initial_config['y_last']
-    params = DislocationSimulation.paramListToDict(initial_config['params'])
+    if perfect:
+        print(initial_config.files)
+        y0 = initial_config['y_last']
+        params = DislocationSimulation.paramListToDict(initial_config['params'])
 
-    # Create the approproate depinning object
-    tau_min, tau_max = getTauLimits(params['deltaR'])
+        # Create the approproate depinning object
+        tau_min, tau_max = getTauLimits(params['deltaR'])
 
-    depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
-                                        folder_name=perfect_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
-                                        bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
-    depinning_perfect.run(y0_rel=y0)
-    # depinning_perfect.dump_res_to_pickle(perfect_folder.joinpath(f"depinning-pickle-dumps"))
-    depinning_perfect.save_results(output_folder)
+        depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
+                                            folder_name=input_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
+                                            bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
+        depinning_perfect.run(y0_rel=y0)
+        # depinning_perfect.dump_res_to_pickle(perfect_folder.joinpath(f"depinning-pickle-dumps"))
+        depinning_perfect.save_results(output_folder)
+    else:
+        params = PartialDislocationsSimulation.paramListToDict(initial_config['params'])
+        y_last = initial_config['y_last']
+        print(y_last.shape)
+        tau_min, tau_max = getTauLimits(params['deltaR'])
+        depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
+                                            int(params['seed']), int(params['bigN']),  int(params['length']), 10)
+        depinnin_partial.run(y1_0=y_last[0], y2_0=y_last[1])
+        depinnin_partial.save_results(output_folder)
+        pass
     pass
 
 if __name__ == "__main__":
@@ -88,7 +99,8 @@ if __name__ == "__main__":
 
     if args.partial:
         print(f"Depinning for partial dislcoation")
+        compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=False)
     
     if args.perfect:
         print(f"Depinnign for perfect dislocation")
-        compute_depinnings_from_dir(perfect_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder))
+        compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=True)

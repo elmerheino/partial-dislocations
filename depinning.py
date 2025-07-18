@@ -111,13 +111,20 @@ class DepinningPartial(Depinning):
                 'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
         }
     
-    def run(self):
+    def run(self, y1_0=None, y2_0=None):
         # Multiprocessing compatible version of a single depinning study, here the studies
         # are distributed between threads by stress letting python mp library determine the best way
+        if type(y1_0) == type(None):
+            y1_0, y2_0 = self.initialRelaxation()
+            self.y1_0 = y1_0
+            self.y2_0 = y2_0
+        else:
+            self.y1_0 = y1_0
+            self.y2_0 = y2_0
+            y1_0, y2_0 = self.initialRelaxation(relaxation_time=1000)
+            self.y1_0 = y1_0
+            self.y2_0 = y2_0
 
-        y1_0, y2_0 = self.initialRelaxation()
-        self.y1_0 = y1_0
-        self.y2_0 = y2_0
         
         if self.sequential: # Sequental does not work
             for s in self.stresses:
