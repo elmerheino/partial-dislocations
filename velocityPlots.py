@@ -654,6 +654,6 @@ if __name__ == "__main__":
         dir_path = sys.argv[1]
     else:
         dir_path = "luonnokset/depinning-w-ivp/single-dislocation"
-    # makeVelocityHistoryPlots(dir_path)
-    makeVelocityHistPlotsFromRelaxedPartial("results/17-7-relaksaatio-fire/partial")
+    makeVelocityHistoryPlots(dir_path)
+    # makeVelocityHistPlotsFromRelaxedPartial("results/17-7-relaksaatio-fire/partial")
     # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")

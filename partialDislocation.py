@@ -67,20 +67,12 @@ class PartialDislocationsSimulation(Simulation):
         pass
         
     def force1(self, y1,y2):
-        #return -np.average(y1-y2)*np.ones(bigN)
-        #return -(c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
-
         factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
-        return factor*(1 + numerator/self.d0)
+        return factor*self.weak_coupling(y1, y2)
 
     def force2(self, y1,y2):
-        #return np.average(y1-y2)*np.ones(bigN)
-        #return (c_gamma*mu*b_p**2/d)*(1-y1/d) # Vaid et Al B.10
-
         factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        numerator = ( np.average(y2) - np.average(y1) )*np.ones(self.bigN)
-        return factor*(1 + numerator/self.d0) # Term from Vaid et Al B.7
+        return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
 
     def f1(self, y1,y2, t):
         dy = ( 
@@ -331,7 +323,25 @@ class PartialDislocationsSimulation(Simulation):
 
     def fire_force2(self, h1, h2):
         # return self.weak_coupling(h1,h2)
-        return self.force2(h1, h2)
+        return self.force2(h2, h1)
+    
+    def strong_coupling(self, h1, h2):
+        d_avg = np.abs(np.mean(h1 - h2))
+        d = np.abs(h1 - h2)
+        return (self.d0 - d)/d_avg
+    
+    def very_strong_coupling(self, h1, h2):
+        forces = np.empty(self.bigN)
+
+        k = 1e-6
+
+        for i in range(len(h1)):
+            for j in range(len(h2)):
+                dy = h2[j] - h1[i]
+                dx = (j-i)*self.deltaL
+                d = np.hypot(dx, dy)
+                forces[i] = d*k
+        return forces
     
     def calculate_forces_FIRE(self, h1, h2):
         """
@@ -623,8 +633,8 @@ class PartialDislocationsSimulation(Simulation):
 if __name__ == "__main__":
     # Example usage of the PartialDislocationsSimulation class
     sim = PartialDislocationsSimulation(
-        bigN=2,           # Number of points
-        length=2,        # Length of dislocation
+        bigN=3,           # Number of points
+        length=3,        # Length of dislocation
         time=100,          # Total simulation time
         dt=1,            # Time step
         deltaR=1.0,         # Random force correlation length

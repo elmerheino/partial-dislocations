@@ -1,10 +1,8 @@
 from pathlib import Path
 from scipy import fft
 import numpy as np
-import math
 from numba import jit
 from scipy.ndimage import map_coordinates
-from scipy.stats import linregress
 
 class Simulation(object):
     def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, mu, tauExt, seed=None):
