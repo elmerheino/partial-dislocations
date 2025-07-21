@@ -1,6 +1,6 @@
 import multiprocessing as mp
 from argparse import ArgumentParser
-from depinning import *
+from src.core.depinning import *
 import json
 from scipy import optimize
 from processData import velocity_fit

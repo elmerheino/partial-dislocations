@@ -2,7 +2,7 @@ import hashlib
 import numpy as np
 from scipy.fft import rfft, irfft, rfftfreq
 from scipy.interpolate import CubicSpline
-from simulation import Simulation
+from src.core.simulation import Simulation
 from scipy.integrate import solve_ivp
 import time
 from pathlib import Path

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-from depinning import *
+from src.core.depinning import *
 import numpy as np
 import multiprocessing as mp
 import argparse
 from pathlib import Path
-from singleDislocation import DislocationSimulation
+from src.core.singleDislocation import DislocationSimulation
 
 def getTauLimits(noise):
     if noise < 0.01:

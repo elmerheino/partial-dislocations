@@ -2,13 +2,13 @@ import argparse
 from pathlib import Path
 import shutil
 import numpy as np
-from singleDislocation import DislocationSimulation
+from src.core.singleDislocation import DislocationSimulation
 import multiprocessing as mp
 from functools import partial
 import json
 import fcntl
 import time
-from partialDislocation import PartialDislocationsSimulation
+from src.core.partialDislocation import PartialDislocationsSimulation
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find relaxed configurations for some noise levels.')

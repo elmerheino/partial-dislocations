@@ -3,8 +3,8 @@ import pickle
 import numpy as np
 import multiprocessing as mp
 from functools import partial
-from partialDislocation import PartialDislocationsSimulation
-from singleDislocation import DislocationSimulation
+from src.core.partialDislocation import PartialDislocationsSimulation
+from src.core.singleDislocation import DislocationSimulation
 from pathlib import Path
 import hashlib
 

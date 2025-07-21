@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
 from functools import partial
 from pathlib import Path
-from singleDislocation import DislocationSimulation
-from partialDislocation import PartialDislocationsSimulation
+from src.core.singleDislocation import DislocationSimulation
+from src.core.partialDislocation import PartialDislocationsSimulation
 import numpy as np
 import multiprocessing as mp
 

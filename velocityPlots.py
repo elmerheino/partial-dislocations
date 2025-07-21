@@ -10,8 +10,8 @@ import csv
 import matplotlib as mpl
 from sklearn.cluster import KMeans
 
-from partialDislocation import PartialDislocationsSimulation
-from singleDislocation import DislocationSimulation
+from src.core.partialDislocation import PartialDislocationsSimulation
+from src.core.singleDislocation import DislocationSimulation
 import sys
 import argparse
 

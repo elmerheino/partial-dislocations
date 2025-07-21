@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from simulation import Simulation
+from src.core.simulation import Simulation
 from scipy.integrate import solve_ivp
 from pathlib import Path
 import hashlib
