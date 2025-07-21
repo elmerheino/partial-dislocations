@@ -8,7 +8,7 @@ from singleDislocation import DislocationSimulation
 
 def getTauLimits(noise):
     if noise < 0.01:
-        return (0, noise/10)
+        return (0, noise)
     else:
         return (0, noise)
 

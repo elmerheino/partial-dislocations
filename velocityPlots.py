@@ -13,6 +13,7 @@ from sklearn.cluster import KMeans
 from partialDislocation import PartialDislocationsSimulation
 from singleDislocation import DislocationSimulation
 import sys
+import argparse
 
 linewidth = 5.59164
 
@@ -545,6 +546,59 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
     else:
         print("No perfect depinning dumps")
 
+def makeOneDepinningPlot(fig, ax, tau, vel):
+
+    ax.scatter(tau, vel, marker='o', s=10, facecolors='none', edgecolors='blue', alpha=0.7)
+    ax.set_xlabel("$\\tau_{ext}$")
+    ax.set_ylabel("$v_{cm}$")
+
+    fig.tight_layout()
+
+def makeOneVelHistPlot(fig, ax, time, vels):
+    ax.plot(time, vels)
+
+    ax.set_xlabel('timestep')
+    ax.set_ylabel('v_cm')
+
+    fig.tight_layout()
+
+    pass
+
+def makeDepinningFromVelocities(path_to_vel_dir="results/21-7-sys32-depinning/partial-dislocation/velocties"):
+    vel_dir = Path(path_to_vel_dir)
+    data_total = list()
+
+    for vel_file in vel_dir.iterdir():
+        data = np.load(vel_file)
+        for tau_ext in data.keys():
+            velocities = data[tau_ext]
+            time_range = np.arange(0, len(velocities))
+            tau_ext = np.float64(tau_ext)
+
+            last_10_index = int(round(len(velocities)/10))
+            last_vels = velocities[(len(velocities) - last_10_index):]
+            v_rel = np.mean(last_vels)
+
+
+            fig, ax = plt.subplots(figsize=(linewidth, linewidth/2))
+
+            makeOneVelHistPlot(fig, ax, time_range, velocities)
+
+            plt.show()
+
+            data_total.append(
+                (tau_ext, v_rel)
+            )
+    
+    tau,v = zip(*data_total)
+    tau = np.array(tau)
+    v = np.array(v)
+
+    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
+    makeOneDepinningPlot(fig, ax, tau,v)
+    plt.show()
+    pass
+
 def copy_all_files(from_path, to_path):
     # Get a list of all files and directories in the source directory
     items = os.listdir(from_path)
@@ -650,10 +704,39 @@ def processInitalRelaxations(path):
     pass
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        dir_path = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Analyze dislocation depinning data.")
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+
+    # Subparser for makeVelocityHistPlotsFromRelaxedPartial
+    parser_vel_hist = subparsers.add_parser('vel_hist_rel', help='Create velocity history plots from relaxed partial dislocation data.')
+    parser_vel_hist.add_argument('relaxed_config_path', type=str, help='Path to the parent directory containing the "relaxed-configurations" directory.')
+
+    # Subparser for makeVelocityHistoryPlots
+    parser_vel_history = subparsers.add_parser('vel_hist_depinning', help='Create velocity history plots from depinning data.')
+    parser_vel_history.add_argument('depinning_data_path', type=str, help='Path to the "partial-dislocation" or "single-dislocation" directory containing depinning data.')
+
+    # Subparser for processInitalRelaxations
+    parser_initial_relax = subparsers.add_parser('initial_relax', help='Process initial relaxation data.')
+    parser_initial_relax.add_argument('initial_relax_path', type=str, help='Path to the parent directory containing the "initial-relaxations" directory.')
+
+    # Subparser for vanha_maini
+    parser_vanha_maini = subparsers.add_parser('vanha_maini', help='Run vanha_maini function.')
+
+        # Subparser for makeDepinningFromVelocities
+    parser_depinning_vel = subparsers.add_parser('depinning_velhist', help='Create depinning plots directly from collected velocity history data.')
+    parser_depinning_vel.add_argument('velocity_data_path', type=str, help='Path to the directory containing the velocity data, that is, folder named velocties.')
+
+    args = parser.parse_args()
+
+    if args.command == 'vel_hist_rel':
+        makeVelocityHistPlotsFromRelaxedPartial(args.relaxed_config_path)
+    elif args.command == 'vel_hist_depinning':
+        makeVelocityHistoryPlots(args.depinning_data_path)
+    elif args.command == 'initial_relax':
+        processInitalRelaxations(args.initial_relax_path)
+    elif args.command == 'vanha_maini':
+        vanha_maini()
+    elif args.command == 'depinning_velhist':
+        makeDepinningFromVelocities()
     else:
-        dir_path = "luonnokset/depinning-w-ivp/single-dislocation"
-    makeVelocityHistoryPlots(dir_path)
-    # makeVelocityHistPlotsFromRelaxedPartial("results/17-7-relaksaatio-fire/partial")
-    # processInitalRelaxations("results/2025-07-03-pikkusysteemi/partial-dislocation")
+        parser.print_help()
