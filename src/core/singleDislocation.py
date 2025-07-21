@@ -66,6 +66,9 @@ class DislocationSimulation(Simulation):
         """
         Sets the initial array y0 at time t=0.
         """
+        if type(y0) == type(None):
+            return # Just don't set a new value, use the default one set up in constructor
+        
         if len(y0) != self.bigN:
             raise Exception(f"Length of input array is invalid len(y0) = {len(y0)} != {self.bigN}")
         self.y0 = np.array(y0, dtype=np.float64)  # Store as numpy array
@@ -570,9 +573,9 @@ if __name__ == "__main__":
     params = DislocationSimulation.paramListToDict(data['parameters'])
 
     # Load from backup file
-    dislocation = DislocationSimulation(512, 512, 1000, 1, 0.0001, 1, 1, 1, 0, 1, seed=int(params['seed']))
-    relaxed_h = dislocation.relax_w_FIRE()
-    dislocation.setInitialY0Config(relaxed_h, 0)
+    dislocation = DislocationSimulation(512, 512, 1000, 1, 100, 1, 1, 1, 0, 1, seed=int(params['seed']))
+    # relaxed_h = dislocation.relax_w_FIRE()
+    dislocation.setInitialY0Config(None, 0)
     dislocation.run_until_relaxed("remove_me", 100/10, 1, True)
 
     vcmhist = dislocation.getVCMhist()
