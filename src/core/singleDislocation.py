@@ -1,8 +1,10 @@
 import time
+from matplotlib import pyplot as plt
 import numpy as np
+from pathlib import Path
+import sys
 from src.core.simulation import Simulation
 from scipy.integrate import solve_ivp
-from pathlib import Path
 import hashlib
 from scipy.interpolate import CubicSpline
 from scipy import fft
@@ -278,7 +280,7 @@ class DislocationSimulation(Simulation):
     def setup_splines(self):
         """Creates cubic spline interpolators for the generated random noise."""
         # Define grid for the potential
-        h_grid = np.linspace(0, 2*self.bigN, 2*self.bigN)
+        h_grid = np.linspace(0, self.bigN, self.bigN)
         
         # Generate random force values at grid points
         force_grid = self.stressField
@@ -569,9 +571,12 @@ if __name__ == "__main__":
 
     # Load from backup file
     dislocation = DislocationSimulation(512, 512, 1000, 1, 0.0001, 1, 1, 1, 0, 1, seed=int(params['seed']))
-    #relaxed_h = dislocation.relax_w_FIRE()
-    #dislocation.setInitialY0Config(relaxed_h, 0)
-    dislocation.setInitialY0Config(y0, 0)
+    relaxed_h = dislocation.relax_w_FIRE()
+    dislocation.setInitialY0Config(relaxed_h, 0)
     dislocation.run_until_relaxed("remove_me", 100/10, 1, True)
+
+    vcmhist = dislocation.getVCMhist()
+    plt.plot(vcmhist)
+    plt.show()
 
     pass

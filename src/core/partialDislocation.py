@@ -1,7 +1,6 @@
 import hashlib
 import numpy as np
 from scipy.fft import rfft, irfft, rfftfreq
-from scipy.interpolate import CubicSpline
 from src.core.simulation import Simulation
 from scipy.integrate import solve_ivp
 import time
@@ -53,8 +52,6 @@ class PartialDislocationsSimulation(Simulation):
         # --- Noise Parameters ---
         self.h_max_noise = self.bigN*2
         self.num_noise_points_h = self.bigN
-        self.splines = self.setup_splines()
-
     
     def setInitialY0Config(self, y1_0, y2_0):
         """
@@ -78,7 +75,7 @@ class PartialDislocationsSimulation(Simulation):
         dy = ( 
             self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
             + self.b_p*self.tau(y1) # The random stress term
-            + self.force1(y1, y2) # Interaction force
+            + self.force1(y1, y2)   # Interaction force
             + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) # The external stress term
             ) * ( self.bigB/self.smallB )
 
@@ -297,21 +294,6 @@ class PartialDislocationsSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         
         return relaxed
-    
-    # From there on define all the methods related to FIRE relaxation.
-    def setup_splines(self):
-        """Creates cubic spline interpolators for the generated random noise."""
-        # Define grid for the potential
-        h_grid = np.linspace(0, 2*self.bigN, 2*self.bigN)
-        
-        # Generate random force values at grid points
-        force_grid = self.stressField
-        force_grid[:,-1] = force_grid[:,0]
-        
-        # Create a list of cubic spline interpolators, one for each x position
-        splines = [CubicSpline(h_grid, force_grid[i, :], bc_type='periodic') for i in range(self.bigN)]
-
-        return splines
     
     def weak_coupling(self, h1, h2):
         d_avg = np.abs(np.mean(h1 - h2))
@@ -633,18 +615,16 @@ class PartialDislocationsSimulation(Simulation):
 if __name__ == "__main__":
     # Example usage of the PartialDislocationsSimulation class
     sim = PartialDislocationsSimulation(
-        bigN=3,           # Number of points
-        length=3,        # Length of dislocation
-        time=100,          # Total simulation time
-        dt=1,            # Time step
-        deltaR=1.0,         # Random force correlation length
-        bigB=1.0,          # Drag coefficient
+        bigN=5,             # Number of points
+        length=5,           # Length of dislocation
+        time=100,           # Total simulation time
+        dt=1,               # Time step
+        deltaR=0.001,         # Random force correlation length
+        bigB=1.0,           # Drag coefficient
         smallB=1.0,         # Burgers vector
-        b_p=1.0,           # Partial Burgers vector
-        mu=1.0,            # Shear modulus
-        tauExt=1.0         # External stress
+        b_p=1.0,            # Partial Burgers vector
+        mu=1.0,             # Shear modulus
+        tauExt=1.0          # External stress
     )
-    # sim.run_simulation()
-    # sim.run_until_relaxed("debug/jtn.npz", chunk_size=sim.time/10, shape_save_freq=1, timeit=True, method='RK45')
-    # sim.saveResults("debug/jtn/tulokset.npz")
     sim.relax_w_FIRE()
+    sim.run_until_relaxed("remove_me", 10, True, shape_save_freq=2)

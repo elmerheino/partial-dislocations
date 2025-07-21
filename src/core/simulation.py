@@ -1,5 +1,6 @@
 from pathlib import Path
 from scipy import fft
+from scipy.interpolate import CubicSpline
 import numpy as np
 from numba import jit
 from scipy.ndimage import map_coordinates
@@ -33,11 +34,27 @@ class Simulation(object):
         if seed != None:
             np.random.seed(seed)
 
-        self.stressField = np.random.normal(0,self.deltaR,[self.bigN, 2*self.bigN]) # Generate a random stress field
+        self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
+        self.splines = self.setup_splines()
 
         self.has_simulation_been_run = False
         
         pass
+
+    # From there on define all the methods related to FIRE relaxation.
+    def setup_splines(self):
+        """Creates cubic spline interpolators for the generated random noise."""
+        # Define grid for the potential
+        h_grid = np.linspace(0, self.bigN, self.bigN)
+        
+        # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
+        force_grid = self.stressField
+        force_grid[:,-1] = force_grid[:,0]
+        
+        # Create a list of cubic spline interpolators, one for each x position
+        splines = [CubicSpline(h_grid, force_grid[i, :], bc_type='periodic') for i in range(self.bigN)]
+
+        return splines
 
     def secondDerivative(self, x):
         x_hat = fft.fft(x)
@@ -53,11 +70,9 @@ class Simulation(object):
         else:
             return 0
         
-    def tau(self, y): # This should be the fastest possible way to do this w/ 29.201507568359375 mu s
-        # tau_res = [ np.interp(y[x], self.x_points, self.stressField[x,0:self.bigN], period=self.bigN) for x in self.x_points ]
-        coords = np.array([self.x_indices, y])
-        stress_data = self.stressField[:, :]
-        return map_coordinates(stress_data, coords, order=1, mode='wrap')
+    def tau(self, y):
+        noise_force = np.array([self.splines[i](y[i]) for i in range(self.bigN)])
+        return noise_force
         
     def is_relaxed(self, velocities, tolerance=1e-9):
         # accel_cm_i = np.gradient(velocities)
