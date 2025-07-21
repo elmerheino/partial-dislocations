@@ -12,21 +12,23 @@ from src.core.partialDislocation import PartialDislocationsSimulation
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find relaxed configurations for some noise levels.')
+    parser.add_argument('--seeds', type=int, required=True, help='how many realizations of each noise')
+
+    parser.add_argument('--length', type=int, required=True, help='length of the system such that L=N')
     parser.add_argument('--rmin', type=float, required=True,
                       help='Minimum delta R value')
     parser.add_argument('--rmax', type=float, required=True,
                       help='Maximum delta R value')
     parser.add_argument('--rpoints', type=int, required=True,
                       help='Number of points between rmin and rmax')
-    parser.add_argument('--seeds', type=int, required=True, help='how many realizations of each noise')
-    parser.add_argument('--length', type=int, required=True, help='length of the system L=N')
 
     parser.add_argument('--time', type=int, required=True, help='relaxation time')
     parser.add_argument('--n', type=int, required=True, help='system size')
     parser.add_argument('--dt', type=float, required=True, help='time step')
     parser.add_argument('--folder', type=str, required=True, help='output folder path')
 
-    group = parser.add_mutually_exclusive_group()
+    parser.add_argument('--d0', type=float, help='Initial separation of partials. Required for --partial.')
+    group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--partial', action='store_true', help='Enable partial dislocations simulation')
     group.add_argument('--perfect', action='store_true', help='Enable perfect dislocations simulation')
 
@@ -115,11 +117,11 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
                 raise
             time.sleep(retry_delay)
 
-def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, y0_1=None, y0_2=None, t0=None):
+def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0, y0_1=None, y0_2=None, t0=None):
     # Create the partial dislocation object
     deltaR, seed = deltaRseed
     sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
-                                cLT1=1, cLT2=1, seed=seed)
+                                cLT1=1, cLT2=1, seed=seed, d0=d0)
 
     if (type(y0_1) != type(None)) and (type(t0) != type(None)) and (type(y0_2) != type(None)):
         sim.setInitialY0Config(y0_1, y0_2)
@@ -288,21 +290,13 @@ def partial_logic(args):
     params_file = Path(args.folder).joinpath("run_params.json")
     params_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # if params_file.exists():
-    #     # pickup_where_left(Path(args.folder), args.cores)
-    #     pass
-    # else:
+    # TODO: implement option to pick up from where we left or where the simulation timed out
     with open(params_file, 'w') as f:
         json.dump(params_dict, f, indent=4)
 
     with mp.Pool(args.cores) as pool:
         pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                            bigN=args.n), noise_seed_pairs)
-    
-    # for i in noise_seed_pairs:
-    #     fn = partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-    #                         bigN=args.n)
-    #     fn(i)
+                            bigN=args.n, d0=args.d0), noise_seed_pairs)
 
     pass
 
