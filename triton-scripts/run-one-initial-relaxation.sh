@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=3:00:00
+#SBATCH --time=72:00:00
 #SBATCH --job-name=initial-relaxation-4
 #SBATCH --mem-per-cpu=500M
 #SBATCH --output=initial-relaxation.out
