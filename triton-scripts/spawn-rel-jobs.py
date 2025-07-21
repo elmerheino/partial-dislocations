@@ -56,6 +56,11 @@ for sys_size in [32, 64, 128, 265, 512, 1024]:
     powers_of_two = [2**i for i in range(1, int(sys_size/4).bit_length() + 1)]
     for d0 in powers_of_two:
         save_path = f"${{WRKDIR}}/21-7-testjuttu/l-{sys_size}-d0-{d0}/partial"
-        spawn_relaxation(800000, -4, -2, 13, dt=100, system_size=sys_size, d0=d0, seeds=1, save_path=save_path, perfect_partial="--partial")
-        spawn_relaxation(100000, -2, 4, 37, dt=10, system_size=sys_size, d0=d0, seeds=1, save_path=save_path, perfect_partial="--partial")
+        spawn_relaxation(800000, -4, -2, 13, dt=100, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, perfect_partial="--partial")
+        spawn_relaxation(100000, -2, 4, 37, dt=10, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, perfect_partial="--partial")
+
+        save_path = f"${{WRKDIR}}/21-7-testjuttu/l-{sys_size}-d0-{d0}/perfect"
+        spawn_relaxation(800000, -4, -2, 13, dt=100, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, perfect_partial="--perfect")
+        spawn_relaxation(100000, -2, 4, 37, dt=10, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, perfect_partial="--perfect")
+
         print(save_path)
