@@ -116,6 +116,7 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
             time.sleep(retry_delay)
 
 def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, y0_1=None, y0_2=None, t0=None):
+    # Create the partial dislocation object
     deltaR, seed = deltaRseed
     sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
                                 cLT1=1, cLT2=1, seed=seed)
@@ -133,13 +134,14 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, y0
         # If successsull, set it as the y0 of the integrator
         sim.setInitialY0Config(y1_0_fire, y2_0_fire)
 
-    # Save three dislocation shapes from each chunk
+    # Run the simulation for a while using linear interpolation, save three dislocation shapes from each chunk
     sim.run_until_relaxed(backup_file, chunk_size=sim.time/10, shape_save_freq=1, method='RK45')
 
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
     sim.saveResults(results_save_path)
 
+    # Update run_params.json in a way compatible with multiprocessing
     max_retries = 5
     retry_delay = 1
 
@@ -230,15 +232,15 @@ def pickup_where_left(folder, cores=8):
     failsafe_noises = map(lambda x : x['deltaR'], unsuccesfull_params)
     no_failsafe_noises = list(set(unsuccesfull_noises) - set(failsafe_noises))
 
-    # Then relax these dislocations until end, and save the results, first the ones with failsafe, then rest
+    print(f"Found dislocation w/ no failsafe at noises {no_failsafe_noises}")
+    noise_seed_pairs_no_failsafe = [(float(noise), int(seed)) for noise, seed in no_failsafe_noises]
+
+    # Then relax these dislocations, with and without failsafes until end, 
+    # and save the results, first the ones with failsafe, then rest
     with mp.Pool(cores) as pool:
         pool.map(partial(fn, folder=Path(folder)), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
-    
-    # Then start relaxing the ones w/o failsafe:
-    print(f"Found dislocation w/ no failsafe at noises {no_failsafe_noises}")
-    noise_seed_pairs = [(float(noise), int(seed)) for noise, seed in no_failsafe_noises]
-    with mp.Pool(cores) as pool:
-        pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), noise_seed_pairs)
+        pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), 
+                noise_seed_pairs_no_failsafe)
 
 def perfect_logic(args):
     noises = np.logspace(args.rmin,args.rmax, args.rpoints)
@@ -293,14 +295,14 @@ def partial_logic(args):
     with open(params_file, 'w') as f:
         json.dump(params_dict, f, indent=4)
 
-    # with mp.Pool(args.cores) as pool:
-    #     pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-    #                         bigN=args.n), noise_seed_pairs)
+    with mp.Pool(args.cores) as pool:
+        pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
+                            bigN=args.n), noise_seed_pairs)
     
-    for i in noise_seed_pairs:
-        fn = partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                            bigN=args.n)
-        fn(i)
+    # for i in noise_seed_pairs:
+    #     fn = partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
+    #                         bigN=args.n)
+    #     fn(i)
 
     pass
 
