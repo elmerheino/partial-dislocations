@@ -44,15 +44,14 @@ class Simulation(object):
     # From there on define all the methods related to FIRE relaxation.
     def setup_splines(self):
         """Creates cubic spline interpolators for the generated random noise."""
-        # Define grid for the potential
-        h_grid = np.linspace(0, self.bigN, self.bigN)
+        # Define grid for the potential. It should correspond to the indices of the stress field array.
+        h_grid = np.arange(self.bigN)
         
         # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
-        force_grid = self.stressField
-        force_grid[:,-1] = force_grid[:,0]
+        self.stressField[:,-1] = self.stressField[:,0]
         
         # Create a list of cubic spline interpolators, one for each x position
-        splines = [CubicSpline(h_grid, force_grid[i, :], bc_type='periodic') for i in range(self.bigN)]
+        splines = [CubicSpline(h_grid, self.stressField[i, :], bc_type='periodic') for i in range(self.bigN)]
 
         return splines
 

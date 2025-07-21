@@ -122,74 +122,6 @@ class PartialDislocationsSimulation(Simulation):
 
         self.has_simulation_been_run = True
 
-    def run_in_chunks(self, backup_file, chunk_size = 100, timeit=False, method='RK45'):
-
-        if timeit:
-            t0 = time.time()
-
-        y0 = self.y0
-
-        total_time_so_far = 0
-        last_y0 = y0
-
-        last_y = y0
-
-        backup_file = Path(backup_file)
-        backup_file.parent.mkdir(exist_ok=True, parents=True)
-
-        if self.time % chunk_size != 0:
-            print(f"self.time % chunk_size = {self.time % chunk_size} should equal 0")
-            raise Exception("invalid chunk size")
-        
-        while total_time_so_far < self.time:
-            start_i = total_time_so_far
-            end_i = total_time_so_far + chunk_size
-
-            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
-                            t_eval=np.arange(start_i, end_i, self.dt),
-                            rtol=self.rtol, atol=1e-14)
-            
-            if not sol_i.success:
-                raise RuntimeError(f"solve_ivp failed: {sol_i.message}")
-            
-            y_i = sol_i.y.reshape(2, self.bigN, -1)
-
-            current_chunk_y1 = y_i[0].T
-            current_chunk_y2 = y_i[1].T
-
-            last_y = y_i
-
-            last_y0 = y_i[:, :, -1]
-            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i)
-            total_time_so_far += chunk_size
-
-            y1_CM_i = np.mean(current_chunk_y1, axis=1)
-            y2_CM_i = np.mean(current_chunk_y2, axis=1)
-            total_CM_i = (y1_CM_i + y2_CM_i) / 2
-
-            sf_width = np.mean(current_chunk_y1 - current_chunk_y2, axis=1)
-            self.avg_stacking_fault_history.append(sf_width)
-
-            if len(total_CM_i) > 2:
-                v_cm_i = np.gradient(total_CM_i, self.dt)
-                self.avg_v_cm_history.append(v_cm_i)
-            else:
-                print(f"not true len(total_cm_i) > 2, total_cm_i = {total_CM_i}, start_i = {start_i}, end_i = {end_i}")
-        
-        self.y1 = last_y[0].T
-        self.y2 = last_y[1].T
-
-        self.y1 = np.array(self.y1) # Convert to numpy array
-        self.y2 = np.array(self.y2)
-        self.timesteps = len(self.y1)
-        
-        self.has_simulation_been_run = True
-
-        if timeit:
-            t1 = time.time()
-            print(f"Time taken for simulation: {t1 - t0}")
-        pass
-
     def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
@@ -298,14 +230,6 @@ class PartialDislocationsSimulation(Simulation):
     def weak_coupling(self, h1, h2):
         d_avg = np.abs(np.mean(h1 - h2))
         return self.d0 / d_avg - 1
-
-    def fire_force1(self, h1, h2):
-        # return self.weak_coupling(h1, h2)
-        return self.force1(h1, h2)
-
-    def fire_force2(self, h1, h2):
-        # return self.weak_coupling(h1,h2)
-        return self.force2(h2, h1)
     
     def strong_coupling(self, h1, h2):
         d_avg = np.abs(np.mean(h1 - h2))
@@ -346,8 +270,8 @@ class PartialDislocationsSimulation(Simulation):
         noise_force1 = np.array([self.splines[i](h1[i]) for i in range(self.bigN)])
         noise_force2 = np.array([self.splines[i](h2[i]) for i in range(self.bigN)])
 
-        force1_tot = line_tension_force1 + noise_force1 + self.fire_force1(h1, h2)
-        force2_tot = line_tension_force2 + noise_force2 + self.fire_force2(h1, h2)
+        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2)
+        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2)
 
         return force1_tot, force2_tot
 
@@ -615,11 +539,11 @@ class PartialDislocationsSimulation(Simulation):
 if __name__ == "__main__":
     # Example usage of the PartialDislocationsSimulation class
     sim = PartialDislocationsSimulation(
-        bigN=5,             # Number of points
-        length=5,           # Length of dislocation
+        bigN=32,             # Number of points
+        length=32,           # Length of dislocation
         time=100,           # Total simulation time
         dt=1,               # Time step
-        deltaR=0.001,         # Random force correlation length
+        deltaR=0.01,         # Random force correlation length
         bigB=1.0,           # Drag coefficient
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
