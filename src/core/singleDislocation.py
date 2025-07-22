@@ -475,11 +475,19 @@ if __name__ == "__main__":
     # Load from backup file
     dislocation = DislocationSimulation(32, 32, 1000, 10, 100, 1, 1, 1, 0, 1, seed=1)
     relaxed_h = dislocation.relax_w_FIRE()
-    dislocation.setInitialY0Config(None, 0)
+    # dislocation.setInitialY0Config(None, 0)
     dislocation.run_in_chunks("remove_me", 1000/10, 1, until_relaxed=False, timeit=True)
 
-    vcmhist = dislocation.getVCMhist()
-    plt.plot(vcmhist)
-    plt.show()
+    data = np.load('remove_me.npz')
+    h_rel_ivp = dislocation.getLineProfiles()
 
+    fig, ax = plt.subplots(figsize=(5,5))
+    ax.plot(h_rel_ivp, label="solve ivp")
+    ax.plot(relaxed_h, label="FIRE")
+    ax.plot(relaxed_h - h_rel_ivp, label="pointwise difference")
+    ax.grid(True)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y(x)")
+    fig.legend()
+    plt.show()
     pass
