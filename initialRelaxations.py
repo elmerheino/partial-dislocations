@@ -15,6 +15,8 @@ def parse_args():
     parser.add_argument('--seeds', type=int, required=True, help='how many realizations of each noise')
 
     parser.add_argument('--length', type=int, required=True, help='length of the system such that L=N')
+    parser.add_argument('--n', type=int, required=True, help='system size')
+
     parser.add_argument('--rmin', type=float, required=True,
                       help='Minimum delta R value')
     parser.add_argument('--rmax', type=float, required=True,
@@ -22,9 +24,11 @@ def parse_args():
     parser.add_argument('--rpoints', type=int, required=True,
                       help='Number of points between rmin and rmax')
 
-    parser.add_argument('--time', type=int, required=True, help='relaxation time')
-    parser.add_argument('--n', type=int, required=True, help='system size')
-    parser.add_argument('--dt', type=float, required=True, help='time step')
+    time_group = parser.add_mutually_exclusive_group(required=True)
+    time_group.add_argument('--time', type=int, help='How long to integrate after FIRE relaxation', default=None)
+    time_group.add_argument('--only-fire', action='store_true', help='Only relax with FIRE, no time evolution.')
+    parser.add_argument('--dt', type=float, required=False, help='time step', default=None)
+
     parser.add_argument('--folder', type=str, required=True, help='output folder path')
 
     parser.add_argument('--d0', type=float, help='Initial separation of partials. Required for --partial.')
@@ -36,7 +40,7 @@ def parse_args():
 
     return parser.parse_args()
 
-def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, t0=None):
+def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, only_fire, y0=None, t0=None):
     """
     Simulates the relaxation of a dislocation under given parameters and saves the results.
     Args:
@@ -63,6 +67,10 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
     # where time is the simulation time and y1 to yN represent the dislocation shape at that time, N being the bigN used
     in the simulation
     """
+    if (type(time) == type(None)) or (type(dt) == type(None)):
+        time = 1
+        dt = 1
+
     deltaR, seed = deltaRseed
     sim = DislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
                                 cLT1=1, seed=seed)
@@ -81,12 +89,15 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
         sim.setInitialY0Config(y0_fire, sim.t0)
 
     # Save three dislocation shapes from each chunk
-    sim.run_in_chunks(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
 
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
-    sim.saveResults(results_save_path)
+    if not only_fire:
+        sim.run_in_chunks(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
+        sim.saveResults(results_save_path)
+    else:
+        np.savez( results_save_path, y_fire=y0_fire, params=sim.getParameteters() )
 
     max_retries = 5
     retry_delay = 1
@@ -117,9 +128,14 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, y0=None, 
                 raise
             time.sleep(retry_delay)
 
-def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0, y0_1=None, y0_2=None, t0=None):
+def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0, only_fire : bool, y0_1=None, y0_2=None, t0=None):
     # Create the partial dislocation object
     deltaR, seed = deltaRseed
+
+    if (type(time) == type(None)) or (type(dt) == type(None)):
+        time = 1
+        dt = 1
+    
     sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
                                 cLT1=1, cLT2=1, seed=seed, d0=d0)
 
@@ -137,11 +153,14 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0
         sim.setInitialY0Config(y1_0_fire, y2_0_fire)
 
     # Run the simulation for a while using linear interpolation, save three dislocation shapes from each chunk
-    sim.run_in_chunks(backup_file, chunk_size=sim.time/10, shape_save_freq=1, method='RK45')
-
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
-    sim.saveResults(results_save_path)
+
+    if not only_fire:
+        sim.run_in_chunks(backup_file, chunk_size=sim.time/10, shape_save_freq=1, method='RK45')
+        sim.saveResults(results_save_path)
+    else:
+        np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, params=sim.getParameters())
 
     # Update run_params.json in a way compatible with multiprocessing
     max_retries = 5
@@ -270,7 +289,7 @@ def perfect_logic(args):
 
         with mp.Pool(args.cores) as pool:
             pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                             bigN=args.n), noise_seed_pairs)
+                             bigN=args.n, only_fire=args.only_fire), noise_seed_pairs)
 
 def partial_logic(args):
     noises = np.logspace(args.rmin,args.rmax, args.rpoints)
@@ -296,7 +315,7 @@ def partial_logic(args):
 
     with mp.Pool(args.cores) as pool:
         pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                            bigN=args.n, d0=args.d0), noise_seed_pairs)
+                            bigN=args.n, d0=args.d0, only_fire=args.only_fire), noise_seed_pairs)
 
     pass
 
