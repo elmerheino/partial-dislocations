@@ -53,19 +53,15 @@ def spawn_relaxation(time, rmin, rmax, rpoints, system_size, d0, seeds, save_pat
     print(stdout)
     pass
 
-kansion_nimi = "21-7-ihan-himona-dataa"
+kansion_nimi = "22-7-ihan-himona-dataa-vain-FIRE"
 
 for sys_size in [32, 64, 128, 265, 512, 1024]:
     save_path = f"${{WRKDIR}}/{kansion_nimi}/l-{sys_size}/perfect"
-    spawn_relaxation(800000, -4, -2, 13, dt=100, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
-                     perfect_partial="--perfect", hours_limit=72)
-    spawn_relaxation(100000, -2, 4, 37, dt=10, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
-                     perfect_partial="--perfect", hours_limit=72)
+    spawn_relaxation(1, -4, 4, 50, dt=10, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
+                     perfect_partial="--perfect", hours_limit=24)
 
     powers_of_two = [2**i for i in range(1, int(sys_size/4).bit_length() + 1)]
     for d0 in powers_of_two:
         save_path = f"${{WRKDIR}}/{kansion_nimi}/l-{sys_size}-d0-{d0}/partial"
-        spawn_relaxation(800000, -4, -2, 13, dt=100, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
-                         perfect_partial="--partial", hours_limit=72)
-        spawn_relaxation(100000, -2, 4, 37, dt=10, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
-                         perfect_partial="--partial", hours_limit=72)
+        spawn_relaxation(100000, -4, 4, 50, dt=10, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
+                         perfect_partial="--partial", hours_limit=24)
