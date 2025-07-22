@@ -222,7 +222,8 @@ def run_single_partial_dislocation(tau_ext, noise, time, dt, save_folder : Path)
     1024, 1024, time, dt, noise, 1, 1, 0.5773499805, 1, tau_ext,
     cLT1=1, cLT2=1, d0=10, c_gamma=1, seed=1, rtol=1e-9
     )
-    dislocation.run_simulation(evaluate_from=1)
+    backup_file = Path(save_folder).joinpath(f"failsafes/simulation-{dislocation.getUniqueHashString()}")
+    dislocation.run_in_chunks(backup_file, dislocation.time/10, timeit=True, evaluate_from=1)
 
     # Use the getParameters() method to obtain the parameters for hashing
     params_list = dislocation.getParameters()

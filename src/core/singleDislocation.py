@@ -91,32 +91,8 @@ class DislocationSimulation(Simulation):
         
         # Flatten the result back to a 1D array
         return dudt.flatten()
-
-    def run_simulation(self, y0=None, timeit=False):
-        if timeit:
-            t0 = time.time()
-        
-        if type(y0) != type(None):
-            self.y0 = y0
-            
-        sol = solve_ivp(self.rhs, [0, self.time], self.y0.flatten(), method='RK45', 
-                        t_eval=np.arange(self.time*(1 - 0.1), self.time, self.dt),
-                        rtol=self.rtol, atol=1e-10) # Use a very small atol to avoid NaNs in the solution
-
-        self.y1 = sol.y.T
-
-        self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
-
-        self.y1 = np.array(self.y1) # Convert to numpy array
-        self.timesteps = len(self.y1)
-        
-        self.has_simulation_been_run = True
-
-        if timeit:
-            t1 = time.time()
-            print(f"Time taken for simulation: {t1 - t0}")
     
-    def run_until_relaxed(self, backup_file, chunk_size : int, shape_save_freq, timeit=False, tolerance=1e-6, method='RK45'):
+    def run_in_chunks(self, backup_file, chunk_size : int, shape_save_freq, until_relaxed = False, timeit=False, tolerance=1e-6, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunk_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -168,7 +144,6 @@ class DislocationSimulation(Simulation):
             self.selected_y_shapes.extend(zip(selected_times, selected_ys))
 
             # Save a backup
-
             np.savez(backup_file, y_last=last_y0, params=self.getParameteters(), last_success_time=end_i, og_time=self.time,
                      v_cm_hist=self.getVCMhist())
             total_time_so_far = total_time_so_far + chunk_size
@@ -177,11 +152,12 @@ class DislocationSimulation(Simulation):
             v_cm_i = np.gradient(cm_i, self.dt)
             self.v_cm_history.append(v_cm_i)
 
-            if self.is_relaxed(v_cm_i, tolerance=tolerance):
+            if until_relaxed and self.is_relaxed(v_cm_i, tolerance=tolerance):  # If until_relaxed, then check for relaxation
                 relaxed = True
                 break # end the simulation here.
 
-            # print(f"{total_time_so_far/self.time:.1f}", "\t")
+            if timeit:  # If timeit then print progress
+                print(f"Progress: {total_time_so_far*100/self.time:.1f} %", "\t")
         
         # print(f"total time so far = {total_time_so_far} max time = {max_time} and total/max_time {total_time_so_far / max_time}")
         # print(f"Relaxed {relaxed}")
@@ -496,21 +472,11 @@ class DislocationSimulation(Simulation):
 
 # For debugging
 if __name__ == "__main__":
-    # Run simulation with first instance and save backup
-    backup_path = Path("results/7-7-relaksaatio/perfect/failsafes/backup-90dc59a8385e7a1e33cda3a0a7be94dc8add9552152da2016c6c49fffeb1d303.npz")
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
-
-    path = "luonnokset/depinning-w-ivp/single-dislocation/dislocations-last/noise-0.0001/seed-0/dislocation-shapes-tau-0.0-R-0.0001.npz"
-    data = np.load(path)
-
-    y0 = data['y']
-    params = DislocationSimulation.paramListToDict(data['parameters'])
-
     # Load from backup file
-    dislocation = DislocationSimulation(512, 512, 1000, 1, 100, 1, 1, 1, 0, 1, seed=int(params['seed']))
-    # relaxed_h = dislocation.relax_w_FIRE()
+    dislocation = DislocationSimulation(32, 32, 1000, 10, 100, 1, 1, 1, 0, 1, seed=1)
+    relaxed_h = dislocation.relax_w_FIRE()
     dislocation.setInitialY0Config(None, 0)
-    dislocation.run_until_relaxed("remove_me", 100/10, 1, True)
+    dislocation.run_in_chunks("remove_me", 1000/10, 1, until_relaxed=False, timeit=True)
 
     vcmhist = dislocation.getVCMhist()
     plt.plot(vcmhist)

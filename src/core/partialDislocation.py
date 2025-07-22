@@ -100,29 +100,7 @@ class PartialDislocationsSimulation(Simulation):
         
         return dudt.flatten()
 
-    def run_simulation(self, evaluate_from=0.1):                                # By default only evaluate from the last 10 % of simulation time
-
-        y0 = self.y0 # Make sure its bigger than y2 to being with, and also that they have the initial distance d
-
-        time_evals = np.arange(self.time*(1 - evaluate_from),self.time, self.dt) # Evaluate the solution only from the last 10% of the time every dt
-
-        sol = solve_ivp(self.rhs, [0, self.time], y0.flatten(), method='RK45', t_eval=time_evals, rtol=self.rtol)
-
-        sol.y = sol.y.reshape(2, self.bigN, -1) # Reshape the solution to have 2 lines
-        self.y1 = sol.y[0].T
-        self.y2 = sol.y[1].T
-
-        self.used_timesteps = sol.t[1:] - sol.t[:-1] # Get the time steps used
-
-        # print(self.y1.shape, self.y2.shape, sol.y.shape)
-
-        self.y1 = np.array(self.y1)
-        self.y2 = np.array(self.y2)
-        self.timesteps = len(self.y1) # Update the number of timesteps
-
-        self.has_simulation_been_run = True
-
-    def run_until_relaxed(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='RK45'):
+    def run_in_chunks(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -257,13 +235,13 @@ class PartialDislocationsSimulation(Simulation):
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h1_k = rfft(h1)
         laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
-        line_tension_force1 = self.cLT1 * irfft(laplacian_k1, n=self.bigN)
+        line_tension_force1 = self.cLT1*self.mu*(self.smallB**2) * irfft(laplacian_k1, n=self.bigN)
 
         # 2. Line tension of the second partial
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h2_k = rfft(h2)
         laplacian_k2 = -(k**2) * h2_k         # Second derivative in Fourier space
-        line_tension_force2 = self.cLT2 * irfft(laplacian_k2, n=self.bigN)
+        line_tension_force2 = self.cLT1*self.mu*(self.smallB**2) * irfft(laplacian_k2, n=self.bigN)
 
         # 2. Quenched Noise Force (from splines)
 
@@ -551,4 +529,4 @@ if __name__ == "__main__":
         tauExt=1.0          # External stress
     )
     sim.relax_w_FIRE()
-    sim.run_until_relaxed("remove_me", 10, True, shape_save_freq=2)
+    sim.run_in_chunks("remove_me", 10, True, shape_save_freq=2)

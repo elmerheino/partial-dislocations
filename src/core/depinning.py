@@ -73,7 +73,7 @@ class DepinningPartial(Depinning):
         rel_backup_path = Path(self.folder_name).joinpath(f"initial-relaxations/initial-relaxation-{sim.getUniqueHash()}.npz")
         rel_backup_path.parent.mkdir(exist_ok=True, parents=True)
         
-        relaxed = sim.run_until_relaxed(rel_backup_path, sim.time/10)
+        relaxed = sim.run_in_chunks(rel_backup_path, sim.time/10)
         v_cm_hist = sim.getVCMhist()
 
         np.savez(rel_backup_path, v_cm_hist=v_cm_hist)
@@ -98,7 +98,7 @@ class DepinningPartial(Depinning):
 
         chunk_size = self.time/10
 
-        is_relaxed = simulation.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size)
+        is_relaxed = simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
         # print(f"Dislocaiation was relaxed? {is_relaxed}")
 
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
@@ -248,7 +248,7 @@ class DepinningSingle(Depinning):
         rel_backup_path = Path(self.folder_name).joinpath(f"initial-relaxations/initial-relaxation-{sim.getUniqueHashString()}.npz")
         rel_backup_path.parent.mkdir(exist_ok=True, parents=True)
 
-        realaxed = sim.run_until_relaxed(rel_backup_path, chunk_size=sim.time/10, shape_save_freq=1)
+        realaxed = sim.run_in_chunks(rel_backup_path, chunk_size=sim.time/10, shape_save_freq=1)
 
         print(f"Initial relaxation fulfilled criterion: {realaxed}")
 
@@ -266,7 +266,7 @@ class DepinningSingle(Depinning):
 
         chunk_size = self.time/10
 
-        sim.run_until_relaxed(backup_file=backup_file, chunk_size=chunk_size, shape_save_freq=2)
+        sim.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size, shape_save_freq=2)
         v_rel = sim.getRelaxedVelocity() # Consider last 10% of time to get relaxed velocity.
         y_last = sim.getLineProfiles()
         l_range, avg_w = sim.getAveragedRoughness() # Get averaged roughness from the last 10% of time
