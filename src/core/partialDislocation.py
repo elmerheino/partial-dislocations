@@ -1,4 +1,5 @@
 import hashlib
+from matplotlib import pyplot as plt
 import numpy as np
 from scipy.fft import rfft, irfft, rfftfreq
 from src.core.simulation import Simulation
@@ -7,7 +8,9 @@ import time
 from pathlib import Path
 class PartialDislocationsSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=2, cLT2=2, d0=40, c_gamma=50, seed=None, rtol=1e-8):
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=1, cLT2=1, d0=1, c_gamma=1,
+                 seed=None, rtol=1e-8):
+        
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
         
         self.cLT1 = cLT1                        # Parameters of the gradient term C_{LT1} and C_{LT2} (tension of the two lines)
@@ -21,7 +24,7 @@ class PartialDislocationsSimulation(Simulation):
         self.y0 = np.ones((2, self.bigN), dtype=float)*self.d0
         self.y0 = np.vstack((
             np.ones(self.bigN)*self.d0,     # y1
-            np.zeros(self.bigN)             # y2 ensure that in the beginning y1 > y2
+            np.zeros(self.bigN)             # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
         ))
 
         self.y2 = list()
@@ -62,7 +65,16 @@ class PartialDislocationsSimulation(Simulation):
             print(y1_0)
         self.y0 = np.vstack([y1_0, y2_0])
         pass
-        
+
+    def weak_coupling(self, h1, h2):
+        d_avg = np.mean(np.abs(h1 - h2))
+        return self.d0 / d_avg - 1
+    
+    def strong_coupling(self, h1, h2):
+        d_avg = np.mean(np.abs(h1 - h2))
+        d = np.abs(h1 - h2)
+        return (self.d0 - d)/d_avg
+
     def force1(self, y1,y2):
         factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
         return factor*self.weak_coupling(y1, y2)
@@ -205,28 +217,6 @@ class PartialDislocationsSimulation(Simulation):
         
         return relaxed
     
-    def weak_coupling(self, h1, h2):
-        d_avg = np.abs(np.mean(h1 - h2))
-        return self.d0 / d_avg - 1
-    
-    def strong_coupling(self, h1, h2):
-        d_avg = np.abs(np.mean(h1 - h2))
-        d = np.abs(h1 - h2)
-        return (self.d0 - d)/d_avg
-    
-    def very_strong_coupling(self, h1, h2):
-        forces = np.empty(self.bigN)
-
-        k = 1e-6
-
-        for i in range(len(h1)):
-            for j in range(len(h2)):
-                dy = h2[j] - h1[i]
-                dx = (j-i)*self.deltaL
-                d = np.hypot(dx, dy)
-                forces[i] = d*k
-        return forces
-    
     def calculate_forces_FIRE(self, h1, h2):
         """
         Calculates forces using Fourier method for line tension and spline derivatives for noise.
@@ -245,8 +235,8 @@ class PartialDislocationsSimulation(Simulation):
 
         # 2. Quenched Noise Force (from splines)
 
-        noise_force1 = np.array([self.splines[i](h1[i]) for i in range(self.bigN)])
-        noise_force2 = np.array([self.splines[i](h2[i]) for i in range(self.bigN)])
+        noise_force1 = self.tau(h1)
+        noise_force2 = self.tau(h2)
 
         force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2)
         force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2)
@@ -259,8 +249,8 @@ class PartialDislocationsSimulation(Simulation):
         Performs the FIRE relaxation of the dislocation line.
         """
         # Initialize dislocation line (e.g., as a straight line) and velocity
-        h1 = np.zeros(self.bigN)
-        h2 = np.ones(self.bigN)*self.d0
+        h1 = np.ones(self.bigN)*self.d0
+        h2 = np.zeros(self.bigN)             # h2 is the trailing partial
 
         v1 = np.zeros(self.bigN)
         v2 = np.zeros(self.bigN)
@@ -519,14 +509,36 @@ if __name__ == "__main__":
     sim = PartialDislocationsSimulation(
         bigN=32,             # Number of points
         length=32,           # Length of dislocation
-        time=100,           # Total simulation time
-        dt=1,               # Time step
-        deltaR=0.01,         # Random force correlation length
+        time=10000,           # Total simulation time
+        dt=10,               # Time step
+        deltaR=1,         # Random force correlation length
         bigB=1.0,           # Drag coefficient
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
         mu=1.0,             # Shear modulus
-        tauExt=1.0          # External stress
+        tauExt=0,          # External stress
+        d0=10,
+        seed=10
     )
-    sim.relax_w_FIRE()
-    sim.run_in_chunks("remove_me", 10, True, shape_save_freq=2)
+    fire_y1, fire_y2 = sim.relax_w_FIRE()
+    sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
+    ivp_y1, ivp_y2 = sim.getLineProfiles()
+
+    fig,ax = plt.subplots()
+    ax.plot(fire_y1, label="Line 1 (FIRE)", color='red')
+    ax.plot(ivp_y1, label="Line 1 (solve_ivp)", color='blue')
+
+    ax.plot(fire_y2, label="Line 2 (FIRE)", color='red')
+    ax.plot(ivp_y2, label="Line 2 (solve_ivp)", color='blue')
+
+    ax.plot(fire_y1 - ivp_y1, label="line1 diff")
+    ax.plot(fire_y2 - ivp_y2, label="line2 diff")
+    
+    ax.legend()
+    ax.set_xlabel("Position")
+    ax.set_ylabel("Displacement")
+    ax.set_title("Dislocation Line Profiles (FIRE)")
+    
+    plt.show()
+    
+

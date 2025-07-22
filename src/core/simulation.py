@@ -35,6 +35,9 @@ class Simulation(object):
             np.random.seed(seed)
 
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
+        # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
+        self.stressField[:,-1] = self.stressField[:,0]
+        
         self.splines = self.setup_splines()
 
         self.has_simulation_been_run = False
@@ -46,10 +49,7 @@ class Simulation(object):
         """Creates cubic spline interpolators for the generated random noise."""
         # Define grid for the potential. It should correspond to the indices of the stress field array.
         h_grid = np.arange(self.bigN)
-        
-        # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
-        self.stressField[:,-1] = self.stressField[:,0]
-        
+                
         # Create a list of cubic spline interpolators, one for each x position
         splines = [CubicSpline(h_grid, self.stressField[i, :], bc_type='periodic') for i in range(self.bigN)]
 
