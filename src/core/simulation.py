@@ -103,12 +103,6 @@ class Simulation(object):
             roughness[l] = c
 
         return l_range, roughness
-
-    def getParamsInLatex(self):
-        return [
-            f"N={self.bigN}", f"L={self.length}", f"t={self.time}",
-            f"dt={self.dt}", f"\\Delta R = {self.deltaR}",
-            f"\\tau_{{ext}} = {self.tauExt}"]
     
     def getTvalues(self):
         # Returns the times ealaped at each step

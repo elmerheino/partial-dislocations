@@ -260,7 +260,7 @@ class PartialDislocationsSimulation(Simulation):
         alpha = self.ALPHA_START
         steps_since_negative_power = 0
 
-        print("Starting FIRE relaxation...")
+        print("🚀 Starting FIRE relaxation...")
         for step in range(self.MAX_STEPS):
             force1, force2 = self.calculate_forces_FIRE(h1, h2)
 
@@ -449,24 +449,6 @@ class PartialDislocationsSimulation(Simulation):
             'seed': seed,
             'tau_cutoff': tau_cutoff
         }
-
-    
-    def calculateC_gamma(self, v=1, theta=np.pi/2):
-        # Calulcates the C_{\gamma} parameter based on dislocation character
-        # according to Vaid et al. (12)
-
-        secondTerm = 1 - (2*v*np.cos(2*theta))
-        c_gamma = secondTerm*(2 - v)/(8*np.pi*(1-v))
-
-    def equilibriumDistance(self, gamma=60.5, tau_gamma=486):
-        # Calculated the supposed equilibrium distance of the two lines
-        # according to Vaid et al. (11)
-
-        gamma = 60.5 # Stacking fault energy, gamma is also define through sf stress \tau_{\gamma}*b_p
-        d0 = (self.c_gamma*self.mu/gamma)*self.b_p**2
-
-    def getParamsInLatex(self):
-        return super().getParamsInLatex()+ [f"C_{{LT1}} = {self.cLT1}", f"C_{{LT2}} = {self.cLT2}"]
     
     def getTitleForPlot(self, wrap=6):
         parameters = self.getParamsInLatex()
@@ -509,9 +491,9 @@ if __name__ == "__main__":
     sim = PartialDislocationsSimulation(
         bigN=32,             # Number of points
         length=32,           # Length of dislocation
-        time=10000,           # Total simulation time
-        dt=10,               # Time step
-        deltaR=1,         # Random force correlation length
+        time=100,           # Total simulation time
+        dt=1,               # Time step
+        deltaR=1000,         # Random force correlation length
         bigB=1.0,           # Drag coefficient
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
@@ -521,18 +503,16 @@ if __name__ == "__main__":
         seed=10
     )
     fire_y1, fire_y2 = sim.relax_w_FIRE()
+    sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
-    ivp_y1, ivp_y2 = sim.getLineProfiles()
+    firet100_y1, firet100_y2 = sim.getLineProfiles()
 
     fig,ax = plt.subplots()
-    ax.plot(fire_y1, label="Line 1 (FIRE)", color='red')
-    ax.plot(ivp_y1, label="Line 1 (solve_ivp)", color='blue')
+    ax.plot(fire_y1, label="Line 1 (FIRE) t=0", color='red')
+    ax.plot(fire_y2, label="Line 2 (FIRE) t=0", color='red')
 
-    ax.plot(fire_y2, label="Line 2 (FIRE)", color='red')
-    ax.plot(ivp_y2, label="Line 2 (solve_ivp)", color='blue')
-
-    ax.plot(fire_y1 - ivp_y1, label="line1 diff")
-    ax.plot(fire_y2 - ivp_y2, label="line2 diff")
+    ax.plot(firet100_y1, label="Line 1 t=100", color='blue')
+    ax.plot(firet100_y2, label="Line 2 t=100", color='blue')
     
     ax.legend()
     ax.set_xlabel("Position")

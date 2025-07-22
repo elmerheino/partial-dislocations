@@ -454,60 +454,10 @@ def makeBetaPlot(ax, csv_path : Path, color, label):
 
 def makeAveragedDepnningPlots(dir_path, opt=False):
     print("Making averaged depinning plots.")
-    partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/depinning-dumps")
-    perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/depinning-dumps")
+    depinning_path = Path(dir_path).joinpath("depinning-dumps")
 
-    if opt:
-        partial_depinning_path = Path(dir_path).joinpath("partial-dislocation/optimal-depinning-dumps")
-        perfect_depinning_path = Path(dir_path).joinpath("single-dislocation/optimal-depinning-dumps")
-    
-    if partial_depinning_path.exists():
-
-        for noise_dir in partial_depinning_path.iterdir():
-            if not noise_dir.is_dir():
-                continue
-
-            noise = "".join(noise_dir.name.split("-")[1:])
-
-            velocities = list()
-            stresses = None
-            seed = None
-            for depining_file in noise_dir.iterdir():
-                with open(depining_file, "r") as fp:
-                    loaded = json.load(fp)
-                    stresses = loaded["stresses"]
-                    velocities.append(loaded["v_rel"])
-                pass
-
-            x = np.array(stresses)
-            y = np.average(np.array(velocities), axis=0)
-
-            plt.clf()
-            plt.figure(figsize=(linewidth/2,linewidth/2))
-
-            plt.scatter(x,y, marker="x")
-
-            plt.title(f"Depinning noise = {noise}")
-            plt.xlabel("$\\tau_{ext}$")
-            plt.ylabel("$v_{CM}$")
-            plt.tight_layout()
-
-            try:
-                dest = Path(dir_path).joinpath(f"averaged-depinnings/partial/{float(noise)*1e3}-1e-3-noise")
-            except:
-                print(f"{depining_file} and {noise_dir}")
-            dest.mkdir(parents=True, exist_ok=True)
-            if opt:
-                plt.savefig(dest.joinpath(f"depinning-noise-opt.pdf"))
-            else:
-                plt.savefig(dest.joinpath(f"depinning-noise.pdf"))
-            pass
-            plt.close()
-    else:
-        print("No partial depinning dumps")
-
-    if perfect_depinning_path.exists():
-        for noise_dir in perfect_depinning_path.iterdir():
+    if depinning_path.exists():
+        for noise_dir in depinning_path.iterdir():
             if not noise_dir.is_dir():
                 continue
 
@@ -535,13 +485,9 @@ def makeAveragedDepnningPlots(dir_path, opt=False):
             plt.ylabel("$v_{CM}$")
             plt.tight_layout()
 
-            dest = Path(dir_path).joinpath(f"averaged-depinnings/perfect/noise-{noise}")
+            dest = Path(dir_path).joinpath(f"averaged-depinnings")
             dest.mkdir(parents=True, exist_ok=True)
-            if opt:
-                plt.savefig(dest.joinpath(f"depinning-noise-opt.pdf"))
-            else:
-                plt.savefig(dest.joinpath(f"depinning-noise.pdf"))
-            pass
+            plt.savefig(dest.joinpath(f"{float(noise)*1e4}-1e-4-noise-depinning.pdf"))
             plt.close()
     else:
         print("No perfect depinning dumps")
