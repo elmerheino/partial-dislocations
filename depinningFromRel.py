@@ -58,7 +58,7 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         tau_min, tau_max = getTauLimits(params['deltaR'])
 
         depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
-                                            folder_name=input_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
+                                            folder_name=output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
         depinning_perfect.run(y0_rel=y0)
         depinning_perfect.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
@@ -71,7 +71,7 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
                                             int(params['seed']), int(params['bigN']),  int(params['length']), 10)
         depinnin_partial.run(y1_0=y_last[0], y2_0=y_last[1])
-        depinnin_partial.save_results(output_folder)
+        depinnin_partial.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
         pass
     pass
 

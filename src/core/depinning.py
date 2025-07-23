@@ -115,16 +115,14 @@ class DepinningPartial(Depinning):
         # Multiprocessing compatible version of a single depinning study, here the studies
         # are distributed between threads by stress letting python mp library determine the best way
         if type(y1_0) == type(None):
+            print("No initial config was passed, running a short relaxation before proceeding to depinning.")
             y1_0, y2_0 = self.initialRelaxation()
             self.y1_0 = y1_0
             self.y2_0 = y2_0
         else:
+            print("Initial config was given.")
             self.y1_0 = y1_0
             self.y2_0 = y2_0
-            y1_0, y2_0 = self.initialRelaxation(relaxation_time=1000)
-            self.y1_0 = y1_0
-            self.y2_0 = y2_0
-
         
         if self.sequential: # Sequental does not work
             for s in self.stresses:
@@ -298,7 +296,6 @@ class DepinningSingle(Depinning):
         else:
             print(f"Initial config was given")
             self.y0_rel = y0_rel
-            # self.y0_rel = self.initialRelaxation(relaxation_time=10000) # Briefly integrate the given ininitial condition
 
 
         if self.sequential: # Sequential does not work
