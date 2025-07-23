@@ -570,12 +570,31 @@ def makeVelocityHistoryPlots(root_dir):
         for tau_ext in data.files:
             # Make a velocity plot form data with v = data[tau_ext]
             v = data[tau_ext]
+            acceleration = np.gradient(v)
             print(v.shape)
             fig, ax = plt.subplots(figsize=(linewidth,linewidth/2))
-            ax.plot(v)
+
+            ax.plot(v, label="$v$")
+            ax.plot(acceleration, label="$\dot{v}$")
+
+            last_tenth_start_index = -int(len(acceleration) / 10)
+            mean_acceleration = np.mean(acceleration[last_tenth_start_index:])
+            x_start_line = len(acceleration) + last_tenth_start_index
+            x_end_line = len(acceleration) - 1
+            ax.plot([x_start_line, x_end_line], [mean_acceleration, mean_acceleration], color='g', linestyle='--', label='Mean $\\dot{v}$ (last 10\\%)')
+
+            text_x = x_start_line
+            text_y = mean_acceleration
+            ax.text(text_x, text_y, f'{mean_acceleration:.2e}', 
+                    verticalalignment='bottom', horizontalalignment='left',
+                    bbox=dict(boxstyle='round,pad=0.1', fc='wheat', alpha=0.5))
+            
+            ax.legend()
+
             ax.set_title(f"Velocity history for tau_ext = {tau_ext}")
             ax.set_xlabel("Time")
             ax.set_ylabel("Velocity")
+
             save_path = Path(root_dir).joinpath(f"velocity-history-plots/{file.stem}")
             save_path.mkdir(exist_ok=True, parents=True)
             fig.tight_layout()
