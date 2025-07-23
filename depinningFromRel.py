@@ -61,7 +61,7 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
                                             folder_name=input_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
         depinning_perfect.run(y0_rel=y0)
-        depinning_perfect.dump_res_to_pickle(perfect_folder.joinpath(f"depinning-pickle-dumps"))
+        depinning_perfect.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
         # depinning_perfect.save_results(output_folder)
     else:
         params = PartialDislocationsSimulation.paramListToDict(initial_config['params'])

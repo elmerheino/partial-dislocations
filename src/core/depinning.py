@@ -293,10 +293,12 @@ class DepinningSingle(Depinning):
     def run(self, y0_rel=None):
         velocities = list()
         if type(y0_rel) == type(None):
+            print(f"No initial config given, running the default initial relaxation with zero ext force")
             self.y0_rel = self.initialRelaxation()
         else:
+            print(f"Initial config was given")
             self.y0_rel = y0_rel
-            self.y0_rel = self.initialRelaxation(relaxation_time=10000) # Briefly integrate the given ininitial condition
+            # self.y0_rel = self.initialRelaxation(relaxation_time=10000) # Briefly integrate the given ininitial condition
 
 
         if self.sequential: # Sequential does not work
