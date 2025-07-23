@@ -28,11 +28,8 @@ def generate_script_from_template(template_path, output_script_path, replacement
     # Make the script executable
     os.chmod(output_script_path, 0o755)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Generate a depinning script from a template.")
-    parser.add_argument('--initial-config', type=str, required=True, 
-                        help='Path to the initial relaxed configuration run_params.json file')
-    args = parser.parse_args()
+def generate_scirpt(path_to_run_params):
+    path_to_run_params = Path(path_to_run_params)
 
     script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
@@ -40,7 +37,7 @@ if __name__ == '__main__':
 
     input_folder = Path(args.initial_config).parent
 
-    with open(Path(args.initial_config), "r") as fp:
+    with open(Path(path_to_run_params), "r") as fp:
         run_params = json.load(fp)
     args_used = run_params['args used']
 
@@ -77,3 +74,12 @@ if __name__ == '__main__':
     generate_script_from_template(template_file, new_script_path, script_parameters)
 
     print(f"Generated script: {new_script_path}")
+
+    return new_script_path
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Generate a depinning script from a template.")
+    parser.add_argument('--initial-config', type=str, required=True, 
+                        help='Path to the initial relaxed configuration run_params.json file')
+    args = parser.parse_args()
+    generate_scirpt(args.initial_config)
