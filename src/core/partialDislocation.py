@@ -62,11 +62,11 @@ class PartialDislocationsSimulation(Simulation):
 
     def force1(self, y1,y2):
         factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        return factor*self.weak_coupling(y1, y2)
+        return factor*self.strong_coupling(y1, y2)
 
     def force2(self, y1,y2):
         factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
+        return factor*self.strong_coupling(y1,y2) # Term from Vaid et Al B.7
 
     def f1(self, y1,y2, t):
         dy = ( 
