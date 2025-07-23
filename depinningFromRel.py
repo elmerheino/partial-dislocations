@@ -45,7 +45,13 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
 
     if perfect:
         print(initial_config.files)
-        y0 = initial_config['y_last']
+        if 'y_last' in initial_config.files:
+            y0 = initial_config['y_last']
+        elif 'y_fire' in initial_config.files:
+            y0 = initial_config['y_fire']
+        else:
+            raise Exception('No key for the initial config found in the intial config file, it must be corrupted.')
+        
         params = DislocationSimulation.paramListToDict(initial_config['params'])
 
         # Create the approproate depinning object
