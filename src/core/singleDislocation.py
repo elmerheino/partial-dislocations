@@ -40,26 +40,6 @@ class DislocationSimulation(Simulation):
                                             # of every self.shape_save_freq:th self.dt
         self.selected_y_shapes = list()
 
-        # --- System Parameters for FIRE---
-        self.N = self.bigN
-        self.L = self.length
-
-        # --- FIRE Algorithm Parameters ---
-        self.DT_INITIAL = 0.01
-        self.DT_MAX = 0.1
-        self.N_MIN = 5
-        self.F_INC = 1.1
-        self.F_DEC = 0.5
-        self.ALPHA_START = 0.1
-        self.F_ALPHA = 0.99
-        self.MAX_STEPS = 500000
-        self.CONVERGENCE_FORCE = 1e-10
-
-        # --- Noise Parameters ---
-        self.h_max_noise = self.bigN*2
-        self.num_noise_points_h = self.bigN
-        self.splines = self.setup_splines()
-
         pass
     
     def setInitialY0Config(self, y0, t0):
@@ -205,12 +185,12 @@ class DislocationSimulation(Simulation):
         return splines
 
     def calculate_forces(self, h):
-        k = fft.rfftfreq(self.N, d=self.deltaL) * 2 * np.pi  # Wavevectors
+        k = fft.rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h_k = fft.rfft(h)
         laplacian_k = -(k**2) * h_k         # Second derivative in Fourier space
         line_tension_force = self.cLT1*self.mu*(self.smallB**2) * fft.irfft(laplacian_k, n=self.bigN)
 
-        noise_force = np.array([self.splines[i](h[i]) for i in range(self.N)])
+        noise_force = np.array([self.splines[i](h[i]) for i in range(self.bigN)])
 
         return line_tension_force + noise_force
 
@@ -227,12 +207,12 @@ class DislocationSimulation(Simulation):
         alpha = self.ALPHA_START
         steps_since_negative_power = 0
 
-        print("Starting FIRE relaxation...")
+        print(f"Starting FIRE relaxation... delta R = 10^{np.log10(self.deltaR):.2f} and L = {self.length}")
         for step in range(self.MAX_STEPS):
             force = self.calculate_forces(h)
 
             # Check for convergence
-            if np.linalg.norm(force) / np.sqrt(self.N) < self.CONVERGENCE_FORCE:
+            if np.linalg.norm(force) / np.sqrt(self.bigN) < self.CONVERGENCE_FORCE:
                 print(f"✅ Converged after {step} steps.")
                 break
 

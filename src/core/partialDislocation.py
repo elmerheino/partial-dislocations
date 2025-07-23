@@ -40,21 +40,6 @@ class PartialDislocationsSimulation(Simulation):
 
         self.selected_y1_shapes = list()
         self.selected_y2_shapes = list()
-
-        # --- FIRE Algorithm Parameters ---
-        self.DT_INITIAL = 0.01
-        self.DT_MAX = 0.1
-        self.N_MIN = 5
-        self.F_INC = 1.1
-        self.F_DEC = 0.5
-        self.ALPHA_START = 0.1
-        self.F_ALPHA = 0.99
-        self.MAX_STEPS = 500000
-        self.CONVERGENCE_FORCE = 1e-10
-
-        # --- Noise Parameters ---
-        self.h_max_noise = self.bigN*2
-        self.num_noise_points_h = self.bigN
     
     def setInitialY0Config(self, y1_0, y2_0):
         """

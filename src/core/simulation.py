@@ -34,14 +34,27 @@ class Simulation(object):
         if seed != None:
             np.random.seed(seed)
 
+        self.has_simulation_been_run = False
+
+        # --- FIRE Algorithm Parameters ---
+        self.DT_INITIAL = 0.01
+        self.DT_MAX = 0.1
+        self.N_MIN = 5
+        self.F_INC = 1.1
+        self.F_DEC = 0.5
+        self.ALPHA_START = 0.1
+        self.F_ALPHA = 0.99
+        self.MAX_STEPS = 1000000
+        self.CONVERGENCE_FORCE = 1e-10
+
+        # --- Setup the random force and its spline interpolation ---
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
+        
         # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
         self.stressField[:,-1] = self.stressField[:,0]
         
         self.splines = self.setup_splines()
 
-        self.has_simulation_been_run = False
-        
         pass
 
     # From there on define all the methods related to FIRE relaxation.
