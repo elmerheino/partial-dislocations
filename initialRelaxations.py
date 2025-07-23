@@ -192,15 +192,15 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0
                 raise
             time.sleep(retry_delay)
 
-def fn(x, folder):
+def fn(x, folder, only_fire):
     t0  = x[2]
     t_n = x[1]
 
     print(f"Relaxing dislcoation w/ noise = {x[3]['deltaR'].astype(float)} seed = {x[3]['seed'].astype(int)} from t_0 = {t0} to t_n = {t_n} ")
     relax_one_dislocations( ( x[3]['deltaR'].astype(float),  x[3]['seed'].astype(int) ), t_n, x[3]['dt'].astype(float), x[3]['length'].astype(int), 
-                                        x[3]['bigN'].astype(int), Path(folder), x[0], t0 )
+                                        x[3]['bigN'].astype(int), Path(folder), only_fire, y0=x[0], t0=t0 )
     
-def pickup_where_left(folder, cores=8):
+def pickup_where_left(folder, only_fire, cores=8):
     # Load parameters of the previous run to dict
     with open(Path(folder).joinpath("run_params.json"), "r") as fp:
         params = json.load(fp)
@@ -259,9 +259,21 @@ def pickup_where_left(folder, cores=8):
     # Then relax these dislocations, with and without failsafes until end, 
     # and save the results, first the ones with failsafe, then rest
     with mp.Pool(cores) as pool:
-        pool.map(partial(fn, folder=Path(folder)), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
-        pool.map(partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder)), 
+        pool.map(partial(fn, folder=Path(folder), only_fire=only_fire), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
+        pool.map(
+            partial(
+                relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder), only_fire=only_fire
+                ), 
                 noise_seed_pairs_no_failsafe)
+
+    # Equivalent sequential code for debugging
+    # for i in zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params):
+    #     partial(fn, folder=Path(folder), only_fire=only_fire)(i)
+    
+    # for i in noise_seed_pairs_no_failsafe:
+    #     partial(relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder))(i)
+                
+
 
 def perfect_logic(args):
     noises = np.logspace(args.rmin,args.rmax, args.rpoints)
@@ -282,7 +294,7 @@ def perfect_logic(args):
     params_file.parent.mkdir(parents=True, exist_ok=True)
 
     if params_file.exists():
-        pickup_where_left(Path(args.folder), args.cores)
+        pickup_where_left(Path(args.folder), args.only_fire, args.cores)
     else:
         with open(params_file, 'w') as f:
             json.dump(params_dict, f, indent=4)
