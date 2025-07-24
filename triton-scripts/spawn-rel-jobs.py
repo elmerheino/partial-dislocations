@@ -81,9 +81,8 @@ for sys_size in [32, 64, 128, 265, 512, 1024]:
     save_path = f"${{WRKDIR}}/{kansion_nimi}/perfect/l-{sys_size}"
     spawn_relaxation(-4, 4, 50, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
                      perfect_partial="--perfect", hours_limit=24, cores=10)
-    break
     powers_of_two = [2**i for i in range(1, int(sys_size/4).bit_length() + 1)]
     for d0 in powers_of_two:
         save_path = f"${{WRKDIR}}/{kansion_nimi}/partial/l-{sys_size}-d0-{d0}"
         spawn_relaxation(-4, 4, 50, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
-                         perfect_partial="--partial", hours_limit=24)
+                         perfect_partial="--partial", hours_limit=24, cores=10)
