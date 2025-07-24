@@ -21,7 +21,6 @@ class PartialDislocationsSimulation(Simulation):
         self.d0 = d0                            # Initial distance separating the partials
         self.b_p = b_p
 
-        self.y0 = np.ones((2, self.bigN), dtype=float)*self.d0
         self.y0 = np.vstack((
             np.ones(self.bigN)*self.d0,     # y1
             np.zeros(self.bigN)             # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
@@ -234,8 +233,8 @@ class PartialDislocationsSimulation(Simulation):
         Performs the FIRE relaxation of the dislocation line.
         """
         # Initialize dislocation line (e.g., as a straight line) and velocity
-        h1 = np.ones(self.bigN)*self.d0
-        h2 = np.zeros(self.bigN)             # h2 is the trailing partial
+        h1 = self.y0[0]
+        h2 = self.y0[1]             # h2 is the trailing partial
 
         v1 = np.zeros(self.bigN)
         v2 = np.zeros(self.bigN)

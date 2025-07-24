@@ -40,6 +40,7 @@ def parse_args():
     return parser.parse_args()
 
 def update_noise_list(run_params_path, deltaR, seed):
+    # Updated the run_params.json file in a multiprocessing compatible way.
     max_retries = 5
     retry_delay = 1
 
@@ -100,9 +101,6 @@ def relax_one_dislocations(deltaRseed, length, bigN, folder, y0=None, t0=None):
     sim = DislocationSimulation(bigN=bigN, length=length, time=1, dt=1, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
                                 cLT1=1, seed=seed)
 
-    backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
-    backup_file.parent.mkdir(parents=True, exist_ok=True)
-
     # Find a minima using FIRE, and then save it
     y0_fire, success = sim.relax_w_FIRE()
 
@@ -111,86 +109,38 @@ def relax_one_dislocations(deltaRseed, length, bigN, folder, y0=None, t0=None):
 
     np.savez( results_save_path, y_fire=y0_fire, params=sim.getParameteters(), success=success )
 
-    max_retries = 5
-    retry_delay = 1
-
-    params_file = Path(folder).joinpath("run_params.json")
-
-    for attempt in range(max_retries):
-        try:
-            with open(params_file, 'r+') as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    params = json.load(f)
-
-                    deltaR = float(deltaR)
-                    seed = int(seed)
-
-                    noise_seed_pair = [deltaR, seed]
-
-                    params["successful noise-seeds"].append(noise_seed_pair)
-                    f.seek(0)
-                    json.dump(params, f, indent=4)
-                    f.truncate()
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-            break
-        except (IOError, BlockingIOError) as e:
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(retry_delay)
+    # If relaxation was successfull, update the run_params file to keep track
+    if success:
+        params_file = Path(folder).joinpath("run_params.json")
+        update_noise_list(params_file, deltaR, seed)
 
 def relax_one_partial_dislocation(deltaRseed, length, bigN, folder, d0, y0_1=None, y0_2=None, t0=None):
-    # Create the partial dislocation object
+    # Unpack seed and noise then construct the results path
     deltaR, seed = deltaRseed
+    results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
+    results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
+    # Create the partial dislocation object
     sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=1, dt=1, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
                                 cLT1=1, cLT2=1, seed=seed, d0=d0)
-
-    if (type(y0_1) != type(None)) and (type(t0) != type(None)) and (type(y0_2) != type(None)):
-        sim.setInitialY0Config(y0_1, y0_2)
-        sim.setTauCutoff(0)
-
-    backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
-    backup_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Check if the results file already exists, if it does, use it as initial config for the FIRE relaxation
+    if results_save_path.exists():
+        data = np.load(results_save_path)
+        if not data['success']:
+            data['y1_fire']
+            data['y2_fire']
+            sim.setInitialY0Config(data['y1_fire'], data['y2_fire'])
 
     # Find a minima using FIRE and then save it to a file
     y1_0_fire, y2_0_fire, success = sim.relax_w_FIRE()
 
-    results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
-    results_save_path.parent.mkdir(exist_ok=True, parents=True)
-
     np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, params=sim.getParameters(), success=success)
 
-    # Update run_params.json in a way compatible with multiprocessing
-    max_retries = 5
-    retry_delay = 1
-
-    params_file = Path(folder).joinpath("run_params.json")
-
-    for attempt in range(max_retries):
-        try:
-            with open(params_file, 'r+') as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    params = json.load(f)
-
-                    deltaR = float(deltaR)
-                    seed = int(seed)
-
-                    noise_seed_pair = [deltaR, seed]
-
-                    params["successful noise-seeds"].append(noise_seed_pair)
-                    f.seek(0)
-                    json.dump(params, f, indent=4)
-                    f.truncate()
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-            break
-        except (IOError, BlockingIOError) as e:
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(retry_delay)
+    # If the simulation was successfull, update the list to keep track
+    if success:
+        params_file = Path(folder).joinpath("run_params.json")
+        update_noise_list(params_file, deltaR, seed)
 
 def fn(x, folder, only_fire):
     t0  = x[2]
@@ -221,11 +171,15 @@ def pickup_where_left(run_params: Path, cores=8):
     unsuccesfull_noises = list(set(total_noises) - set(succesfull_noises))
 
     # Next relax with FIRE all these unsuccesfull_noises
-    for noise_seed in list(unsuccesfull_noises):
-        if is_partial_dislocation:
-            relax_one_partial_dislocation(noise_seed, bigL, bigN, folder, d0)
-        else:
-            relax_one_dislocations(noise_seed, bigL, bigN, folder)
+    # for noise_seed in list(unsuccesfull_noises):
+
+    if is_partial_dislocation:
+        with mp.Pool(cores) as pool:
+            pool.map(partial(relax_one_partial_dislocation, length=bigL, bigN=bigN, folder=folder, d0=d0), list(unsuccesfull_noises))
+            # relax_one_partial_dislocation(noise_seed, bigL, bigN, folder, d0)
+    else:
+        with mp.Pool(cores) as pool:
+            pool.map(partial(relax_one_dislocations, length=bigL, bigN=bigN, folder=folder), list(unsuccesfull_noises))
     # Equivalent sequential code for debugging
     # for i in zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params):
     #     partial(fn, folder=Path(folder), only_fire=only_fire)(i)
