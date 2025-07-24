@@ -185,10 +185,12 @@ muistiinpanoja.md
 joku.py
 test-run.sh
 debug-*
-kandiluonnoksia/*
+kandiluonnoksia
 muistiinpanot/*
 process_noisedata.py
 .python-version
 luonnokset
 backend.py
 index.html
+tests
+remove_me.npz
