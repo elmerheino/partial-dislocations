@@ -61,17 +61,10 @@ for sys_size in [32, 64, 128, 265, 512, 1024]:
     # spawn_relaxation(1, -4, 4, 50, dt=10, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
     #                  perfect_partial="--perfect", hours_limit=24)
 
-    if sys_size < 128:
-        time_limit = 5
-    elif (sys_size <= 512) and (sys_size >= 128):
-        time_limit = 15
-    elif sys_size > 512:
-        time_limit = 48
-
     powers_of_two = [2**i for i in range(1, int(sys_size/4).bit_length() + 1)]
     for d0 in powers_of_two:
         save_path = f"${{WRKDIR}}/{kansion_nimi}/partial/l-{sys_size}-d0-{d0}"
         stdout = spawn_relaxation(100000, -4, 4, 50, dt=10, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
-                         perfect_partial="--partial", hours_limit=time_limit)
+                         perfect_partial="--partial", hours_limit=(72))
         with open("output.txt", "a") as f:
             f.write(stdout[0])
