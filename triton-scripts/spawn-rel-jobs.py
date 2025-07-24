@@ -10,58 +10,79 @@ def run_command(command):
     stdout, stderr = process.communicate()
     return stdout.decode(), stderr.decode(), process.returncode
 
-def replace_line_in_file(file_path, line_number, new_line):
-    """Replaces a specific line in a file with a new line.
+def generate_script_from_template(template_path, output_script_path, replacements):
+    """
+    Reads a template script, replaces all bracketed {} keys with values from 
+    the replacements dictionary, and writes the new script to a new file.
 
     Args:
-        file_path (str): The path to the file.
-        line_number (int): The line number to replace (1-indexed).
-        new_line (str): The new line to write.
+        template_path (str): The path to the template file.
+        output_script_path (str): The path to write the generated script file.
+        replacements (dict): A dictionary where keys correspond to the bracketed
+                             placeholders in the template (e.g., 'job-name') and
+                             values are what to replace them with.
     """
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
+    with open(template_path, 'r') as f:
+        template_content = f.read()
 
-    if line_number > 0 and line_number <= len(lines):
-        lines[line_number - 1] = new_line + '\n'
+    for key, value in replacements.items():
+        template_content = template_content.replace(f'{{{key}}}', str(value))
 
-        with open(file_path, 'w') as f:
-            f.writelines(lines)
+    with open(output_script_path, 'w') as f:
+        f.write(template_content)
+    
+    # Make the script executable
+    os.chmod(output_script_path, 0o755)
+
+
+def spawn_relaxation(rmin, rmax, rpoints, system_size, d0, seeds, save_path, perfect_partial, hours_limit):
+    """
+    Generates a SLURM script from a template and submits it using sbatch.
+    """
+    template_path = Path(__file__).parent / 'initial-relaxation-template.sh'
+    
+    # Create a directory for generated scripts if it doesn't exist
+    generated_scripts_dir = Path(__file__).parent / 'generated_scripts'
+    generated_scripts_dir.mkdir(exist_ok=True)
+    
+    job_name = f"relax_l{system_size}_d{d0}"
+    output_script_path = generated_scripts_dir / f"{job_name}.sh"
+
+    replacements = {
+        'job-name': job_name,
+        'hours': hours_limit,
+        'system_size': system_size,
+        'rmin': rmin,
+        'rmax': rmax,
+        'rpoints': rpoints,
+        'seeds': seeds,
+        'd0': d0,
+        'save_path': save_path,
+        'perfect_partial': perfect_partial
+    }
+
+    generate_script_from_template(template_path, output_script_path, replacements)
+
+    stdout, stderr, returncode = run_command(f"sbatch {output_script_path}")
+    
+    if returncode == 0:
+        print(f"Successfully submitted job: {job_name}")
+        print(stdout)
     else:
-        print(f"Line number {line_number} is out of range for file {file_path}")
+        print(f"Error submitting job: {job_name}")
+        print(f"Return code: {returncode}")
+        print(f"STDOUT: {stdout}")
+        print(f"STDERR: {stderr}")
 
-def spawn_relaxation(time, rmin, rmax, rpoints, system_size, d0, seeds, save_path, perfect_partial, dt, hours_limit):
-    # Locate the script
-    script_directory = Path(os.path.dirname(os.path.abspath(__file__)))
-    print(f"The script is located in: {script_directory}")
-    triton_rel_script = script_directory.joinpath("run-one-initial-relaxation.sh")
-
-    # Rename the triton job to be submitted
-    replace_line_in_file(
-        triton_rel_script, 
-                        3, 
-        f"#SBATCH --job-name=l-{sys_size}-d0-{d0}-{perfect_partial}"
-        )
-
-    # Change time limit accordingly
-    replace_line_in_file(
-        triton_rel_script, 
-                        2, 
-        f"#SBATCH --time={hours_limit}:00:00"
-        )
-
-    stdout = run_command(f"sbatch run-one-initial-relaxation.sh {time} {system_size} {rmin} {rmax} {rpoints} {seeds} {d0} {save_path} {perfect_partial} {dt}")
-    print(stdout)
-    pass
-
-kansion_nimi = "22-7-ihan-himona-dataa-vain-FIRE"
+kansion_nimi = "24-7-weak-coupling"
 
 for sys_size in [32, 64, 128, 265, 512, 1024]:
-    save_path = f"${{WRKDIR}}/{kansion_nimi}/l-{sys_size}/perfect"
-    spawn_relaxation(1, -4, 4, 50, dt=10, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
+    save_path = f"${{WRKDIR}}/{kansion_nimi}/perfect/l-{sys_size}"
+    spawn_relaxation(-4, 4, 50, dt=10, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
                      perfect_partial="--perfect", hours_limit=24)
-
+    break
     powers_of_two = [2**i for i in range(1, int(sys_size/4).bit_length() + 1)]
     for d0 in powers_of_two:
-        save_path = f"${{WRKDIR}}/{kansion_nimi}/l-{sys_size}-d0-{d0}/partial"
-        spawn_relaxation(100000, -4, 4, 50, dt=10, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
+        save_path = f"${{WRKDIR}}/{kansion_nimi}/partial/l-{sys_size}-d0-{d0}"
+        spawn_relaxation(-4, 4, 50, system_size=sys_size, d0=d0, seeds=10, save_path=save_path, 
                          perfect_partial="--partial", hours_limit=24)
