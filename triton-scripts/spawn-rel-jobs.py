@@ -35,7 +35,7 @@ def generate_script_from_template(template_path, output_script_path, replacement
     os.chmod(output_script_path, 0o755)
 
 
-def spawn_relaxation(rmin, rmax, rpoints, system_size, d0, seeds, save_path, perfect_partial, hours_limit):
+def spawn_relaxation(rmin, rmax, rpoints, system_size, d0, seeds, save_path, perfect_partial, hours_limit, cores):
     """
     Generates a SLURM script from a template and submits it using sbatch.
     """
@@ -58,7 +58,8 @@ def spawn_relaxation(rmin, rmax, rpoints, system_size, d0, seeds, save_path, per
         'seeds': seeds,
         'd0': d0,
         'save_path': save_path,
-        'perfect_partial': perfect_partial
+        'perfect_partial': perfect_partial,
+        'cores':cores
     }
 
     generate_script_from_template(template_path, output_script_path, replacements)
@@ -78,8 +79,8 @@ kansion_nimi = "24-7-weak-coupling"
 
 for sys_size in [32, 64, 128, 265, 512, 1024]:
     save_path = f"${{WRKDIR}}/{kansion_nimi}/perfect/l-{sys_size}"
-    spawn_relaxation(-4, 4, 50, dt=10, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
-                     perfect_partial="--perfect", hours_limit=24)
+    spawn_relaxation(-4, 4, 50, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
+                     perfect_partial="--perfect", hours_limit=24, cores=10)
     break
     powers_of_two = [2**i for i in range(1, int(sys_size/4).bit_length() + 1)]
     for d0 in powers_of_two:
