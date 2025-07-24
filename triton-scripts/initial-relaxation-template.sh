@@ -10,6 +10,6 @@
 module load scicomp-python-env
 
 TIME={time}
-SYSTEM={system}
+SYSTEM={system_size}
   
 srun python3 ../initialRelaxations.py new --rmin {rmin} --rmax {rmax} --rpoints {rpoints} --seeds {seeds} --n ${SYSTEM} --length ${SYSTEM} --folder {folder} -c {cores} --d0 {d0} {perfect_partial}
