@@ -53,7 +53,7 @@ def spawn_relaxation(time, rmin, rmax, rpoints, system_size, d0, seeds, save_pat
     print(stdout)
     return stdout
 
-kansion_nimi = "23-7-alkurelaksaatiot-strong-coupling"
+kansion_nimi = "24-7-alkurelaksaatiot-strong-coupling"
 
 for sys_size in [32, 64, 128, 265, 512, 1024]:
     # Don't run perfect dislocation simulations in the case of strong coupling
