@@ -49,7 +49,7 @@ def spawn_relaxation(rmin, rmax, rpoints, system_size, d0, seeds, save_path, per
     output_script_path = generated_scripts_dir / f"{job_name}.sh"
 
     replacements = {
-        'job-name': job_name,
+        'name': job_name,
         'hours': hours_limit,
         'system_size': system_size,
         'rmin': rmin,

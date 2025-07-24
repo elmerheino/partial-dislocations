@@ -12,4 +12,4 @@ module load scicomp-python-env
 TIME={time}
 SYSTEM={system}
   
-srun python3 ../../initialRelaxations.py new --rmin {rmin} --rmax {rmax} --rpoints {rpoints} --seeds {seeds} --n ${SYSTEM} --length ${SYSTEM} --folder {folder} -c {cores} --d0 {d0} {perfect_partial}
+srun python3 ../initialRelaxations.py new --rmin {rmin} --rmax {rmax} --rpoints {rpoints} --seeds {seeds} --n ${SYSTEM} --length ${SYSTEM} --folder {folder} -c {cores} --d0 {d0} {perfect_partial}
