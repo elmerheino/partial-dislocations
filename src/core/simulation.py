@@ -45,7 +45,7 @@ class Simulation(object):
         self.ALPHA_START = 0.1
         self.F_ALPHA = 0.99
         self.MAX_STEPS = 1000000
-        self.CONVERGENCE_FORCE = 1e-10
+        self.CONVERGENCE_FORCE = 1e-7
 
         # --- Setup the random force and its spline interpolation ---
         self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
