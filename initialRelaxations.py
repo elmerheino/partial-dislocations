@@ -12,35 +12,64 @@ from src.core.partialDislocation import PartialDislocationsSimulation
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Find relaxed configurations for some noise levels.')
-    parser.add_argument('--seeds', type=int, required=True, help='how many realizations of each noise')
+    subparsers = parser.add_subparsers(dest='mode', required=True, help='sub-command help')
 
-    parser.add_argument('--length', type=int, required=True, help='length of the system such that L=N')
-    parser.add_argument('--n', type=int, required=True, help='system size')
+    # Create the parser for the "new" command
+    parser_new = subparsers.add_parser('new', help='Start a new simulation run')
+    parser_new.add_argument('--seeds', type=int, required=True, help='how many realizations of each noise')
+    parser_new.add_argument('--length', type=int, required=True, help='length of the system such that L=N')
+    parser_new.add_argument('--n', type=int, required=True, help='system size')
+    parser_new.add_argument('--rmin', type=float, required=True, help='Minimum delta R value')
+    parser_new.add_argument('--rmax', type=float, required=True, help='Maximum delta R value')
+    parser_new.add_argument('--rpoints', type=int, required=True, help='Number of points between rmin and rmax')
 
-    parser.add_argument('--rmin', type=float, required=True,
-                      help='Minimum delta R value')
-    parser.add_argument('--rmax', type=float, required=True,
-                      help='Maximum delta R value')
-    parser.add_argument('--rpoints', type=int, required=True,
-                      help='Number of points between rmin and rmax')
+    parser_new.add_argument('--folder', type=str, required=True, help='output folder path')
 
-    time_group = parser.add_mutually_exclusive_group(required=True)
-    time_group.add_argument('--time', type=int, help='How long to integrate after FIRE relaxation', default=None)
-    time_group.add_argument('--only-fire', action='store_true', help='Only relax with FIRE, no time evolution.')
-    parser.add_argument('--dt', type=float, required=False, help='time step', default=None)
-
-    parser.add_argument('--folder', type=str, required=True, help='output folder path')
-
-    parser.add_argument('--d0', type=float, help='Initial separation of partials. Required for --partial.')
-    group = parser.add_mutually_exclusive_group(required=True)
+    parser_new.add_argument('--d0', type=float, help='Initial separation of partials. Required for --partial.')
+    group = parser_new.add_mutually_exclusive_group(required=True)
     group.add_argument('--partial', action='store_true', help='Enable partial dislocations simulation')
     group.add_argument('--perfect', action='store_true', help='Enable perfect dislocations simulation')
 
-    parser.add_argument('-c', '--cores', type=int, required=True, help='output folder path')
+    parser_new.add_argument('-c', '--cores', type=int, required=True, help='number of cores to use')
+
+    # Create the parser for the "continue" command
+    parser_continue = subparsers.add_parser('continue', help='Continue a previous simulation run')
+    parser_continue.add_argument('--run-params', type=str, required=True, help='Path to the run_params.json file of the run to continue.')
+    parser_continue.add_argument('-c', '--cores', type=int, required=True, help='number of cores to use')
 
     return parser.parse_args()
 
-def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, only_fire, y0=None, t0=None):
+def update_noise_list(run_params_path, deltaR, seed):
+    max_retries = 5
+    retry_delay = 1
+
+    for attempt in range(max_retries):
+        try:
+            with open(run_params_path, 'r+') as f:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                try:
+                    params = json.load(f)
+
+                    deltaR = float(deltaR)
+                    seed = int(seed)
+
+                    noise_seed_pair = [deltaR, seed]
+                    params["successful noise-seeds"].append(noise_seed_pair)
+
+                    f.seek(0)
+                    json.dump(params, f, indent=4)
+                    f.truncate()
+                finally:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            break
+        except (IOError, BlockingIOError) as e:
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(retry_delay)
+
+    pass
+
+def relax_one_dislocations(deltaRseed, length, bigN, folder, y0=None, t0=None):
     """
     Simulates the relaxation of a dislocation under given parameters and saves the results.
     Args:
@@ -67,37 +96,20 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, only_fire
     # where time is the simulation time and y1 to yN represent the dislocation shape at that time, N being the bigN used
     in the simulation
     """
-    if (type(time) == type(None)) or (type(dt) == type(None)):
-        time = 1
-        dt = 1
-
     deltaR, seed = deltaRseed
-    sim = DislocationSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
+    sim = DislocationSimulation(bigN=bigN, length=length, time=1, dt=1, deltaR=deltaR, bigB=1, smallB=1, mu=1, tauExt=0, 
                                 cLT1=1, seed=seed)
-
-    if (type(y0) != type(None)) and (type(t0) != type(None)):
-        sim.setInitialY0Config(y0=y0, t0=t0)
-        sim.setTauCutoff(0)
 
     backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
     backup_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Find a minima using FIRE, and set it as y0
-    y0_fire = sim.relax_w_FIRE()
-    if type(y0_fire) != type(None):
-        # If successsull, set it as the y0 of the integrator
-        sim.setInitialY0Config(y0_fire, sim.t0)
-
-    # Save three dislocation shapes from each chunk
+    # Find a minima using FIRE, and then save it
+    y0_fire, success = sim.relax_w_FIRE()
 
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
-    if not only_fire:
-        sim.run_in_chunks(backup_file, chunk_size=sim.time/10, shape_save_freq=3, method='RK45')
-        sim.saveResults(results_save_path)
-    else:
-        np.savez( results_save_path, y_fire=y0_fire, params=sim.getParameteters() )
+    np.savez( results_save_path, y_fire=y0_fire, params=sim.getParameteters(), success=success )
 
     max_retries = 5
     retry_delay = 1
@@ -128,15 +140,11 @@ def relax_one_dislocations(deltaRseed, time, dt, length, bigN, folder, only_fire
                 raise
             time.sleep(retry_delay)
 
-def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0, only_fire : bool, y0_1=None, y0_2=None, t0=None):
+def relax_one_partial_dislocation(deltaRseed, length, bigN, folder, d0, y0_1=None, y0_2=None, t0=None):
     # Create the partial dislocation object
     deltaR, seed = deltaRseed
 
-    if (type(time) == type(None)) or (type(dt) == type(None)):
-        time = 1
-        dt = 1
-    
-    sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=time, dt=dt, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
+    sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=1, dt=1, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
                                 cLT1=1, cLT2=1, seed=seed, d0=d0)
 
     if (type(y0_1) != type(None)) and (type(t0) != type(None)) and (type(y0_2) != type(None)):
@@ -146,21 +154,13 @@ def relax_one_partial_dislocation(deltaRseed, time, dt, length, bigN, folder, d0
     backup_file = Path(folder).joinpath(f"failsafes/backup-{sim.getUniqueHashString()}.npz")
     backup_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Find a minima using FIRE, and set it as y0
-    y1_0_fire, y2_0_fire = sim.relax_w_FIRE()
-    if type(y1_0_fire) != type(None):
-        # If successsull, set it as the y0 of the integrator
-        sim.setInitialY0Config(y1_0_fire, y2_0_fire)
+    # Find a minima using FIRE and then save it to a file
+    y1_0_fire, y2_0_fire, success = sim.relax_w_FIRE()
 
-    # Run the simulation for a while using linear interpolation, save three dislocation shapes from each chunk
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
-    if not only_fire:
-        sim.run_in_chunks(backup_file, chunk_size=sim.time/10, shape_save_freq=1, method='RK45')
-        sim.saveResults(results_save_path)
-    else:
-        np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, params=sim.getParameters())
+    np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, params=sim.getParameters(), success=success)
 
     # Update run_params.json in a way compatible with multiprocessing
     max_retries = 5
@@ -200,72 +200,32 @@ def fn(x, folder, only_fire):
     relax_one_dislocations( ( x[3]['deltaR'].astype(float),  x[3]['seed'].astype(int) ), t_n, x[3]['dt'].astype(float), x[3]['length'].astype(int), 
                                         x[3]['bigN'].astype(int), Path(folder), only_fire, y0=x[0], t0=t0 )
     
-def pickup_where_left(folder, only_fire, cores=8):
+def pickup_where_left(run_params: Path, cores=8):
     # Load parameters of the previous run to dict
-    with open(Path(folder).joinpath("run_params.json"), "r") as fp:
+    run_params = Path(run_params)
+    with open(run_params, "r") as fp:
         params = json.load(fp)
-    
-    # Find out which noises have already been relaxed
-    succesfull_noises = [(i,j) for i,j in params['successful noise-seeds']]
-    total_noises = [(i,j) for i,j in params['noise-seeds']]
 
     seeds = params["args used"]["seeds"]
     bigN = params["args used"]["n"]
     bigL = params["args used"]["length"]
-    dt = params["args used"]["dt"]
-    bigTime = params["args used"]["time"]
+    is_partial_dislocation = params["args used"]["partial"]
+    d0 = params["args used"]["d0"]
+    
+    folder = run_params.parent
+
+    # Find out which noises have already been relaxed and which not
+    succesfull_noises = [(i,j) for i,j in params['successful noise-seeds']]
+    total_noises = [(i,j) for i,j in params['noise-seeds']]
 
     unsuccesfull_noises = list(set(total_noises) - set(succesfull_noises))
 
-    # Next find out if any good failsafe files exist for these noises, and gather the relevant parameters.
-    failsafe_path = Path(folder).joinpath("failsafes")
-
-    unsuccessful_failsafes = list() # The shape profiles of unsuccessful failsafes
-    fail_times = list()     # Time left to integrate until max
-    og_times = list()
-    unsuccesfull_params = list()    # List of dicts
-
-    for failsafe_path in failsafe_path.iterdir():
-        failsafe = np.load(failsafe_path)
-        params_i = DislocationSimulation.paramListToDict(failsafe['params'])
-        y0_i = failsafe['y_last']               # The shape of dislocation line where if ended
-        t_f = failsafe['last_success_time']     # The time where if failed, if it did so
-        t_og = failsafe['og_time']              # The time it was meant to run
-
-        deltaR_i = params_i['deltaR']
-        seed_i = params_i['seed']
-
-        time_to_integrate = t_og - t_f
-
-        if (deltaR_i, seed_i) in unsuccesfull_noises:
-            unsuccessful_failsafes.append(y0_i)
-            unsuccesfull_params.append(params_i)
-            fail_times.append(t_f)
-            og_times.append(t_og)
-        
-        # Move the failsafe file to archive to prevent failsafe duplication.
-        archive_path = Path(folder).joinpath(f"archive-failsafes/{failsafe_path.name}")
-        archive_path.parent.mkdir(exist_ok=True, parents=True)
-        shutil.move(failsafe_path, archive_path)
-            
-    
-    # Next check if there are some noise levels, which don't have any failsafes
-    failsafe_noises = map(lambda x : x['deltaR'], unsuccesfull_params)
-    no_failsafe_noises = list(set(unsuccesfull_noises) - set(failsafe_noises))
-
-    print(f"Found dislocation w/ no failsafe at noises {no_failsafe_noises}")
-    noise_seed_pairs_no_failsafe = [(float(noise), int(seed)) for noise, seed in no_failsafe_noises]
-
-    # Then relax these dislocations, with and without failsafes until end, 
-    # and save the results, first the ones with failsafe, then rest
-    with mp.Pool(cores) as pool:
-        pool.map(partial(fn, folder=Path(folder), only_fire=only_fire), zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params))
-        pool.map(
-            partial(
-                relax_one_dislocations, time=bigTime, dt=dt, length=bigL, bigN=bigN, folder=Path(folder), only_fire=only_fire
-                ), 
-                noise_seed_pairs_no_failsafe)
-
+    # Next relax with FIRE all these unsuccesfull_noises
+    for noise_seed in list(unsuccesfull_noises):
+        if is_partial_dislocation:
+            relax_one_partial_dislocation(noise_seed, bigL, bigN, folder, d0)
+        else:
+            relax_one_dislocations(noise_seed, bigL, bigN, folder)
     # Equivalent sequential code for debugging
     # for i in zip(unsuccessful_failsafes, og_times, fail_times, unsuccesfull_params):
     #     partial(fn, folder=Path(folder), only_fire=only_fire)(i)
@@ -293,15 +253,11 @@ def perfect_logic(args):
     params_file = Path(args.folder).joinpath("run_params.json")
     params_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if params_file.exists():
-        pickup_where_left(Path(args.folder), args.only_fire, args.cores)
-    else:
-        with open(params_file, 'w') as f:
-            json.dump(params_dict, f, indent=4)
+    with open(params_file, 'w') as f:
+        json.dump(params_dict, f, indent=4)
 
-        with mp.Pool(args.cores) as pool:
-            pool.map(partial(relax_one_dislocations, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                             bigN=args.n, only_fire=args.only_fire), noise_seed_pairs)
+    with mp.Pool(args.cores) as pool:
+        pool.map(partial(relax_one_dislocations, length=args.length, folder=args.folder, bigN=args.n), noise_seed_pairs)
 
 def partial_logic(args):
     noises = np.logspace(args.rmin,args.rmax, args.rpoints)
@@ -326,19 +282,20 @@ def partial_logic(args):
         json.dump(params_dict, f, indent=4)
 
     with mp.Pool(args.cores) as pool:
-        pool.map(partial(relax_one_partial_dislocation, time=args.time, dt=args.dt, length=args.length, folder=args.folder,
-                            bigN=args.n, d0=args.d0, only_fire=args.only_fire), noise_seed_pairs)
+        pool.map(partial(relax_one_partial_dislocation, length=args.length, folder=args.folder,
+                            bigN=args.n, d0=args.d0), noise_seed_pairs)
 
     pass
 
 def main_w_args():
     args = parse_args()
-    if args.perfect:
-        perfect_logic(args)
-    elif args.partial:
-        partial_logic(args)
-    else:
-        print("Must pass either --partial or --perfect, now neither is passed.")
+    if args.mode == "new":
+        if args.perfect:
+            perfect_logic(args)
+        elif args.partial:
+            partial_logic(args)
+    elif args.mode == "continue":
+        pickup_where_left(args.run_params, args.cores)
 
 if __name__ == '__main__':
     main_w_args()

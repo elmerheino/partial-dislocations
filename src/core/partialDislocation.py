@@ -245,6 +245,8 @@ class PartialDislocationsSimulation(Simulation):
         alpha = self.ALPHA_START
         steps_since_negative_power = 0
 
+        success = False
+
         print("🚀 Starting FIRE relaxation...")
         for step in range(self.MAX_STEPS):
             force1, force2 = self.calculate_forces_FIRE(h1, h2)
@@ -252,6 +254,7 @@ class PartialDislocationsSimulation(Simulation):
             # Check for convergence
             if (np.linalg.norm(force1) / np.sqrt(self.bigN) < self.CONVERGENCE_FORCE) and (np.linalg.norm(force2) / np.sqrt(self.bigN) < self.CONVERGENCE_FORCE):
                 print(f"✅ Force 1 and 2 Converged after {step} steps.")
+                success = True
                 break
 
             # FIRE dynamics
@@ -287,7 +290,7 @@ class PartialDislocationsSimulation(Simulation):
         else:
             print("⚠️ Maximum steps reached without convergence.")
             
-        return h1, h2
+        return h1, h2, success
 
     def getLineProfiles(self):
         """
@@ -487,7 +490,7 @@ if __name__ == "__main__":
         d0=10,
         seed=10
     )
-    fire_y1, fire_y2 = sim.relax_w_FIRE()
+    fire_y1, fire_y2, success = sim.relax_w_FIRE()
     sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
     firet100_y1, firet100_y2 = sim.getLineProfiles()

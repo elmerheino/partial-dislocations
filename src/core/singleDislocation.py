@@ -207,6 +207,8 @@ class DislocationSimulation(Simulation):
         alpha = self.ALPHA_START
         steps_since_negative_power = 0
 
+        success = False
+
         print(f"Starting FIRE relaxation... delta R = 10^{np.log10(self.deltaR):.2f} and L = {self.length}")
         for step in range(self.MAX_STEPS):
             force = self.calculate_forces(h)
@@ -214,6 +216,7 @@ class DislocationSimulation(Simulation):
             # Check for convergence
             if np.linalg.norm(force) / np.sqrt(self.bigN) < self.CONVERGENCE_FORCE:
                 print(f"✅ Converged after {step} steps.")
+                success = True
                 break
 
             # FIRE dynamics
@@ -243,7 +246,7 @@ class DislocationSimulation(Simulation):
             print("⚠️ Maximum steps reached without convergence.")
             return None
 
-        return h
+        return h, success
     
     def getLineProfiles(self):
         """
@@ -454,7 +457,7 @@ class DislocationSimulation(Simulation):
 if __name__ == "__main__":
     # Load from backup file
     dislocation = DislocationSimulation(32, 32, 1000, 10, 100, 1, 1, 1, 0, 1, seed=1)
-    relaxed_h = dislocation.relax_w_FIRE()
+    relaxed_h, success = dislocation.relax_w_FIRE()
     # dislocation.setInitialY0Config(None, 0)
     dislocation.run_in_chunks("remove_me", 1000/10, 1, until_relaxed=False, timeit=True)
 
