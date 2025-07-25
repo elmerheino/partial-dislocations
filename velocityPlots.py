@@ -1,4 +1,5 @@
 import os
+import pickle
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +10,7 @@ from functools import partial
 import csv
 import matplotlib as mpl
 from sklearn.cluster import KMeans
+import pandas as pd
 
 from src.core.partialDislocation import PartialDislocationsSimulation
 from src.core.singleDislocation import DislocationSimulation
@@ -668,6 +670,102 @@ def processInitalRelaxations(path):
         pass
     pass
 
+def extractVeclocitiesFromPickle(pickle_path):
+    """
+    Extract the velocity histories from a depinning to a pandas data frame which is returned.
+    """
+
+    with open(pickle_path, "rb") as fp:
+        data = pickle.load(fp)
+    
+    v1_rel = [r['v1'] for r in data]
+    v2_rel = [r['v2'] for r in data]
+    v_cm_rel = [r['v_cm'] for r in data]
+    l_ranges = [r['l_range'] for r in data]
+    avg_w12s = [r['avg_w'] for r in data]
+    y1_last = [r['y1_last'] for r in data]
+    y2_last = [r['y2_last'] for r in data]
+    v_cms = [r['v_cm_hist'] for r in data]
+    sf_hists = [r['sf_hist'] for r in data]
+    parameters = [ PartialDislocationsSimulation.paramListToDict(r['params']) for r in data]
+
+    sim_tim = parameters[0]['time']
+    sim_dt = parameters[0]['dt']
+    hist_0 = v_cms[0]
+
+    columns = ["tau_ext"]
+    columns.extend(np.linspace(0, len(hist_0)*sim_dt, len(hist_0)))
+
+    rows = list()
+    for v_hist, params in zip(v_cms, parameters):
+        tau_ext = params['tauExt']
+        row = [tau_ext]
+        row.extend(v_hist)
+        rows.append(row)
+    
+    df = pd.DataFrame(rows, columns=columns)
+    df.attrs = {
+        'deltaR' : parameters[0]['deltaR'],
+        'seed' : parameters[0]['seed']
+    }
+    
+    return df
+
+def generateVelocityDatasets(path_to_pickle_dumps, out_folder):
+    path_to_pickle_dumps = Path(path_to_pickle_dumps)
+    out_folder = Path(out_folder)
+
+    for pickle_path in path_to_pickle_dumps.iterdir():
+        df = extractVeclocitiesFromPickle(pickle_path)
+        fname = f"noise-{float(df.attrs['deltaR'])}/velocities_deltaR_{float(df.attrs['deltaR'])}_seed_{int(df.attrs['seed'])}.csv"
+        save_path = out_folder.joinpath(fname)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(save_path, sep=";")
+    pass
+
+def extractDepinningFromVeclocity(path_to_velocity_data):
+    """
+    path_to_velocity_data should point to the folder where the velocity dataframes are located, usually named by the noise
+    of the data in question.
+    """
+    path_to_velocity_data = Path(path_to_velocity_data)
+    depinning_dataset = list()
+    noise_key = float(path_to_velocity_data.name.split("-")[1])
+    for vel_file in path_to_velocity_data.iterdir():
+        noise_key = vel_file.name.split("_")[2]
+        df = pd.read_csv(vel_file, sep=";", header=0, index_col=0)
+
+        tau_ext = df["tau_ext"].values
+        velocities = df.iloc[:, -int(df.shape[1] / 20):].mean(axis=1).values  # Average velocities over the last 10th of the time
+        depinning_data = [[i,j] for i,j in zip(tau_ext, velocities)]
+
+        # print(f"Processed depinning data from {vel_file}: {depinning_data}")
+        depinning_dataset.extend(depinning_data)
+    
+    df = pd.DataFrame(depinning_dataset, columns=['tau_ext', 'v_rel'])
+    df.attrs = {
+        'deltaR' : noise_key
+    }
+    return df
+
+def generateDepinningDatasets(path_to_velocities):
+    """
+    path to velocities should be the path pointing to velocity-datasets folder.
+    """
+    path_to_velocities = Path(path_to_velocities)
+    for noise_folder in path_to_velocities.iterdir():
+        noise_key = noise_folder.name.split("-")[1]
+        depinning_df = extractDepinningFromVeclocity(noise_folder)
+        
+        plt.scatter(depinning_df['tau_ext'], depinning_df['v_rel'])
+        plt.title(depinning_df.attrs['deltaR'])
+        plt.show()
+
+        deltaR = depinning_df.attrs['deltaR']
+        save_path = path_to_velocities.parent.joinpath(f"depinning-datasets/depinning-noise-{deltaR}.csv")
+        save_path.parent.mkdir(exist_ok=True, parents=True)
+        depinning_df.to_csv(save_path, sep=";")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze dislocation depinning data.")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -691,6 +789,13 @@ if __name__ == "__main__":
     parser_depinning_vel = subparsers.add_parser('depinning_velhist', help='Create depinning plots directly from collected velocity history data.')
     parser_depinning_vel.add_argument('velocity_data_path', type=str, help='Path to the directory containing the velocity data, that is, folder named velocties.')
 
+    parser_velocity_dataset = subparsers.add_parser('velocity_dataset', help='Generate a velocity dataset from input pickcle.')
+    parser_velocity_dataset.add_argument('pickle_folder', type=str, help='Path to the folder which contains the pickle dumps from depinnign simulations.')
+
+    parser_depinning_dataset = subparsers.add_parser('depinning_dataset', help='Generate a depinning dataset from input velocity datas.')
+    parser_depinning_dataset.add_argument('vel_folder', type=str, help='Path to folder containin velocity data.')
+
+
     args = parser.parse_args()
 
     if args.command == 'vel_hist_rel':
@@ -703,5 +808,10 @@ if __name__ == "__main__":
         vanha_maini()
     elif args.command == 'depinning_velhist':
         makeDepinningFromVelocities()
+    elif args.command == 'velocity_dataset':
+        pickle_folder = Path(args.pickle_folder)
+        generateVelocityDatasets(pickle_folder, pickle_folder.parent.joinpath("velocity-datasets"))
+    elif args.command == 'depinning_dataset':
+        generateDepinningDatasets(args.vel_folder)
     else:
         parser.print_help()
