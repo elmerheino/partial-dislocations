@@ -139,7 +139,7 @@ class PartialDislocationsSimulation(Simulation):
             current_chunk_timesteps = sol_i.t[1:] - sol_i.t[:-1]
 
             last_y0 = y_i[:, :, -1]
-            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i)
+            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i, lasy_ys_so_far=self.getSelectedYshapes())
             total_time_so_far += chunk_size
 
             y1_CM_i = np.mean(current_chunk_y1, axis=1)
@@ -382,6 +382,10 @@ class PartialDislocationsSimulation(Simulation):
         `y1`, `y2`, ..., `yN` are the y-coordinates representing the shape of the
         dislocation at that time.
         """
+        if len(self.selected_y1_shapes) == 0 and len(self.selected_y2_shapes) == 0:
+            print("Both selected_y1_shapes and selected_y2_shapes are empty.")
+            return np.array([]), np.array([])
+        
         times1 = np.array([i[0] for i in self.selected_y1_shapes])
         shapes1 = np.array([i[1] for i in self.selected_y1_shapes])
         times1 = times1.reshape(-1,1)

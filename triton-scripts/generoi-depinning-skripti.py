@@ -28,14 +28,14 @@ def generate_script_from_template(template_path, output_script_path, replacement
     # Make the script executable
     os.chmod(output_script_path, 0o755)
 
-def generate_scirpt(path_to_run_params):
+def generate_scirpt(path_to_run_params, args):
     path_to_run_params = Path(path_to_run_params)
 
     script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
     template_file = os.path.join(script_dir, 'depinning-from-rel-template.sh')
 
-    input_folder = Path(args.initial_config).parent
+    input_folder = Path(args.path).parent
 
     with open(Path(path_to_run_params), "r") as fp:
         run_params = json.load(fp)
@@ -77,9 +77,36 @@ def generate_scirpt(path_to_run_params):
 
     return new_script_path
 
+def find_run_params_files(directory):
+    """
+    Recursively finds all paths in the given directory that lead to a file named 'run_params.json'.
+
+    Args:
+        directory (str): The directory to search.
+
+    Returns:
+        list: A list of paths to 'run_params.json' files.
+    """
+    run_params_files = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file == 'run_params.json':
+                run_params_files.append(os.path.join(root, file))
+    return run_params_files
+
+# Example usage
+directory_to_search = '/path/to/directory'  # Replace with the actual directory path
+run_params_files = find_run_params_files(directory_to_search)
+print(f"Found run_params.json files: {run_params_files}")
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate a depinning script from a template.")
-    parser.add_argument('--initial-config', type=str, required=True, 
-                        help='Path to the initial relaxed configuration run_params.json file')
+    parser.add_argument('--path', type=str, required=True, 
+                        help='Path to directory called partial or perfect')
     args = parser.parse_args()
-    generate_scirpt(args.initial_config)
+
+    # generate_scirpt(args.initial_config)
+    run_params_paths = find_run_params_files("/Users/elmerheino/Documents/partial-dislocations/results/24-7-weak-coupling/partial")
+    for path_i in run_params_paths:
+        script_path = generate_scirpt(path_i, args)
+        os.system(f"sbatch {script_path}")
