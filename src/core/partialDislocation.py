@@ -113,6 +113,7 @@ class PartialDislocationsSimulation(Simulation):
 
         backup_file = Path(backup_file)
         backup_file.parent.mkdir(exist_ok=True, parents=True)
+        self.backup_file = backup_file
 
         y0 = self.y0 # Initial condition for two partials
         last_y0 = y0
@@ -139,7 +140,9 @@ class PartialDislocationsSimulation(Simulation):
             current_chunk_timesteps = sol_i.t[1:] - sol_i.t[:-1]
 
             last_y0 = y_i[:, :, -1]
-            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i, lasy_ys_so_far=self.getSelectedYshapes())
+            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i, 
+                     last_ys_so_far=self.getSelectedYshapes(),
+                     v_hist=self.getVCMhist())
             total_time_so_far += chunk_size
 
             y1_CM_i = np.mean(current_chunk_y1, axis=1)
@@ -405,6 +408,10 @@ class PartialDislocationsSimulation(Simulation):
         selected_y1, selected_y2 = self.getSelectedYshapes()
         sf_widths = self.getSFhist()
 
+        # Remove the backup file if it exists
+        if self.backup_file.exists():
+            self.backup_file.unlink()
+
         return { 'v_cm_hist' : v_cm_hist, 'y_last' : y_t, "selected_y1" : selected_y1, "selected_y2" : selected_y2,
                 'params' : parameters, 'sf_width' : sf_widths }
     
@@ -482,7 +489,7 @@ if __name__ == "__main__":
     sim = PartialDislocationsSimulation(
         bigN=32,             # Number of points
         length=32,           # Length of dislocation
-        time=100,           # Total simulation time
+        time=10,           # Total simulation time
         dt=1,               # Time step
         deltaR=1000,         # Random force correlation length
         bigB=1.0,           # Drag coefficient
@@ -496,6 +503,7 @@ if __name__ == "__main__":
     fire_y1, fire_y2, success = sim.relax_w_FIRE()
     sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
+    print(sim.getResultsAsDict())
     firet100_y1, firet100_y2 = sim.getLineProfiles()
 
     fig,ax = plt.subplots()
