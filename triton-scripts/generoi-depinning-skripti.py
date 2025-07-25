@@ -106,7 +106,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # generate_scirpt(args.initial_config)
-    run_params_paths = find_run_params_files("/Users/elmerheino/Documents/partial-dislocations/results/24-7-weak-coupling/partial")
+    run_params_paths = find_run_params_files(parser.path)
     for path_i in run_params_paths:
         script_path = generate_scirpt(path_i)
         os.system(f"sbatch {script_path}")
