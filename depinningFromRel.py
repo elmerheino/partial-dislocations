@@ -65,12 +65,17 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         # depinning_perfect.save_results(output_folder)
     else:
         params = PartialDislocationsSimulation.paramListToDict(initial_config['params'])
-        y_last = initial_config['y_last']
-        print(y_last.shape)
+        print(initial_config.files)
+        if 'y_last' in initial_config.files:
+            y_last = initial_config['y_last']
+        else:
+            y1_last = initial_config['y1_fire']
+            y2_last = initial_config['y2_fire']
+
         tau_min, tau_max = getTauLimits(params['deltaR'])
         depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
                                             int(params['seed']), int(params['bigN']),  int(params['length']), 10)
-        depinnin_partial.run(y1_0=y_last[0], y2_0=y_last[1])
+        depinnin_partial.run(y1_0=y1_last, y2_0=y2_last)
         depinnin_partial.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
         pass
     pass
