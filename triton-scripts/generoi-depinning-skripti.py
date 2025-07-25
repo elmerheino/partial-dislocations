@@ -28,14 +28,14 @@ def generate_script_from_template(template_path, output_script_path, replacement
     # Make the script executable
     os.chmod(output_script_path, 0o755)
 
-def generate_scirpt(path_to_run_params, args):
+def generate_scirpt(path_to_run_params):
     path_to_run_params = Path(path_to_run_params)
 
     script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
     template_file = os.path.join(script_dir, 'depinning-from-rel-template.sh')
 
-    input_folder = Path(args.path).parent
+    input_folder = path_to_run_params.parent
 
     with open(Path(path_to_run_params), "r") as fp:
         run_params = json.load(fp)
@@ -108,5 +108,5 @@ if __name__ == '__main__':
     # generate_scirpt(args.initial_config)
     run_params_paths = find_run_params_files("/Users/elmerheino/Documents/partial-dislocations/results/24-7-weak-coupling/partial")
     for path_i in run_params_paths:
-        script_path = generate_scirpt(path_i, args)
+        script_path = generate_scirpt(path_i)
         os.system(f"sbatch {script_path}")
