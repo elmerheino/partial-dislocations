@@ -10,4 +10,4 @@
 
 module load scicomp-python-env
 
-srun python3 ../depinningFromRel.py --folder {input-path} {perfect-partial} --points 30 --cores {cores} --task-id ${SLURM_ARRAY_TASK_ID} --time {rel-time} --dt {sample-dt} --out-folder {output-path}
+srun python3 ../depinningFromRel.py new --folder {input-path} {perfect-partial} --points 30 --cores {cores} --task-id ${SLURM_ARRAY_TASK_ID} --time {rel-time} --dt {sample-dt} --out-folder {output-path}
