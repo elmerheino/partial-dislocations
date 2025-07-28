@@ -49,7 +49,7 @@ class DepinningPartial(Depinning):
                         mu=1,
                         cLT1=1,
                         cLT2=1,
-                        c_gamma=1
+                        c_gamma=1, failsafe_dict=None, status_dict=None, recovery_config=None
                         ): # Use realistic values from paper by Zaiser and Wu 2022
         
         super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
@@ -67,11 +67,33 @@ class DepinningPartial(Depinning):
 
         self.failsafe_path = Path(folder_name).joinpath("failsafes/")
         self.json_path = Path(folder_name).joinpath("depinning_params.json")
-        
-        self.createInfoJSON(self.json_path)
+
+        self.failsafe_dict = failsafe_dict
+        self.status_dict = status_dict
+        self.recovery_config = recovery_config
+        if not self.json_path.exists():
+            self.createInfoJSON(self.json_path)
+
+    @classmethod
+    def from_json_config(cls, json_path):
+        with open(json_path, 'r') as f:
+            config = json.load(f)
     
+        # Extract parameters from JSON
+        params = config['other parameters']
+        loaded_failsafes = config['failsafe files']
+        loaded_statuses = config['status']
+        instance = cls( tau_min=config['tau_min'], tau_max=config['tau_max'], points=params['points'], time=params['time'],
+            dt=params['dt'], cores=params['cores'], folder_name=params['folder_name'], deltaR=params['deltaR'], seed=params['seed'],
+            bigN=params['bigN'], length=params['length'], d0=params['d0'], sequential=params['sequential'], bigB=params['bigB'],
+            smallB=params['smallB'], mu=params['mu'], cLT1=params['cLT1'], cLT2=params['cLT2'], b_p=params['b_p'],
+            c_gamma=params['c_gamma'], failsafe_dict=loaded_failsafes, status_dict=loaded_statuses, recovery_config=config
+        )
+        instance.stresses = config['stresses']
+        return instance
+
     def createInfoJSON(self, path):
-        status_dict = {tau_ext : "not_started" for tau_ext in self.stresses}
+        status_dict = {str(float(tau_ext)) : "not_started" for tau_ext in self.stresses}
         data = {
             "tau_min": self.tau_min,
             "tau_max": self.tau_max,
@@ -143,7 +165,7 @@ class DepinningPartial(Depinning):
                     try:
                         params = json.load(f)
 
-                        params["status"][tauExt] = status
+                        params["status"][str(float(tauExt))] = status
 
                         f.seek(0)
                         json.dump(params, f, indent=4)
@@ -228,14 +250,23 @@ class DepinningPartial(Depinning):
             self.y2_0 = y2_0
         
         if self.sequential: # Sequental does not work
+            results = list()
             for s in self.stresses:
                 r_i = self.studyConstantStress(tauExt=s)
-                self.results.append(r_i)
-
+                results.append(r_i)
+            self.results = results
         else:
             with mp.Pool(self.cores) as pool:
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
-            
+    
+    def run_recovered(self):
+        for s in self.stresses:
+            # Check if the simulation is already complete
+            # If not, load the failsafe from the dictionary
+            # Create the dislocation object based on that failasfe
+            pass
+        pass
+
     def getStresses(self):
         return self.stresses
     
