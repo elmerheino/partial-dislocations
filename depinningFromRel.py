@@ -12,7 +12,29 @@ def getTauLimits(noise):
     else:
         return (0, noise)
 
-def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder, perfect : bool):
+def findFailsafes(failsafe_folder, noise, seed, perfect : bool):
+    # Finds all the failsafes with this noise and seed
+    failsafe_folder = Path(failsafe_folder)
+
+    res = list()
+    for failsafe_path in failsafe_folder.iterdir():
+        # Load the failsafe file and its params
+        failsafe = np.load(failsafe_path)
+        if perfect:
+            params = DislocationSimulation.paramListToDict(failsafe['params'])
+        else:
+            params = PartialDislocationsSimulation.paramListToDict(failsafe['params'])
+        
+        # See if the failsafe at hand has the desired noise and seed. There might be a problem with float comparison.
+        if params['deltaR'] == noise and params['seed'] == seed:
+            res.append(failsafe_path)
+    
+    return res
+
+def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
+    output_folder = Path(output_folder)
+    input_folder = Path(input_folder)
+
     # Read metadata that is left to dir from last run to figure out range of allowed params and print helpful info
     with open(input_folder.joinpath("run_params.json"), "r") as fp:
         metadata = json.load(fp)
@@ -24,11 +46,11 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         print(f"Task id should be within range {0} <= task-id <= {max_task_id} now it is {task_id}")
         return
 
-    # Find all the relaxed configurations preesent in the passed dir
+    # Find all the relaxed configurations in the passed dir
     rel_folder = input_folder.joinpath("relaxed-configurations")
     paths_list = [str(i) for i in rel_folder.iterdir()]
 
-    # Load a file keeping track of all the relaxed configurations in the file, create it if it doesn't exist
+    # Load a file keeping track of all the relaxed configurations available, create it if it doesn't exist
     paths_file = input_folder.joinpath("paths_index.json")
     if paths_file.exists():
         with open(paths_file, "r") as fp:
@@ -39,7 +61,8 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
             json.dump({"paths" : paths_list, "len" : len(paths_list)}, fp) # Len should be = seeds * (no. of noises)
         paths = paths_list
     
-    # Load the relaxed configuration at hand
+    # Load the relaxed configuration that is associated with the current task_id. The task_id corresponds uniquely to a
+    # (noise, seed) pair
     initial_config_path = paths[task_id]
     initial_config = np.load(initial_config_path)
 
@@ -57,6 +80,11 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         # Create the approproate depinning object
         tau_min, tau_max = getTauLimits(params['deltaR'])
 
+        # TODO : look for failsafes if they exist. They are found in output_folder.joinpath('failsafe')
+        failsafe_paths = findFailsafes(output_folder.joinpath('failsafe'), params['deltaR'], params['seed'], perfect=True)
+
+        print(f"Found {len(failsafe_paths)}/{points} failsafes with noise {params['deltaR']} and seed {params['seed']}.")
+
         depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
                                             folder_name=output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
@@ -65,12 +93,17 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         # depinning_perfect.save_results(output_folder)
     else:
         params = PartialDislocationsSimulation.paramListToDict(initial_config['params'])
-        print(initial_config.files)
+
         if 'y_last' in initial_config.files:
             y_last = initial_config['y_last']
         else:
             y1_last = initial_config['y1_fire']
             y2_last = initial_config['y2_fire']
+
+        # TODO: Look for failsafes here if they exist. They are in the folder output_folder.joinpath('failsafe')
+        failsafe_paths = findFailsafes(output_folder.joinpath('failsafe'), params['deltaR'], params['seed'], perfect=False)
+
+        print(f"Found {len(failsafe_paths)}/{points} failsafes with noise {params['deltaR']} and seed {params['seed']}.")
 
         tau_min, tau_max = getTauLimits(params['deltaR'])
         depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
@@ -101,8 +134,6 @@ if __name__ == "__main__":
     parser.add_argument('--points', type=int, required=True, help='Number of tau_exts to be integrated.')
     parser.add_argument('--time', type=int, required=True, help='Time to integrate each simulation.')
     parser.add_argument('--dt', type=int, required=True, help='Timestep for sampling the solution.')
-
-
 
     args = parser.parse_args()
 
