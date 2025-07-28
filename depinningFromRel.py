@@ -12,6 +12,22 @@ def getTauLimits(noise):
     else:
         return (0, noise)
 
+def getInitialConfig(input_folder, task_id):
+    # Load a file keeping track of all the relaxed configurations available, create it if it doesn't exist
+    input_folder = Path(input_folder)
+    paths_file = input_folder.joinpath("paths_index.json")
+    if paths_file.exists():
+        with open(paths_file, "r") as fp:
+            paths_data = json.load(fp)
+        paths = paths_data["paths"]    
+    else:
+        return None
+    # Load the relaxed configuration that is associated with the current task_id. The task_id corresponds uniquely to a
+    # (noise, seed) pair
+    initial_config_path = paths[task_id]
+    initial_config = np.load(initial_config_path)
+    return initial_config
+
 def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
     output_folder = Path(output_folder)
     input_folder = Path(input_folder)
@@ -85,7 +101,21 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         pass
     pass
 
-if __name__ == "__main__":
+def continue_depinning(path_to_params, input_folder, task_id):
+    """
+    path_to_params : 
+    """
+    initial_config = getInitialConfig(input_folder, task_id)
+
+    path_to_params = Path(path_to_params)
+    depining_folder = path_to_params.parent
+
+    depinning = DepinningPartial.from_json_config(path_to_params)
+    depinning.run_recovered_parallel()
+    depinning.dump_res_to_pickle(depining_folder.joinpath("depinning-pickle-dumps"))
+    pass
+
+def argsmain():
     parser = argparse.ArgumentParser(
         description="""
         A script to run simulations. The array requested in triton should be from 0-(seed*noises - 1) since it will be passed
@@ -118,3 +148,8 @@ if __name__ == "__main__":
     if args.perfect:
         print(f"Depinnign for perfect dislocation")
         compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=True)
+
+if __name__ == "__main__":
+    continue_depinning("results/25-07-2025-depinning/partial/l-32-d0-8.0/depinning_params.json",
+                       "results/24-7-weak-coupling/partial/l-32-d0-8", 458)
+    # argsmain()

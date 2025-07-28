@@ -1,4 +1,5 @@
 import hashlib
+import pickle
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.fft import rfft, irfft, rfftfreq
@@ -25,6 +26,7 @@ class PartialDislocationsSimulation(Simulation):
             np.ones(self.bigN)*self.d0,     # y1
             np.zeros(self.bigN)             # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
         ))
+        self.t0 = 0
 
         self.y2 = list()
         self.y1 = list()
@@ -40,7 +42,28 @@ class PartialDislocationsSimulation(Simulation):
         self.selected_y1_shapes = list()
         self.selected_y2_shapes = list()
     
-    def setInitialY0Config(self, y1_0, y2_0):
+    @classmethod
+    def fromFailsafe(cls, failsafe_path):
+        with open(failsafe_path, "rb") as fp:
+            failsafe_data = pickle.load(fp)
+        params = PartialDislocationsSimulation.paramListToDict(failsafe_data['params'])
+        y_last = failsafe_data['y_last']
+        fail_time = failsafe_data['time']
+
+        instance = cls(deltaR=float(params['deltaR']), bigB=params['bigB'], smallB=params['smallB'], b_p=params['b_p'], mu=params['mu'],
+                       tauExt = params['tauExt'], bigN=int(params['bigN']), length=params['length'], dt=params['dt'], time=params['time'],
+                       d0=params['d0'], c_gamma=params['c_gamma'], cLT1=params['cLT1'], cLT2=params['cLT2'], seed=int(params['seed']))
+
+        instance.selected_y1_shapes = failsafe_data['selected_y1_shapes']
+        instance.selected_y2_shapes = failsafe_data['selected_y2_shapes']
+        instance.avg_v_cm_history = failsafe_data['avg_v_cm_history']
+        # instance.avg_stacking_fault_history = failsafe_data['sf_hist']
+
+        instance.y0 = y_last
+        
+        return instance
+    
+    def setInitialY0Config(self, y1_0, y2_0, t0=0):
         """
         Sets the intial arrays y1 and y2 at time t=0.
         """
@@ -48,6 +71,7 @@ class PartialDislocationsSimulation(Simulation):
             print(f"Length of input array is invalid len(y1_0) = {len(y1_0)} != {self.bigN}")
             print(y1_0)
         self.y0 = np.vstack([y1_0, y2_0])
+        self.t0 = t0
         pass
 
     def weak_coupling(self, h1, h2):
@@ -96,7 +120,7 @@ class PartialDislocationsSimulation(Simulation):
         
         return dudt.flatten()
 
-    def run_in_chunks(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, method='RK45'):
+    def run_in_chunks(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, until_relaxed=False, method='RK45'):
         """
         When using this method to run the simulation, then self.time acts as the maximum simulation time, and chunck_size
         is the timespan from the end that will be saved for for further processing in methods such as getCM, getRelVelocity,
@@ -118,7 +142,7 @@ class PartialDislocationsSimulation(Simulation):
         y0 = self.y0 # Initial condition for two partials
         last_y0 = y0
 
-        total_time_so_far = 0
+        total_time_so_far = self.t0
         max_time = self.time
 
         relaxed = False
@@ -139,10 +163,23 @@ class PartialDislocationsSimulation(Simulation):
             current_chunk_y2 = y_i[1].T
             current_chunk_timesteps = sol_i.t[1:] - sol_i.t[:-1]
 
+            # Save a bakcup from this chunk
             last_y0 = y_i[:, :, -1]
-            np.savez(backup_file, y_last=last_y0, params=self.getParameters(), time=end_i, 
-                     last_ys_so_far=self.getSelectedYshapes(),
-                     v_hist=self.getVCMhist())
+            backup_file.parent.mkdir(exist_ok=True, parents=True)
+            with open(backup_file, "wb") as fp:
+                data = {
+                    "y_last": last_y0,
+                    "params": self.getParameters(),
+                    "time": end_i,
+                    "chunk_size":chunk_size,
+                    "selected_y1_shapes": self.selected_y1_shapes,
+                    "selected_y2_shapes": self.selected_y2_shapes,
+                    "avg_v_cm_history": self.avg_v_cm_history,
+                    "sf_hist" : self.avg_stacking_fault_history
+                }
+                pickle.dump(data, fp)
+                
+                
             total_time_so_far += chunk_size
 
             y1_CM_i = np.mean(current_chunk_y1, axis=1)
@@ -163,10 +200,10 @@ class PartialDislocationsSimulation(Simulation):
             if len(total_CM_i) > 2:
                 v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
 
-                self.avg_v_cm_history.append(v_cm_i)        # Save velocity for later use
-                self.avg_stacking_fault_history.append(sf_width)
+                self.avg_v_cm_history.append(v_cm_i)                # Record v_cm velocity
+                self.avg_stacking_fault_history.append(sf_width)    # Record stacking fault width
 
-                if self.is_relaxed(v_cm_i, tolerance=tolerance):
+                if self.is_relaxed(v_cm_i, tolerance=tolerance) and until_relaxed:
                     relaxed = True
                     self.y1 = current_chunk_y1
                     self.y2 = current_chunk_y2

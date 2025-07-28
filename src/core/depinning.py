@@ -75,16 +75,19 @@ class DepinningPartial(Depinning):
             self.createInfoJSON(self.json_path)
 
     @classmethod
-    def from_json_config(cls, json_path):
+    def from_json_config(cls, json_path, cores=None):
         with open(json_path, 'r') as f:
             config = json.load(f)
+
+        if type(cores) == None:
+            cores = params['cores']
     
         # Extract parameters from JSON
         params = config['other parameters']
         loaded_failsafes = config['failsafe files']
         loaded_statuses = config['status']
         instance = cls( tau_min=config['tau_min'], tau_max=config['tau_max'], points=params['points'], time=params['time'],
-            dt=params['dt'], cores=params['cores'], folder_name=params['folder_name'], deltaR=params['deltaR'], seed=params['seed'],
+            dt=params['dt'], cores=cores, folder_name=params['folder_name'], deltaR=params['deltaR'], seed=params['seed'],
             bigN=params['bigN'], length=params['length'], d0=params['d0'], sequential=params['sequential'], bigB=params['bigB'],
             smallB=params['smallB'], mu=params['mu'], cLT1=params['cLT1'], cLT2=params['cLT2'], b_p=params['b_p'],
             c_gamma=params['c_gamma'], failsafe_dict=loaded_failsafes, status_dict=loaded_statuses, recovery_config=config
@@ -101,24 +104,10 @@ class DepinningPartial(Depinning):
             "failsafe files" : dict(),
             "status" : status_dict,     # Each tau ext has value which is either "not_started", "ongoing", "finished"
             "other parameters": {
-                "points": self.points,
-                "time": self.time,
-                "dt": self.dt,
-                "seed": self.seed,
-                "sequential": self.sequential,
-                "cores": self.cores,
-                "deltaR": self.deltaR,
-                "bigB": self.bigB,
-                "smallB": self.smallB,
-                "mu": self.mu,
-                "bigN": self.bigN,
-                "length": self.length,
-                "d0": self.d0,
-                "folder_name": str(self.folder_name),
-                "cLT1" : self.cLT1,
-                "cLT2" : self.cLT2,
-                "b_p" : self.b_p,
-                "c_gamma" : self.c_gamma
+                "points": self.points, "time": self.time, "dt": self.dt, "seed": self.seed, "sequential": self.sequential,
+                "cores": self.cores, "deltaR": self.deltaR, "bigB": self.bigB, "smallB": self.smallB, "mu": self.mu,
+                "bigN": self.bigN, "length": self.length, "d0": self.d0, "folder_name": str(self.folder_name), 
+                "cLT1" : self.cLT1, "cLT2" : self.cLT2, "b_p" : self.b_p, "c_gamma" : self.c_gamma
             }
         }
         path = Path(path)
@@ -205,10 +194,9 @@ class DepinningPartial(Depinning):
                                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
                                                    dt=self.dt, time=self.time, d0=self.d0, c_gamma=self.c_gamma,
                                                    cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
-        
-        print(f"Shapes {self.y1_0.shape} {self.y2_0.shape}")
-        
-        simulation.setInitialY0Config(self.y1_0, self.y2_0)
+        if (type(self.y1_0) != type(None)) and (type(self.y2_0) != type(None)):
+            print(f"Shapes {self.y1_0.shape} {self.y2_0.shape}")
+            simulation.setInitialY0Config(self.y1_0, self.y2_0)
         
         # Create a backup file where the data is saved once in a while, and keep track of it in the JSON file
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{simulation.getUniqueHash()}")
@@ -218,6 +206,7 @@ class DepinningPartial(Depinning):
 
         chunk_size = self.time/10
         is_relaxed = simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
+        self.updateStatusDict(simulation.tauExt, "finished")
         # print(f"Dislocaiation was relaxed? {is_relaxed}")
 
         rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
@@ -226,16 +215,43 @@ class DepinningPartial(Depinning):
         v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
         sfHist = simulation.getSFhist()
 
-        # If the simulation actually completes, then remove the backup file, there is no need for it any more. Also update
-        # the status of the simulation in question to the JSON
-        if backup_file.exists():
-            backup_file.unlink()
-        self.updateStatusDict(tauExt, "finished")
-
-        return {'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
-                'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
+        final_results = {
+            'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
+            'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
         }
+
+        with open(backup_file, "wb") as fp:
+            pickle.dump(final_results, fp)
+
+        return final_results
     
+    def constantStressFromFailsafe(self, failsafe_path):
+        """
+        This method has to return the same values as self.studyConstantStress!
+        """
+        backup_file = Path(failsafe_path)
+
+        simulation = PartialDislocationsSimulation.fromFailsafe(failsafe_path)
+        simulation.run_in_chunks(backup_file, simulation.time/10)
+
+        rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
+        y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
+        l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
+        v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
+        sfHist = simulation.getSFhist()
+
+        self.updateStatusDict(simulation.tauExt, "finished")
+
+        final_results = {
+            'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
+            'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
+        }
+
+        with open(backup_file, "wb") as fp:
+            pickle.dump(final_results, fp)
+
+        return final_results
+        
     def run(self, y1_0=None, y2_0=None):
         # Multiprocessing compatible version of a single depinning study, here the studies
         # are distributed between threads by stress letting python mp library determine the best way
@@ -259,13 +275,67 @@ class DepinningPartial(Depinning):
             with mp.Pool(self.cores) as pool:
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
     
-    def run_recovered(self):
-        for s in self.stresses:
+    def run_recovered_sequential(self, y1_0=None, y2_0=None):
+        res = list()
+        self.y1_0 = y1_0
+        self.y2_0 = y2_0
+
+        for tau_ext in self.stresses:
             # Check if the simulation is already complete
             # If not, load the failsafe from the dictionary
             # Create the dislocation object based on that failasfe
+            self.mp_helper(tau_ext)
             pass
-        pass
+        
+        self.results = res
+
+    def mp_helper(self, tau_ext):
+        tau_ext_key = str(float(tau_ext))
+        status = self.status_dict[tau_ext_key]
+
+        if status == "ongoing":
+            # create the dislocation object from the failsafe
+            # TODO : handle case if the failsafe does not simply exist
+            if tau_ext_key in self.failsafe_dict.keys():
+                failsafe_path = Path(self.failsafe_dict[tau_ext_key])
+                if failsafe_path.exists():
+                    print(f"Recovering from failsafe with tau_ext = {tau_ext}")
+                    results_i = self.constantStressFromFailsafe(failsafe_path)
+                else:
+                    print(f"Starting new simulation with tau_ext = {tau_ext}")
+                    results_i = self.studyConstantStress(tau_ext)
+            else:
+                # Failsafe does not exist, so go to case "not_started" and start a new simualation from zero
+                print(f"Starting new simulation with tau_ext = {tau_ext}")
+                results_i = self.studyConstantStress(tau_ext)
+            pass
+        elif status == "not_started":
+            # just run a new simulation from nothing using studyConstantStress
+            print(f"Starting new simulation with tau_ext = {tau_ext}")
+            results_i = self.studyConstantStress(tau_ext)
+            pass
+        else:
+            # load the final results to memory
+            if tau_ext_key in self.failsafe_dict.keys():
+                failsafe_path = Path(self.failsafe_dict[tau_ext_key])
+                if failsafe_path.exists():
+                    with open(self.failsafe_dict[tau_ext_key], "rb") as fp:
+                        results_i = pickle.load(fp)
+                else:
+                    print(f"Starting new simulation with tau_ext = {tau_ext}")
+                    results_i = self.studyConstantStress(tau_ext)
+            else:
+                results_i = self.studyConstantStress(tau_ext)
+            pass
+
+        return results_i
+
+    def run_recovered_parallel(self, y1_0=None, y2_0=None):
+        self.y1_0 = y1_0
+        self.y2_0 = y2_0
+
+        with mp.Pool(self.cores) as pool:
+            pool.map(partial(DepinningPartial.mp_helper, self), self.stresses)
 
     def getStresses(self):
         return self.stresses
@@ -540,28 +610,4 @@ class DepinningSingle(Depinning):
             pickle.dump(self.results, fp)
 
 if __name__ == "__main__":
-    # Get intial config from FIRE
-    # initial_confs = np.load("initial_confs.npy")
-
-    # y0 = initial_confs[0]
-
-    # noise = y0[0].astype(float)
-    # seed = y0[1].astype(int)
-
-    # y0 = y0[2:]
-    # bigN = len(y0)
-
-    # Get intial config from IVP
-    ivp_path = Path("/Users/elmerheino/Documents/partial-dislocations/results/7-7-relaksaatio/perfect/relaxed-configurations/dislocation-noise-0.0001-seed-0.npz")
-    ivp = np.load(ivp_path)
-    ivp_params = DislocationSimulation.paramListToDict(ivp['params'])
-
-    y_ivp = ivp['y_last'].flatten()
-    noise = ivp_params['deltaR'].astype(float)
-    seed = ivp_params['seed'].astype(int)
-    bigN = ivp_params['bigN'].astype(int)
-
-    depinning = DepinningSingle(0, 2*noise/10, 10, 400000, 1, 8, "luonnokset/depinning-w-ivp/single-dislocation", noise, seed, bigN, bigN)
-    depinning.run(y0_rel=y_ivp)
-    v_rels = depinning.save_results("luonnokset/depinning-w-ivp/single-dislocation")
     pass
