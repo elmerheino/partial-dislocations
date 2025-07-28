@@ -12,25 +12,6 @@ def getTauLimits(noise):
     else:
         return (0, noise)
 
-def findFailsafes(failsafe_folder, noise, seed, perfect : bool):
-    # Finds all the failsafes with this noise and seed
-    failsafe_folder = Path(failsafe_folder)
-
-    res = list()
-    for failsafe_path in failsafe_folder.iterdir():
-        # Load the failsafe file and its params
-        failsafe = np.load(failsafe_path)
-        if perfect:
-            params = DislocationSimulation.paramListToDict(failsafe['params'])
-        else:
-            params = PartialDislocationsSimulation.paramListToDict(failsafe['params'])
-        
-        # See if the failsafe at hand has the desired noise and seed. There might be a problem with float comparison.
-        if params['deltaR'] == noise and params['seed'] == seed:
-            res.append(failsafe_path)
-    
-    return res
-
 def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
     output_folder = Path(output_folder)
     input_folder = Path(input_folder)
@@ -80,11 +61,6 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         # Create the approproate depinning object
         tau_min, tau_max = getTauLimits(params['deltaR'])
 
-        # TODO : look for failsafes if they exist. They are found in output_folder.joinpath('failsafe')
-        failsafe_paths = findFailsafes(output_folder.joinpath('failsafe'), params['deltaR'], params['seed'], perfect=True)
-
-        print(f"Found {len(failsafe_paths)}/{points} failsafes with noise {params['deltaR']} and seed {params['seed']}.")
-
         depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
                                             folder_name=output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
@@ -101,10 +77,6 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
             y2_last = initial_config['y2_fire']
 
         # TODO: Look for failsafes here if they exist. They are in the folder output_folder.joinpath('failsafe')
-        failsafe_paths = findFailsafes(output_folder.joinpath('failsafe'), params['deltaR'], params['seed'], perfect=False)
-
-        print(f"Found {len(failsafe_paths)}/{points} failsafes with noise {params['deltaR']} and seed {params['seed']}.")
-
         tau_min, tau_max = getTauLimits(params['deltaR'])
         depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
                                             int(params['seed']), int(params['bigN']),  int(params['length']), 10)

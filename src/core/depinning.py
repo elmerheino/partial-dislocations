@@ -1,5 +1,7 @@
+import fcntl
 import json
 import pickle
+import time
 import numpy as np
 import multiprocessing as mp
 from functools import partial
@@ -54,13 +56,106 @@ class DepinningPartial(Depinning):
         # The initializations specific to a partial dislocation depinning simulation.
         self.cLT1 = cLT1
         self.cLT2 = cLT2
-        self.c_gamma =c_gamma
+        self.c_gamma = c_gamma
         self.results = None
         self.b_p = b_p
 
         self.y1_0 = None
         self.y2_0 = None
+
+        self.backup_paths = dict()
+
+        self.failsafe_path = Path(folder_name).joinpath("failsafes/")
+        self.json_path = Path(folder_name).joinpath("depinning_params.json")
+        
+        self.createInfoJSON(self.json_path)
     
+    def createInfoJSON(self, path):
+        status_dict = {tau_ext : "not_started" for tau_ext in self.stresses}
+        data = {
+            "tau_min": self.tau_min,
+            "tau_max": self.tau_max,
+            "stresses": self.stresses.tolist(),
+            "failsafe files" : dict(),
+            "status" : status_dict,     # Each tau ext has value which is either "not_started", "ongoing", "finished"
+            "other parameters": {
+                "points": self.points,
+                "time": self.time,
+                "dt": self.dt,
+                "seed": self.seed,
+                "sequential": self.sequential,
+                "cores": self.cores,
+                "deltaR": self.deltaR,
+                "bigB": self.bigB,
+                "smallB": self.smallB,
+                "mu": self.mu,
+                "bigN": self.bigN,
+                "length": self.length,
+                "d0": self.d0,
+                "folder_name": str(self.folder_name),
+                "cLT1" : self.cLT1,
+                "cLT2" : self.cLT2,
+                "b_p" : self.b_p,
+                "c_gamma" : self.c_gamma
+            }
+        }
+        path = Path(path)
+        path.parent.mkdir(exist_ok=True, parents=True)
+        with open(path, "w") as fp:
+            json.dump(data, fp)
+
+        pass
+    
+    def appendFailsafeToJSON(self, tauExt, failsafe_path):
+        # Appends the failsafe corresponding to tauExt to the list stored in self.json_file
+        max_retries = 5
+        retry_delay = 1
+
+        for attempt in range(max_retries):
+            try:
+                with open(self.json_path, 'r+') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    try:
+                        params = json.load(f)
+
+                        params["failsafe files"][tauExt] = str(failsafe_path)
+
+                        f.seek(0)
+                        json.dump(params, f, indent=4)
+                        f.truncate()
+                    finally:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                break
+            except (IOError, BlockingIOError) as e:
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(retry_delay)
+    
+    def updateStatusDict(self, tauExt, status):
+        # Appends the failsafe corresponding to tauExt to the list stored in self.json_file
+        max_retries = 5
+        retry_delay = 1
+
+        for attempt in range(max_retries):
+            try:
+                with open(self.json_path, 'r+') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    try:
+                        params = json.load(f)
+
+                        params["status"][tauExt] = status
+
+                        f.seek(0)
+                        json.dump(params, f, indent=4)
+                        f.truncate()
+                    finally:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                break
+            except (IOError, BlockingIOError) as e:
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(retry_delay)
+
     def initialRelaxation(self, relaxation_time=1e6):
         """
         This function finds the relaxed configuration of the system with external force being zero.
@@ -93,11 +188,13 @@ class DepinningPartial(Depinning):
         
         simulation.setInitialY0Config(self.y1_0, self.y2_0)
         
+        # Create a backup file where the data is saved once in a while, and keep track of it in the JSON file
         backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{simulation.getUniqueHash()}")
         backup_file.parent.mkdir(exist_ok=True, parents=True)
+        self.appendFailsafeToJSON(tauExt, backup_file)
+        self.updateStatusDict(tauExt, "ongoing")
 
         chunk_size = self.time/10
-
         is_relaxed = simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
         # print(f"Dislocaiation was relaxed? {is_relaxed}")
 
@@ -106,6 +203,12 @@ class DepinningPartial(Depinning):
         l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
         v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
         sfHist = simulation.getSFhist()
+
+        # If the simulation actually completes, then remove the backup file, there is no need for it any more. Also update
+        # the status of the simulation in question to the JSON
+        if backup_file.exists():
+            backup_file.unlink()
+        self.updateStatusDict(tauExt, "finished")
 
         return {'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
                 'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
