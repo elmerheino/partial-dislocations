@@ -199,7 +199,7 @@ class DepinningPartial(Depinning):
             simulation.setInitialY0Config(self.y1_0, self.y2_0)
         
         # Create a backup file where the data is saved once in a while, and keep track of it in the JSON file
-        backup_file = Path(self.folder_name).joinpath(f"failsafe/dislocaition-{simulation.getUniqueHash()}")
+        backup_file = Path(self.folder_name).joinpath(f"failsafe/deltaR-{self.deltaR}-seed-{self.seed}/dislocaition-{simulation.getUniqueHash()}")
         backup_file.parent.mkdir(exist_ok=True, parents=True)
         self.appendFailsafeToJSON(tauExt, backup_file)
         self.updateStatusDict(tauExt, "ongoing")
@@ -335,7 +335,7 @@ class DepinningPartial(Depinning):
         self.y2_0 = y2_0
 
         with mp.Pool(self.cores) as pool:
-            pool.map(partial(DepinningPartial.mp_helper, self), self.stresses)
+            self.results = pool.map(partial(DepinningPartial.mp_helper, self), self.stresses)
 
     def getStresses(self):
         return self.stresses

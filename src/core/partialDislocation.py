@@ -60,6 +60,7 @@ class PartialDislocationsSimulation(Simulation):
         # instance.avg_stacking_fault_history = failsafe_data['sf_hist']
 
         instance.y0 = y_last
+        instance.tau_cutoff = 0
         
         return instance
     
@@ -200,7 +201,7 @@ class PartialDislocationsSimulation(Simulation):
             if len(total_CM_i) > 2:
                 v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
 
-                self.avg_v_cm_history.append(v_cm_i)                # Record v_cm velocity
+                self.avg_v_cm_history.extend(v_cm_i)                # Record v_cm velocity
                 self.avg_stacking_fault_history.append(sf_width)    # Record stacking fault width
 
                 if self.is_relaxed(v_cm_i, tolerance=tolerance) and until_relaxed:

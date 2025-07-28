@@ -29,7 +29,6 @@ def getInitialConfig(input_folder, task_id):
     return initial_config
 
 def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
-    output_folder = Path(output_folder)
     input_folder = Path(input_folder)
 
     # Read metadata that is left to dir from last run to figure out range of allowed params and print helpful info
@@ -77,6 +76,8 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         # Create the approproate depinning object
         tau_min, tau_max = getTauLimits(params['deltaR'])
 
+        output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
+
         depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
                                             folder_name=output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
@@ -91,6 +92,8 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         else:
             y1_last = initial_config['y1_fire']
             y2_last = initial_config['y2_fire']
+        
+        output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
 
         # TODO: Look for failsafes here if they exist. They are in the folder output_folder.joinpath('failsafe')
         tau_min, tau_max = getTauLimits(params['deltaR'])
@@ -118,38 +121,53 @@ def continue_depinning(path_to_params, input_folder, task_id):
 def argsmain():
     parser = argparse.ArgumentParser(
         description="""
-        A script to run simulations. The array requested in triton should be from 0-(seed*noises - 1) since it will be passed
-        as index to a list containing all the file paths in the directory
+        A script to run or continue depinning simulations.
         """
-        )
-    parser.add_argument('--folder', type=str, required=True, 
-                        help="""
-                        Folder where the initially relaxed configurations are. should be be the one which containts folder 
-                        intitial-relaxations
-                        """
-                        )
-    parser.add_argument('--out-folder', type=str, required=True, help="Output folder of depinning.")
-    parser.add_argument('--partial', action='store_true', help='Partial dislocation.')
-    parser.add_argument('--perfect', action='store_true', help='Perfect dislocation.')
-    parser.add_argument('--cores', type=int, required=True, help='Perfect dislocation.')
-    parser.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from triton. ')
-    parser.add_argument('--points', type=int, required=True, help='Number of tau_exts to be integrated.')
-    parser.add_argument('--time', type=int, required=True, help='Time to integrate each simulation.')
-    parser.add_argument('--dt', type=int, required=True, help='Timestep for sampling the solution.')
+    )
+    subparsers = parser.add_subparsers(dest='command', required=True, help='Available commands')
+
+    # Command to start a new simulation
+    parser_new = subparsers.add_parser('new', help='Start a new depinning simulation from relaxed configurations.')
+    parser_new.add_argument('--folder', type=str, required=True,
+                            help="""
+                            Folder where the initially relaxed configurations are. Should be the one which contains the folder
+                            'initial-relaxations'.
+                            """
+                            )
+    parser_new.add_argument('--out-folder', type=str, required=True, help="Output folder for the new depinning simulation.")
+    parser_new.add_argument('--partial', action='store_true', help='Flag for partial dislocation.')
+    parser_new.add_argument('--perfect', action='store_true', help='Flag for perfect dislocation.')
+    parser_new.add_argument('--cores', type=int, required=True, help='Number of cores to use.')
+    parser_new.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from Triton, used as an index.')
+    parser_new.add_argument('--points', type=int, required=True, help='Number of tau_ext points to be integrated.')
+    parser_new.add_argument('--time', type=int, required=True, help='Time to integrate each simulation.')
+    parser_new.add_argument('--dt', type=int, required=True, help='Timestep for sampling the solution.')
+
+    # Command to continue a simulation
+    parser_continue = subparsers.add_parser('continue', help='Continue an interrupted depinning simulation.')
+    parser_continue.add_argument('--initial-relaxations', type=str, required=True,
+                                 help='Path to the folder with the initial relaxed configurations.')
+    parser_continue.add_argument('--depinning-params', type=str, required=True,
+                                 help='Path to the depinning_params.json file from the simulation to continue.')
+    parser_continue.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from triton. ')
+
 
     args = parser.parse_args()
 
-    rel_path = Path(args.folder)
+    if args.command == 'new':
+        if not args.partial and not args.perfect:
+            parser.error("Either --partial or --perfect must be specified for the 'new' command.")
+        if args.partial:
+            print(f"Starting new depinning for partial dislocation")
+            compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=False)
+        if args.perfect:
+            print(f"Starting new depinning for perfect dislocation")
+            compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=True)
+    elif args.command == 'continue':
+        print(f"Continuing depinning simulation.")
+        continue_depinning(path_to_params=args.depinning_params, input_folder=args.initial_relaxations, task_id=args.task_id)
 
-    if args.partial:
-        print(f"Depinning for partial dislcoation")
-        compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=False)
-    
-    if args.perfect:
-        print(f"Depinnign for perfect dislocation")
-        compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=True)
+    return # The code below this point in the original function is now handled within the command logic.
 
 if __name__ == "__main__":
-    continue_depinning("results/25-07-2025-depinning/partial/l-32-d0-8.0/depinning_params.json",
-                       "results/24-7-weak-coupling/partial/l-32-d0-8", 458)
-    # argsmain()
+    argsmain()
