@@ -55,7 +55,7 @@ def generate_scirpt(path_to_run_params):
         'hours': 10,
         'minutes': "00",
         'seconds': "00",
-        'job-name': f'{today_str}-depinning-l-{length}-d0-{d0}',
+        'job-name': f'l-{length}-d0-{d0}-{today_str}',
         'cores': 10,
         'arr-start': 0,
         'arr-end': rpoints*seeds - 1,
