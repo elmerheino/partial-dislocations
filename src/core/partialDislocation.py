@@ -79,7 +79,7 @@ class PartialDislocationsSimulation(Simulation):
                 v_cm_hist, sf_hist = failsafe_data['v_cm_hist'], failsafe_data['sf_hist']
             else:
                 v_cm_hist, sf_hist = failsafe_data['v_cm_hist'], failsafe_data['sf_width']
-            # y_selected = failsafe_data['y_selected'] --- this was not included for some reason in the final results
+            selected_y1, selected_y2 = failsafe_data['selected_y1'], failsafe_data['selected_y2']
         
         new_dt = (params['dt'] if type(dt) == type(None) else dt)
         new_time = params['time'] + extra_time
@@ -87,12 +87,21 @@ class PartialDislocationsSimulation(Simulation):
                 tauExt = params['tauExt'], bigN=int(params['bigN']), length=params['length'], dt=new_dt, time=new_time,
                 d0=params['d0'], c_gamma=params['c_gamma'], cLT1=params['cLT1'], cLT2=params['cLT2'], seed=int(params['seed']))
         
+        # Restore the dislocation line shape history
         # instance.selected_y1_shapes = ... from the variable y_selected
+        times = selected_y1[:, 0]
+        shapes = selected_y1[:, 1:]
+        instance.selected_y1_shapes = list(zip(times, shapes))
         # instance.selected_y2_shapes = ... from the variable y_selected
+        times = selected_y2[:, 0]
+        shapes = selected_y2[:, 1:]
+        instance.selected_y2_shapes = list(zip(times, shapes))
+
+        # Restore the cm velocity and stacking fault histories
         instance.avg_v_cm_history = v_cm_hist.tolist()
         instance.avg_stacking_fault_history = sf_hist.tolist()
 
-        # instance.y0 = .... from y1_last, y2_last
+        # Restore initial condition to be the last shape in the failsafe
         instance.y0 = np.vstack((
             y1_last,     # y1
             y2_last      # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
