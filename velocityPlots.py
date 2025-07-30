@@ -74,253 +74,6 @@ def getWindow(tauExt_np, vCm_np, initial_t_c_arvaus, window_width=10):
             
     return refined_t_c, window_bounds, array_bounds
 
-def make_a_closeup_plot(x_closeup, y_closeup, save_path : Path, truncated_key, refined_t_c, seed):
-
-    # if truncated_key == "4.328761":
-    #     print("saatana vittusaatana")
-    
-    fit_params, pcov = optimize.curve_fit(velocity_fit, x_closeup, y_closeup, p0=[refined_t_c*1.02,   # tau_c
-                                                            0.5,          # beta
-                                                            0.9           # A
-                                                            ], bounds=(
-                                                                [0, 0.3, 0],
-                                                                [max(x_closeup), 0.6, np.inf]
-                                                            ), maxfev=3000)
-    t_c, beta, a = fit_params
-
-    deltaTau = (max(x_closeup) - min(x_closeup))/len(x_closeup)
-    
-    # Calculate mean squared error for the fit
-    v_fit = velocity_fit(x_closeup, *fit_params)
-    mse = np.mean((y_closeup - v_fit)**2)
-
-    xnew_closeup = np.linspace(min(x_closeup), max(x_closeup), 100)
-    ynew_closeup = velocity_fit(xnew_closeup, *fit_params)
-
-    xnew_closeup = (xnew_closeup - t_c)/t_c
-    x_closeup = (x_closeup - t_c)/t_c
-
-    plt.clf()
-    plt.figure(figsize=(linewidth/2,linewidth/2))
-
-    plt.scatter(x_closeup,y_closeup, marker='o', s=10, facecolors='none', edgecolors='red', label="Data")
-    plt.plot(xnew_closeup, ynew_closeup)
-
-    plt.title(f"Depinning $\\tau_{{c}} = $ {t_c:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
-    plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-    plt.ylabel("$v_{{cm}}$")
-    plt.legend()
-
-    closeup_save_path_ = save_path.parent.joinpath(f"closeups/noise-{truncated_key}/normalized-depinning-closeup-{seed}.png")
-    closeup_save_path_.parent.mkdir(exist_ok=True, parents=True)
-    plt.savefig(closeup_save_path_)
-    plt.tight_layout()
-    plt.close()
-
-    return fit_params
-
-def normalizedDepinnings(depinning_path : Path, plot_save_folder : Path, data_save_path : Path, json_save_path : Path, optimized=False, seed_count = 10):
-    """
-    Make normalized velocity-tau_ext plots for partial and perfect dislocations. Also 
-    save the tau_c values for each noise in a json file. The veclocities are normalized
-    with v = (tau_ext - tau_c)/tau_ext. The tau_c values are calculated by fitting the
-    function v = A*(tau_ext - tau_c)^beta to the data.
-    """
-
-    # Make such plots for a single dislocation first
-    # Collect all values of tau_c
-
-    tau_c = dict()
-    fit_errors = dict()
-    delta_tau_values = dict()
-    beta_values = dict()
-    prefactor_values = dict()
-
-    # Collect all datapoints for binning
-    data_perfect = dict()
-
-    # Prepare to save all fit data to a csv file
-    tau_c_csv = list()
-
-    for n,noise_path in enumerate(depinning_path.iterdir()):
-        if not noise_path.is_dir():
-            continue
-
-        # if not n % 10 == 0:
-        #     continue
-        
-        noise = "".join(noise_path.name.split("-")[1:])
-
-        truncated_key = str(f"{float(noise):.6f}") # Using 6 decimal places, minimum to distinguish values from np.logspace(-3,3,100) would be 4
-
-        if truncated_key not in tau_c:
-            tau_c[truncated_key] = list()
-        if truncated_key not in fit_errors:
-            fit_errors[truncated_key] = list()
-        if truncated_key not in data_perfect:
-            data_perfect[truncated_key] = list()
-        if truncated_key not in delta_tau_values:
-            delta_tau_values[truncated_key] = list()
-        if truncated_key not in beta_values:
-            beta_values[truncated_key] = list()
-        if truncated_key not in prefactor_values:
-            prefactor_values[truncated_key] = list()
-
-        for fpath in noise_path.iterdir():
-            try:
-                with open(fpath, "r") as fp:
-                    depinning = json.load(fp)
-            except Exception as e:
-                print(f"Failed to load file {fpath} with exception {e}")
-            tauExt = depinning["stresses"]
-            vCm = np.array(depinning["v_rel"])*10 # Multiply by ten to account for 0.1s dt between dislocation 
-            seed = depinning["seed"]
-
-            t_c_arvaus = (max(tauExt) - min(tauExt))/2
-            deltaTau = (max(tauExt) - min(tauExt)) / len(tauExt)
-
-            bounds = None
-            tauCrit, beta, a = None, None, None
-
-            xnew_closeup = np.array([])
-            ynew_closeup = np.array([])
-            
-            xnew_all = np.array([])
-            ynew_all = np.array([])
-
-            if float(noise) > 0.1:
-                bounds = None
-                tauCrit, beta, a = None, None, None
-
-                refined_t_c, _, bounds = getWindow(np.array(tauExt), np.array(vCm), t_c_arvaus)
-                print(f"bounds {bounds} and refined_t_c = {refined_t_c}")
-
-                start_ = bounds[0] + 4
-                end_ = bounds[1] + 6
-
-                x_closeup = tauExt[start_:end_]
-                y_closeup = vCm[start_:end_]
-
-                tauCrit, beta, a = make_a_closeup_plot(x_closeup, y_closeup, plot_save_folder, truncated_key, refined_t_c, seed)
-
-                xnew_closeup = np.linspace(min(x_closeup), max(x_closeup), 100)
-                ynew_closeup = velocity_fit(xnew_closeup, tauCrit, beta, a)
-
-                xnew_closeup = (xnew_closeup - tauCrit)/tauCrit
-
-                # Calculate mean squared error for the fit
-                v_fit =velocity_fit(x_closeup, tauCrit, beta, a)
-                mse = np.mean((v_fit - y_closeup)**2)
-            else:
-                bounds = None
-                tauCrit, beta, a = None, None, None
-
-                fit_params, pcov = optimize.curve_fit(velocity_fit, tauExt, vCm, p0=[t_c_arvaus,   # tau_c
-                                                                            0.7,          # beta
-                                                                            0.9           # A
-                                                                            ], bounds=(0, [ max(tauExt), 2, 2 ]), maxfev=10000)
-                # Calculate mean squared error for the fit
-                v_fit = velocity_fit(tauExt, *fit_params)
-                mse = np.mean((vCm - v_fit)**2)
-
-                xnew_all = np.linspace(min(tauExt), max(tauExt), 100)
-                ynew_all = velocity_fit(xnew_all, *fit_params)
-
-                tauCrit, beta, a = fit_params
-                xnew_all = (xnew_all - tauCrit)/tauCrit
-
-            x_all = (tauExt - tauCrit)/tauCrit
-            y_all = vCm
-
-            # Save the critical force, mse and delta tau to dicts for later use
-            tau_c[truncated_key].append(tauCrit)
-            beta_values[truncated_key].append(beta)
-            prefactor_values[truncated_key].append(a)
-            fit_errors[truncated_key].append(mse)
-            delta_tau_values[truncated_key].append(deltaTau)
-
-            # Scale the original data
-            filtered_raw = [(t, v) for t, v in zip(x_all, y_all) if not (np.isnan(t) or np.isinf(t) or np.isnan(v) or np.isinf(v))]
-            data_perfect[truncated_key] += filtered_raw
-
-            plt.clf()
-            plt.figure(figsize=(linewidth/2,linewidth/2))
-
-            plt.scatter(x_all,y_all, marker='o', s=10, facecolors='none', edgecolors='red', label="Data")
-
-            if xnew_closeup.size != 0:
-                plt.plot(xnew_closeup, ynew_closeup)
-            
-            if xnew_all.size != 0:
-                plt.plot(xnew_all, ynew_all)
-
-            # plt.title(f"Depinning $\\tau_{{c}} = $ {tauCrit:.3f}, A={a:.3f}, $\\beta$ = {beta:.3f}, seed = {seed}")
-            plt.xlabel("$( \\tau_{{ext}} - \\tau_{{c}} )/\\tau_{{ext}}$")
-            plt.ylabel("$v_{{cm}}$")
-            # plt.legend()
-            plt.tight_layout()
-
-            p = plot_save_folder.joinpath(f"noise-{truncated_key}")
-            p.mkdir(exist_ok=True, parents=True)
-            plt.savefig(p.joinpath(f"normalized-depinning-{seed}.pdf"))
-            plt.close()
-    
-    k = 10  # This should equal the no of realizations of noise in the data
-
-    tau_c_csv.clear()
-
-    for truncated_key in tau_c.keys():
-        current_tau_crits = list(tau_c.get(truncated_key, []))
-        current_fit_errors = list(fit_errors.get(truncated_key, []))
-        current_delta_taus = list(delta_tau_values.get(truncated_key, []))
-        current_beta_vals = list(beta_values.get(truncated_key, []))
-        current_prefcator_vals = list(prefactor_values.get(truncated_key, []))
-
-        if len(current_tau_crits) < k:
-            current_tau_crits.extend([None] * (k - len(current_tau_crits)))
-        elif len(current_tau_crits) > k:
-            current_tau_crits = current_tau_crits[:k]
-
-        if len(current_fit_errors) < k:
-            current_fit_errors.extend([None] * (k - len(current_fit_errors)))
-        elif len(current_fit_errors) > k:
-            current_fit_errors = current_fit_errors[:k]
-        
-        if len(current_delta_taus) < k:
-            current_delta_taus.extend([None] * (k - len(current_delta_taus)))
-        elif len(current_delta_taus) > k:
-            current_delta_taus = current_delta_taus[:k]
-
-        if len(current_beta_vals) < k:
-            current_beta_vals.extend([None] * (k - len(current_beta_vals)))
-        elif len(current_beta_vals) > k:
-            current_beta_vals = current_beta_vals[:k]
-
-        if len(current_prefcator_vals) < k:
-            current_prefcator_vals.extend([None] * (k - len(current_prefcator_vals)))
-        elif len(current_prefcator_vals) > k:
-            current_prefcator_vals = current_prefcator_vals[:k]
-
-        compiled_row = [truncated_key] + current_tau_crits + current_fit_errors + current_delta_taus + current_beta_vals + current_prefcator_vals
-        tau_c_csv.append(compiled_row)
-
-    tau_c_csv.sort(key=lambda row: float(row[0]))
-
-    data_save_path.parent.mkdir(exist_ok=True, parents=True)
-    with open(data_save_path, "w") as fp:
-        writer = csv.writer(fp)
-        # Write header
-        header = ["noise"] + [f"tau_c_{i+1}" for i in range(k)] + [f"mse_{i+1}" for i in range(k)]  + [f"d_tau_{i+1}" for i in range(k)] + [f"beta_{i+1}" for i in range(k)] + [f"A_{i+1}" for i in range(k)]
-        writer.writerow(header)
-        # Write data rows
-        writer.writerows(tau_c_csv)
-    
-    json_save_path.parent.mkdir(exist_ok=True, parents=True)
-    with open(json_save_path, "w") as fp:
-        json.dump(tau_c, fp)
-
-    return data_perfect
-
 def confidence_interval_lower(l, c_level):
     # Does not handle empy lists at all, assumes normal distribution
     n = len(l)
@@ -419,255 +172,48 @@ def binning(data : dict, res_dir : Path, conf_level, bins=100): # non-partial an
 
     pass
 
-def makeBetaPlot(ax, csv_path : Path, color, label):
-    with open(csv_path, "r") as fp:
-        header = fp.readline().strip().split(',')
-        loaded = np.genfromtxt(fp, delimiter=',', skip_header=1)
-        pass
-
-    # partial dislocation
-
-    noises = loaded[:,0]
-    tau_c_means = np.nanmean(loaded[:,1:11], axis=1)
-    tau_c_stds = np.nanstd(loaded[:,1:11], axis=1)
-    tau_c_mses = np.nanmean(loaded[:, 11:21], axis=1)
-    deltaTaus = np.nanmean(loaded[:, 21:31], axis=1)
-    betas = np.nanmean(loaded[:, 31:41], axis=1)
-
-    ax.scatter(noises, betas, marker="o", s=0.5, color=color, label=label)
-
-    mask = betas < 0.75
-
-    noises2 = noises[mask]
-    betas2 = betas[mask]
-    mean_beta2 = np.mean(betas2)
-
-    ax.set_xlabel("$\\Delta R$")
-    ax.set_ylabel("$\\beta$")
-
-    x_mean = np.linspace(min(noises2), max(noises2), 10)
-    ax.plot(x_mean, np.ones(len(x_mean))*mean_beta2, color=color, linestyle='--', linewidth=0.5 )
-
-    # ax.set_title("$\\beta$ vs Noise")
-    ax.set_xscale('log')
-    ax.grid(True)
-
-    return {"mean-beta":mean_beta2}
-
-def makeAveragedDepnningPlots(dir_path, opt=False):
-    print("Making averaged depinning plots.")
-    depinning_path = Path(dir_path).joinpath("depinning-dumps")
-
-    if depinning_path.exists():
-        for noise_dir in depinning_path.iterdir():
-            if not noise_dir.is_dir():
-                continue
-
-            noise = noise_dir.name.split("-")[1]
-            velocities = list()
-            stresses = None
-            seed = None
-            for depining_file in noise_dir.iterdir():
-                with open(depining_file, "r") as fp:
-                    loaded = json.load(fp)
-                    stresses = loaded["stresses"]
-                    velocities.append(loaded["v_rel"])
-            pass
-
-            x = np.array(stresses)
-            y = np.average(np.array(velocities), axis=0)
-
-            plt.clf()
-            plt.figure(figsize=(linewidth/2,linewidth/2))
-
-            plt.scatter(x,y, marker="x")
-
-            plt.title(f"Depinning noise = {noise}")
-            plt.xlabel("$\\tau_{ext}$")
-            plt.ylabel("$v_{CM}$")
-            plt.tight_layout()
-
-            dest = Path(dir_path).joinpath(f"averaged-depinnings")
-            dest.mkdir(parents=True, exist_ok=True)
-            plt.savefig(dest.joinpath(f"{float(noise)*1e4}-1e-4-noise-depinning.pdf"))
-            plt.close()
-    else:
-        print("No perfect depinning dumps")
-
-def makeOneDepinningPlot(fig, ax, tau, vel):
-
-    ax.scatter(tau, vel, marker='o', s=10, facecolors='none', edgecolors='blue', alpha=0.7)
-    ax.set_xlabel("$\\tau_{ext}$")
-    ax.set_ylabel("$v_{cm}$")
-
-    fig.tight_layout()
-
-def makeOneVelHistPlot(fig, ax, time, vels):
-    ax.plot(time, vels)
-
-    ax.set_xlabel('timestep')
-    ax.set_ylabel('v_cm')
-
-    fig.tight_layout()
-
-    pass
-
-def makeDepinningFromVelocities(path_to_vel_dir="results/21-7-sys32-depinning/partial-dislocation/velocties"):
-    vel_dir = Path(path_to_vel_dir)
-    data_total = list()
-
-    for vel_file in vel_dir.iterdir():
-        data = np.load(vel_file)
-        for tau_ext in data.keys():
-            velocities = data[tau_ext]
-            time_range = np.arange(0, len(velocities))
-            tau_ext = np.float64(tau_ext)
-
-            last_10_index = int(round(len(velocities)/10))
-            last_vels = velocities[(len(velocities) - last_10_index):]
-            v_rel = np.mean(last_vels)
-
-
-            fig, ax = plt.subplots(figsize=(linewidth, linewidth/2))
-
-            makeOneVelHistPlot(fig, ax, time_range, velocities)
-
-            plt.show()
-
-            data_total.append(
-                (tau_ext, v_rel)
-            )
+def makeVelHistPlot(fig, ax, v, dt, tau_ext):
+    time = np.arange(len(v)) * dt
     
-    tau,v = zip(*data_total)
-    tau = np.array(tau)
-    v = np.array(v)
+    ax.plot(time, v, label=f"$\\tau_{{ext}} = {tau_ext}$")
 
-    fig, ax = plt.subplots(figsize=(linewidth/2, linewidth/2))
-    makeOneDepinningPlot(fig, ax, tau,v)
-    plt.show()
+    ax.axhline(y=0, color='black', linestyle='--')
+    ax.set_xlabel('time')
+    ax.set_ylabel('$v_{cm}$')
     pass
 
-def copy_all_files(from_path, to_path):
-    # Get a list of all files and directories in the source directory
-    items = os.listdir(from_path)
+def generateVelocityHistoryPlots(velocity_data, output_folder):
+    """
+    velocity_data : the path to dictionary containing velocity datasets
+    output : output directory where the velocity plots are generated
+    """
+    velocity_data, output_folder = Path(velocity_data), Path(output_folder)
+    for noise_dir in velocity_data.iterdir():
+        for velocity_file in noise_dir.iterdir():
+            df = pd.read_csv(velocity_file, sep=";", header=0, index_col=0)
+            noise_val = float(velocity_file.name.split("_")[2])
+            seed_str = (velocity_file.name.split("_")[4]).split(".")[0]
 
-    # Iterate over the items
-    for item in items:
-        # Create the full path to the item in the source directory
-        s = os.path.join(from_path, item)
-        # Create the full path to the item in the destination directory
-        d = os.path.join(to_path, item)
-        
-        # If the item is a directory, copy it recursively
-        if os.path.isdir(s):
-            shutil.copytree(s, d, dirs_exist_ok=True)
-        # Otherwise, copy the file
-        else:
-            shutil.copy2(s, d)
-    pass
-
-def makeVelocityHistoryPlots(root_dir):
-    for file in Path(root_dir).joinpath("velocties").iterdir():
-        data = np.load(file)
-        for tau_ext in data.files:
-            # Make a velocity plot form data with v = data[tau_ext]
-            v = data[tau_ext]
-            acceleration = np.gradient(v)
-            print(v.shape)
-            fig, ax = plt.subplots(figsize=(linewidth,linewidth/2))
-
-            ax.plot(v, label="$v$")
-            ax.plot(acceleration, label="$\dot{v}$")
-
-            last_tenth_start_index = -int(len(acceleration) / 10)
-            mean_acceleration = np.mean(acceleration[last_tenth_start_index:])
-            x_start_line = len(acceleration) + last_tenth_start_index
-            x_end_line = len(acceleration) - 1
-            ax.plot([x_start_line, x_end_line], [mean_acceleration, mean_acceleration], color='g', linestyle='--', label='Mean $\\dot{v}$ (last 10\\%)')
-
-            text_x = x_start_line
-            text_y = mean_acceleration
-            ax.text(text_x, text_y, f'{mean_acceleration:.2e}', 
-                    verticalalignment='bottom', horizontalalignment='left',
-                    bbox=dict(boxstyle='round,pad=0.1', fc='wheat', alpha=0.5))
+            if int(seed_str) != 0:
+                continue
             
-            ax.legend()
+            for index, row in df.iterrows():
+                tau_ext = row['tau_ext']
+                velocities = row.iloc[1:].values
+                time = df.columns[1:].to_numpy(dtype=float)
 
-            ax.set_title(f"Velocity history for tau_ext = {tau_ext}")
-            ax.set_xlabel("Time")
-            ax.set_ylabel("Velocity")
+                fig, ax = plt.subplots(figsize=(linewidth, linewidth/2))
+                makeVelHistPlot(fig, ax, velocities, 100, tau_ext)
+                ax.set_title(f"$\\Delta R = {noise_val} $")
+                # ax.plot(time, velocities, label=f'$\\tau_{{ext}} = {tau_ext}$')
+                fig.legend()
 
-            save_path = Path(root_dir).joinpath(f"velocity-history-plots/{file.stem}")
-            save_path.mkdir(exist_ok=True, parents=True)
-            fig.tight_layout()
-            fig.savefig(save_path.joinpath(f"velocity-history-{float(tau_ext)*1e6:.2f}-1e-6.pdf"))
-            plt.close(fig)
-
+                save_path =output_folder.joinpath(f"{noise_val*1e4}-e-4_noise/{tau_ext}_tauext_s_{seed_str}.pdf")
+                save_path.parent.mkdir(exist_ok=True, parents=True)
+                fig.savefig(save_path)
+                plt.close()
+            # print(df.head())
             pass
-    pass
-
-def makeVelocityHistPlotsFromRelaxedPartial(dir : Path):
-    dir = Path(dir)
-    for file in dir.joinpath("relaxed-configurations").iterdir():
-        data = np.load(file)
-        v_cm = data['v_cm_hist']
-        params = PartialDislocationsSimulation.paramListToDict(data['params'])
-
-        fig,ax = plt.subplots(figsize=(linewidth, linewidth/2))
-
-        dt = params['dt']
-        time = np.arange(0, len(v_cm) * dt, dt)
-        
-        ax.plot(time, v_cm)
-
-        ax.set_title(f"Velocity history for $\\Delta R$ = {params['deltaR']*1e4:.3f} e-4 ")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Velocity")
-
-        save_path = Path(dir).joinpath(f"velocity-history-plots")
-        save_path.mkdir(exist_ok=True, parents=True)
-        fig.tight_layout()
-        fig.savefig(save_path.joinpath(f"velocity-history-{float(params['deltaR'])*1e6:.2f}-1e-6.pdf"))
-        plt.close(fig)
-        pass
-    pass
-
-def vanha_maini():
-    root = Path("/Volumes/contenttii/2025-06-08-merged-final")
-
-    fig, ax = plt.subplots(figsize=(linewidth/2,linewidth/2))
-
-    res_perfect = makeBetaPlot(ax, root.joinpath("noise-data/perfect-noises.csv"), color="blue", label="Perfect")
-    res_partial = makeBetaPlot(ax, root.joinpath("noise-data/partial-noises.csv"), color="red", label="Partial")
-
-    save_path = root.joinpath("beta-vs-noise.pdf")
-
-    ax.legend()
-    fig.tight_layout()
-
-    # Add PDF metadata with notes using PdfPages
-    from matplotlib.backends.backend_pdf import PdfPages
-    notes = f"Beta vs noise plot. Generated on 2025-06-27. Toisen klusterin meanit on perfect {res_perfect['mean-beta']} and partial {res_partial['mean-beta']}"
-    with PdfPages(save_path) as pdf:
-        metadata = pdf.infodict()
-        metadata["Title"] = "Beta vs Noise"
-        metadata["Author"] = "velocityPlots.py script"
-        metadata["Subject"] = "Depinning analysis"
-        metadata["Keywords"] = "depinning, beta, noise, dislocation, matplotlib"
-        metadata["Comments"] = notes
-        pdf.savefig(fig)
-    print(notes)
-
-    shutil.copy2(save_path, "/Users/elmerheino/Documents/kandi-repo/figures")
-
-def processInitalRelaxations(path):
-    for velocity_file in Path(path).joinpath("initial-relaxations").iterdir():
-        loaded = np.load(velocity_file)
-        params = PartialDislocationsSimulation.paramListToDict(loaded['params'])
-        y_last = loaded['y_last']
-        plt.plot(y_last[0])
-        plt.show()
-        pass
     pass
 
 def extractVeclocitiesFromPickle(pickle_path):
@@ -814,4 +360,5 @@ if __name__ == "__main__":
     elif args.command == 'depinning_dataset':
         generateDepinningDatasets(args.vel_folder)
     else:
-        parser.print_help()
+        generateVelocityHistoryPlots("results/l-32-d0-2.0/velocity-datasets", "results/l-32-d0-2.0/plots/velocity-hist-plots")
+        # parser.print_help()
