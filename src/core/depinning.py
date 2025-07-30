@@ -207,18 +207,8 @@ class DepinningPartial(Depinning):
         chunk_size = self.time/10
         is_relaxed = simulation.run_in_chunks(backup_file=backup_file, chunk_size=chunk_size)
         self.updateStatusDict(simulation.tauExt, "finished")
-        # print(f"Dislocaiation was relaxed? {is_relaxed}")
 
-        rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
-        y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
-        l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
-        v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
-        sfHist = simulation.getSFhist()
-
-        final_results = {
-            'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
-            'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
-        }
+        final_results = simulation.getResultsAsDict()
 
         with open(backup_file, "wb") as fp:
             pickle.dump(final_results, fp)
@@ -234,30 +224,30 @@ class DepinningPartial(Depinning):
         simulation = PartialDislocationsSimulation.fromFailsafe(failsafe_path)
         simulation.run_in_chunks(backup_file, simulation.time/10)
 
-        rV1, rV2, totV2 = simulation.getRelaxedVelocity()   # The velocities after relaxation
-        y1_last, y2_last = simulation.getLineProfiles()     # Get the lines at t = time
-        l_range, avg_w = simulation.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
-        v_cm = simulation.getVCMhist()                      # Get the cm velocity history from the time of the whole simulation
-        sfHist = simulation.getSFhist()
-
         self.updateStatusDict(simulation.tauExt, "finished")
 
-        final_results = {
-            'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
-            'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': simulation.getParameters()
-        }
+        final_results = simulation.getResultsAsDict()
 
         with open(backup_file, "wb") as fp:
             pickle.dump(final_results, fp)
 
         return final_results
     
-    def integrateFurther(self,failsafe_path):
-        with open(failsafe_path, "rb") as fp:
-            results_i = pickle.load(fp)
-        # sim = PartialDislocationsSimulation.fromFinishedFailsafe(failsafe_path)
-        print(results_i.keys())
-        pass
+    def integrateFurther(self,failsafe_path,tau_ext):
+        backup_file = Path(failsafe_path)
+        sim = PartialDislocationsSimulation.fromFinishedFailsafe(failsafe_path, 10000)
+        # Here 10k is the time how much longer its integrated
+
+        self.updateStatusDict(tau_ext, "ongoing")
+        sim.run_in_chunks(backup_file, 10000/10)
+        self.updateStatusDict(tau_ext, "finished")
+
+        final_results = sim.getResultsAsDict()
+
+        with open(backup_file, "wb") as fp:
+            pickle.dump(final_results, fp)
+
+        return final_results
 
     def run(self, y1_0=None, y2_0=None):
         # Multiprocessing compatible version of a single depinning study, here the studies
@@ -296,7 +286,7 @@ class DepinningPartial(Depinning):
         
         self.results = res
 
-    def mp_helper(self, tau_ext):
+    def mp_helper(self, tau_ext, integrate_further=False):
         tau_ext_key = str(float(tau_ext))
         status = self.status_dict[tau_ext_key]
 
@@ -328,10 +318,12 @@ class DepinningPartial(Depinning):
                 if failsafe_path.exists():
                     # Here the results are loaded to memory, we could also, for example, continue running the simulations here
                     # even further
-                    with open(failsafe_path, "rb") as fp:
-                        results_i = pickle.load(fp)
-                    
-                    self.integrateFurther(failsafe_path)
+                    if integrate_further:
+                        print(f"Integrating further with tau_ext = {tau_ext}")
+                        results_i = self.integrateFurther(failsafe_path, tau_ext)
+                    else:
+                        with open(failsafe_path, "rb") as fp:
+                            results_i = pickle.load(fp)
                 else:
                     # In this case the failsafe does not exist for some reason and a new depinning must be started
                     print(f"Starting new simulation with tau_ext = {tau_ext}")
@@ -342,12 +334,12 @@ class DepinningPartial(Depinning):
 
         return results_i
 
-    def run_recovered_parallel(self, y1_0=None, y2_0=None):
+    def run_recovered_parallel(self, y1_0=None, y2_0=None, integrate_further=True):
         self.y1_0 = y1_0
         self.y2_0 = y2_0
 
         with mp.Pool(self.cores) as pool:
-            self.results = pool.map(partial(DepinningPartial.mp_helper, self), self.stresses)
+            self.results = pool.map(partial(DepinningPartial.mp_helper, self, integrate_further=integrate_further), self.stresses)
 
     def getStresses(self):
         return self.stresses

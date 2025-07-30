@@ -99,6 +99,8 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         tau_min, tau_max = getTauLimits(params['deltaR'])
         depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
                                             int(params['seed']), int(params['bigN']),  int(params['length']), 10)
+        # TODO : change the d0 to the correct value in the realxed one, or actually don't since the relaxed configuration
+        # was already placed d0 apart.
         depinnin_partial.run(y1_0=y1_last, y2_0=y2_last)
         depinnin_partial.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
         pass
@@ -108,12 +110,11 @@ def continue_depinning(path_to_params, input_folder, task_id):
     """
     path_to_params : 
     """
-    initial_config = getInitialConfig(input_folder, task_id)
-
     path_to_params = Path(path_to_params)
     depining_folder = path_to_params.parent
 
     depinning = DepinningPartial.from_json_config(path_to_params)
+    print(depinning.deltaR)
     depinning.run_recovered_parallel()
     depinning.dump_res_to_pickle(depining_folder.joinpath("depinning-pickle-dumps"))
     pass
@@ -141,7 +142,7 @@ def argsmain():
     parser_new.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from Triton, used as an index.')
     parser_new.add_argument('--points', type=int, required=True, help='Number of tau_ext points to be integrated.')
     parser_new.add_argument('--time', type=int, required=True, help='Time to integrate each simulation.')
-    parser_new.add_argument('--dt', type=int, required=True, help='Timestep for sampling the solution.')
+    parser_new.add_argument('--dt', type=float, required=True, help='Timestep for sampling the solution.')
 
     # Command to continue a simulation
     parser_continue = subparsers.add_parser('continue', help='Continue an interrupted depinning simulation.')

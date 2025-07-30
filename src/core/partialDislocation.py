@@ -57,13 +57,51 @@ class PartialDislocationsSimulation(Simulation):
         instance.selected_y1_shapes = failsafe_data['selected_y1_shapes']
         instance.selected_y2_shapes = failsafe_data['selected_y2_shapes']
         instance.avg_v_cm_history = failsafe_data['avg_v_cm_history']
-        # instance.avg_stacking_fault_history = failsafe_data['sf_hist']
+        instance.avg_stacking_fault_history = failsafe_data['sf_hist']
 
         instance.y0 = y_last
+        instance.t0 = fail_time
         instance.tau_cutoff = 0
         
         return instance
     
+    @classmethod
+    def fromFinishedFailsafe(cls, failsafe_path, extra_time, dt=None):
+        with open(failsafe_path, "rb") as fp:
+            failsafe_data = pickle.load(fp)
+            params = PartialDislocationsSimulation.paramListToDict(failsafe_data['params'])
+            if 'y1_last' in failsafe_data.keys():
+                y1_last, y2_last = failsafe_data['y1_last'], failsafe_data['y2_last']
+            else:
+                y1_last, y2_last = failsafe_data['y_last']
+            
+            if 'sf_hist' in failsafe_data.keys():
+                v_cm_hist, sf_hist = failsafe_data['v_cm_hist'], failsafe_data['sf_hist']
+            else:
+                v_cm_hist, sf_hist = failsafe_data['v_cm_hist'], failsafe_data['sf_width']
+            # y_selected = failsafe_data['y_selected'] --- this was not included for some reason in the final results
+        
+        new_dt = (params['dt'] if type(dt) == type(None) else dt)
+        new_time = params['time'] + extra_time
+        instance = cls(deltaR=float(params['deltaR']), bigB=params['bigB'], smallB=params['smallB'], b_p=params['b_p'], mu=params['mu'],
+                tauExt = params['tauExt'], bigN=int(params['bigN']), length=params['length'], dt=new_dt, time=new_time,
+                d0=params['d0'], c_gamma=params['c_gamma'], cLT1=params['cLT1'], cLT2=params['cLT2'], seed=int(params['seed']))
+        
+        # instance.selected_y1_shapes = ... from the variable y_selected
+        # instance.selected_y2_shapes = ... from the variable y_selected
+        instance.avg_v_cm_history = v_cm_hist.tolist()
+        instance.avg_stacking_fault_history = sf_hist.tolist()
+
+        # instance.y0 = .... from y1_last, y2_last
+        instance.y0 = np.vstack((
+            y1_last,     # y1
+            y2_last      # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
+        ))
+        instance.tau_cutoff = 0
+        instance.t0 = params['time']
+
+        return instance
+
     def setInitialY0Config(self, y1_0, y2_0, t0=0):
         """
         Sets the intial arrays y1 and y2 at time t=0.
@@ -202,7 +240,7 @@ class PartialDislocationsSimulation(Simulation):
                 v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
 
                 self.avg_v_cm_history.extend(v_cm_i)                # Record v_cm velocity
-                self.avg_stacking_fault_history.append(sf_width)    # Record stacking fault width
+                self.avg_stacking_fault_history.extend(sf_width)    # Record stacking fault width
 
                 if self.is_relaxed(v_cm_i, tolerance=tolerance) and until_relaxed:
                     relaxed = True
@@ -353,17 +391,21 @@ class PartialDislocationsSimulation(Simulation):
         y1_CM = np.mean(self.y1, axis=1)
         y2_CM = np.mean(self.y2, axis=1)
 
-        total_CM = (y1_CM + y2_CM)/2    # TODO: This is supposed to be the centre of mass of the entire system
+        total_CM = (y1_CM + y2_CM)/2
 
         return (y1_CM,y2_CM,total_CM)
     
     def getRelaxedVelocity(self):
         # Returns the relaxed velocity of the two lines and the total velocity from the last 10% of the simulation time
+        # TODO : compute all these values from the long term history
         if len(self.y1) == 0 or len(self.y2) == 0:
             raise Exception('simulation has probably not been run')
         
         # Returns the velocities of the centres of mass
         y1_CM, y2_CM, tot_CM = self.getCM()
+        if len(y1_CM) < 3:
+            print('not enough cm points to compute velocity')
+            return 0, 0, 0
         v1_CM = np.gradient(y1_CM)
         v2_CM = np.gradient(y2_CM)
         vTot_CM = np.gradient(tot_CM)
@@ -405,7 +447,8 @@ class PartialDislocationsSimulation(Simulation):
     
     def getSelectedYshapes(self):
         """
-        Return two matriced with the structure, one matric for each partial:
+        Return two matrices each with the structure below. There is one such matrix
+        per partial.
 
         +------+------+------+------+-----+------+
         | time |  y1  |  y2  |  y3  | ... |  yN  |
@@ -440,18 +483,20 @@ class PartialDislocationsSimulation(Simulation):
         return selected_y1s, selected_y2s
     
     def getResultsAsDict(self):
-        v_cm_hist = self.getVCMhist()
-        y_t = self.getLineProfiles()
-        parameters = self.getParameters()
+        rV1, rV2, totV2 = self.getRelaxedVelocity()   # The velocities after relaxation
+        y1_last, y2_last = self.getLineProfiles()     # Get the lines at t = time
+        l_range, avg_w = self.getAveragedRoughness()  # Get averaged roughness from the same time as rel velocity
+        v_cm = self.getVCMhist()                      # Get the cm velocity history from the time of the whole self
+        sfHist = self.getSFhist()
         selected_y1, selected_y2 = self.getSelectedYshapes()
-        sf_widths = self.getSFhist()
 
-        # Remove the backup file if it exists
-        if self.backup_file.exists():
-            self.backup_file.unlink()
+        results = {
+            'v1': rV1, 'v2': rV2, 'v_cm': totV2, 'l_range': l_range, 'avg_w': avg_w, 'y1_last': y1_last, 
+            'y2_last': y2_last, 'v_cm_hist': v_cm, 'sf_hist': sfHist, 'params': self.getParameters(),
+            'selected_y1' : selected_y1, 'selected_y2' : selected_y2
+        }
 
-        return { 'v_cm_hist' : v_cm_hist, 'y_last' : y_t, "selected_y1" : selected_y1, "selected_y2" : selected_y2,
-                'params' : parameters, 'sf_width' : sf_widths }
+        return results
     
     def saveResults(self, path : Path):
         if not self.has_simulation_been_run:
@@ -505,7 +550,7 @@ class PartialDislocationsSimulation(Simulation):
         
         return self.used_timesteps
     
-    def getSFhist(self):
+    def getSFhist(self):        
         return np.array(self.avg_stacking_fault_history)
     
     def getVCMhist(self):

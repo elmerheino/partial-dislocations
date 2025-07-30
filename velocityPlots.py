@@ -178,6 +178,7 @@ def makeVelHistPlot(fig, ax, v, dt, tau_ext):
     ax.plot(time, v, label=f"$\\tau_{{ext}} = {tau_ext}$")
 
     ax.axhline(y=0, color='black', linestyle='--')
+    ax.grid(True)
     ax.set_xlabel('time')
     ax.set_ylabel('$v_{cm}$')
     pass
@@ -193,9 +194,6 @@ def generateVelocityHistoryPlots(velocity_data, output_folder):
             df = pd.read_csv(velocity_file, sep=";", header=0, index_col=0)
             noise_val = float(velocity_file.name.split("_")[2])
             seed_str = (velocity_file.name.split("_")[4]).split(".")[0]
-
-            if int(seed_str) != 0:
-                continue
             
             for index, row in df.iterrows():
                 tau_ext = row['tau_ext']
@@ -316,24 +314,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze dislocation depinning data.")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
-    # Subparser for makeVelocityHistPlotsFromRelaxedPartial
-    parser_vel_hist = subparsers.add_parser('vel_hist_rel', help='Create velocity history plots from relaxed partial dislocation data.')
-    parser_vel_hist.add_argument('relaxed_config_path', type=str, help='Path to the parent directory containing the "relaxed-configurations" directory.')
-
-    # Subparser for makeVelocityHistoryPlots
-    parser_vel_history = subparsers.add_parser('vel_hist_depinning', help='Create velocity history plots from depinning data.')
-    parser_vel_history.add_argument('depinning_data_path', type=str, help='Path to the "partial-dislocation" or "single-dislocation" directory containing depinning data.')
-
-    # Subparser for processInitalRelaxations
-    parser_initial_relax = subparsers.add_parser('initial_relax', help='Process initial relaxation data.')
-    parser_initial_relax.add_argument('initial_relax_path', type=str, help='Path to the parent directory containing the "initial-relaxations" directory.')
-
     # Subparser for vanha_maini
     parser_vanha_maini = subparsers.add_parser('vanha_maini', help='Run vanha_maini function.')
-
-        # Subparser for makeDepinningFromVelocities
-    parser_depinning_vel = subparsers.add_parser('depinning_velhist', help='Create depinning plots directly from collected velocity history data.')
-    parser_depinning_vel.add_argument('velocity_data_path', type=str, help='Path to the directory containing the velocity data, that is, folder named velocties.')
 
     parser_velocity_dataset = subparsers.add_parser('velocity_dataset', help='Generate a velocity dataset from input pickcle.')
     parser_velocity_dataset.add_argument('pickle_folder', type=str, help='Path to the folder which contains the pickle dumps from depinnign simulations.')
@@ -341,24 +323,21 @@ if __name__ == "__main__":
     parser_depinning_dataset = subparsers.add_parser('depinning_dataset', help='Generate a depinning dataset from input velocity datas.')
     parser_depinning_dataset.add_argument('vel_folder', type=str, help='Path to folder containin velocity data.')
 
+    parser_velocity_histories = subparsers.add_parser('hist', help='Generate velocity history plots')
+    parser_velocity_histories.add_argument('vel_dataset', type=str,
+        default="debug/test-run-further/deltaR_0.00030888435964774815-seed-3.0/velocity-datasets")
+
+    parser_velocity_histories.add_argument('plot_dir', type=str,
+        default="debug/test-run-further/plots/vel-history")
 
     args = parser.parse_args()
 
-    if args.command == 'vel_hist_rel':
-        makeVelocityHistPlotsFromRelaxedPartial(args.relaxed_config_path)
-    elif args.command == 'vel_hist_depinning':
-        makeVelocityHistoryPlots(args.depinning_data_path)
-    elif args.command == 'initial_relax':
-        processInitalRelaxations(args.initial_relax_path)
-    elif args.command == 'vanha_maini':
-        vanha_maini()
-    elif args.command == 'depinning_velhist':
-        makeDepinningFromVelocities()
-    elif args.command == 'velocity_dataset':
+    if args.command == 'velocity_dataset':
         pickle_folder = Path(args.pickle_folder)
         generateVelocityDatasets(pickle_folder, pickle_folder.parent.joinpath("velocity-datasets"))
     elif args.command == 'depinning_dataset':
         generateDepinningDatasets(args.vel_folder)
+    elif args.command == 'hist':
+        generateVelocityHistoryPlots(args.vel_dataset, args.plot_dir)
     else:
-        generateVelocityHistoryPlots("results/l-32-d0-2.0/velocity-datasets", "results/l-32-d0-2.0/plots/velocity-hist-plots")
-        # parser.print_help()
+        parser.print_help()
