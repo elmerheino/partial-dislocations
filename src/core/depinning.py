@@ -251,7 +251,14 @@ class DepinningPartial(Depinning):
             pickle.dump(final_results, fp)
 
         return final_results
-        
+    
+    def integrateFurther(self,failsafe_path):
+        with open(failsafe_path, "rb") as fp:
+            results_i = pickle.load(fp)
+        # sim = PartialDislocationsSimulation.fromFinishedFailsafe(failsafe_path)
+        print(results_i.keys())
+        pass
+
     def run(self, y1_0=None, y2_0=None):
         # Multiprocessing compatible version of a single depinning study, here the studies
         # are distributed between threads by stress letting python mp library determine the best way
@@ -319,9 +326,14 @@ class DepinningPartial(Depinning):
             if tau_ext_key in self.failsafe_dict.keys():
                 failsafe_path = Path(self.failsafe_dict[tau_ext_key])
                 if failsafe_path.exists():
-                    with open(self.failsafe_dict[tau_ext_key], "rb") as fp:
+                    # Here the results are loaded to memory, we could also, for example, continue running the simulations here
+                    # even further
+                    with open(failsafe_path, "rb") as fp:
                         results_i = pickle.load(fp)
+                    
+                    self.integrateFurther(failsafe_path)
                 else:
+                    # In this case the failsafe does not exist for some reason and a new depinning must be started
                     print(f"Starting new simulation with tau_ext = {tau_ext}")
                     results_i = self.studyConstantStress(tau_ext)
             else:
