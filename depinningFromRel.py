@@ -6,12 +6,6 @@ import argparse
 from pathlib import Path
 from src.core.singleDislocation import DislocationSimulation
 
-def getTauLimits(noise):
-    if noise < 0.01:
-        return (0, noise)
-    else:
-        return (0, noise)
-
 def getInitialConfig(input_folder, task_id):
     # Load a file keeping track of all the relaxed configurations available, create it if it doesn't exist
     input_folder = Path(input_folder)
@@ -46,6 +40,12 @@ def getIntegrationTime(noise_delta_r : float) -> int:
         return 400000
     else:  # Handles the case for approximately 1e-4 and smaller
         return 600000
+
+def getTauLimits(noise):
+    if noise > 0.5:
+        return (0, noise*4)
+    else:
+        return (0, noise)
 
 
 def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
@@ -97,10 +97,10 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         tau_min, tau_max = getTauLimits(params['deltaR'])
         integration_time = getIntegrationTime(params['deltaR'])
 
-        output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
+        depinning_output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
 
         depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=integration_time, dt=dt, cores=cores,
-                                            folder_name=output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
+                                            folder_name=depinning_output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
         depinning_perfect.run(y0_rel=y0)
         depinning_perfect.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
@@ -114,14 +114,12 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
             y1_last = initial_config['y1_fire']
             y2_last = initial_config['y2_fire']
         
-        output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
+        depinning_output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
 
         tau_min, tau_max = getTauLimits(params['deltaR'])
         integration_time = getIntegrationTime(params['deltaR'])
-        depinnin_partial = DepinningPartial(tau_min, tau_max, points, integration_time, dt, cores, output_folder, float(params['deltaR']),
-                                            int(params['seed']), int(params['bigN']),  int(params['length']), 10)
-        # TODO : change the d0 to the correct value in the realxed one, or actually don't since the relaxed configuration
-        # was already placed d0 apart.
+        depinnin_partial = DepinningPartial(tau_min, tau_max, points, integration_time, dt, cores, depinning_output_folder, float(params['deltaR']),
+                                            int(params['seed']), int(params['bigN']),  int(params['length']), 10)   # d0 is a dummy val since it comes from the intial relaxation
         depinnin_partial.run(y1_0=y1_last, y2_0=y2_last)
         depinnin_partial.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
         pass
@@ -137,7 +135,7 @@ def continue_depinning(path_to_params, input_folder, task_id):
     depinning = DepinningPartial.from_json_config(path_to_params)
     print(depinning.deltaR)
     depinning.run_recovered_parallel()
-    depinning.dump_res_to_pickle(depining_folder.joinpath("depinning-pickle-dumps"))
+    depinning.dump_res_to_pickle(depining_folder.parent.joinpath("depinning-pickle-dumps"))
     pass
 
 def argsmain():
