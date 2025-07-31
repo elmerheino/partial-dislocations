@@ -28,6 +28,26 @@ def getInitialConfig(input_folder, task_id):
     initial_config = np.load(initial_config_path)
     return initial_config
 
+def getIntegrationTime(noise_delta_r : float) -> int:
+    """
+    Determines the required integration time based on the noise level.
+
+    Args:
+        noise_delta_r: The noise magnitude (ΔR).
+
+    Returns:
+        The suggested integration time in seconds.
+    """
+    if noise_delta_r > 91e-4:
+        return 100000
+    elif noise_delta_r >= 9e-4:
+        return 200000
+    elif noise_delta_r > 1e-4:
+        return 400000
+    else:  # Handles the case for approximately 1e-4 and smaller
+        return 600000
+
+
 def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
     input_folder = Path(input_folder)
 
@@ -75,10 +95,11 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
 
         # Create the approproate depinning object
         tau_min, tau_max = getTauLimits(params['deltaR'])
+        integration_time = getIntegrationTime(params['deltaR'])
 
         output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
 
-        depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=time, dt=dt, cores=cores,
+        depinning_perfect = DepinningSingle(tau_min=tau_min, tau_max=tau_max, points=points, time=integration_time, dt=dt, cores=cores,
                                             folder_name=output_folder, deltaR=params['deltaR'], seed=params['seed'].astype(int), 
                                             bigN=params['bigN'].astype(int), length=params['length'].astype(int) )
         depinning_perfect.run(y0_rel=y0)
@@ -95,9 +116,9 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         
         output_folder = Path(output_folder).joinpath(f"deltaR_{params['deltaR']}-seed-{params['seed']}")
 
-        # TODO: Look for failsafes here if they exist. They are in the folder output_folder.joinpath('failsafe')
         tau_min, tau_max = getTauLimits(params['deltaR'])
-        depinnin_partial = DepinningPartial(tau_min, tau_max, points, time, dt, cores, output_folder, float(params['deltaR']),
+        integration_time = getIntegrationTime(params['deltaR'])
+        depinnin_partial = DepinningPartial(tau_min, tau_max, points, integration_time, dt, cores, output_folder, float(params['deltaR']),
                                             int(params['seed']), int(params['bigN']),  int(params['length']), 10)
         # TODO : change the d0 to the correct value in the realxed one, or actually don't since the relaxed configuration
         # was already placed d0 apart.
