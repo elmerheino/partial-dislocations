@@ -78,7 +78,7 @@ def generate(path_to_run_params, n):
         'task-id' : 0
     }
 
-    out_script_path = script_dir.joinpath(f'{job_name}.sh')
+    out_script_path = script_dir.joinpath(f'continue-{job_name}.sh')
 
     generate_script_from_template(template_file, out_script_path, repl)
     
