@@ -120,7 +120,7 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         integration_time = getIntegrationTime(params['deltaR'])
         depinnin_partial = DepinningPartial(tau_min=tau_min, tau_max=tau_max, points=points, time=integration_time, dt=dt, 
                                             cores=cores, folder_name=depinning_output_folder, deltaR=float(params['deltaR']),
-                                            seed=int(params['seed']), bigN=int(params['bigN']),  length=int(params['length']), d0=10)   # d0 is a dummy val since it comes from the intial relaxation
+                                            seed=int(params['seed']), bigN=int(params['bigN']),  length=int(params['length']), d0=params['d0'])
         depinnin_partial.run(y1_0=y1_last, y2_0=y2_last)
         depinnin_partial.dump_res_to_pickle(output_folder.joinpath(f"depinning-pickle-dumps"))
         pass
