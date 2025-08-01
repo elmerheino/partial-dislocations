@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import pickle
 import shutil
@@ -181,6 +183,7 @@ def makeVelHistPlot(fig, ax, v, dt, tau_ext):
     ax.grid(True)
     ax.set_xlabel('time')
     ax.set_ylabel('$v_{cm}$')
+    fig.tight_layout()
     pass
 
 def generateVelocityHistoryPlots(velocity_data, output_folder):
@@ -204,7 +207,7 @@ def generateVelocityHistoryPlots(velocity_data, output_folder):
                 makeVelHistPlot(fig, ax, velocities, 100, tau_ext)
                 ax.set_title(f"$\\Delta R = {noise_val} $")
                 # ax.plot(time, velocities, label=f'$\\tau_{{ext}} = {tau_ext}$')
-                fig.legend()
+                ax.legend()
 
                 save_path =output_folder.joinpath(f"{noise_val*1e4}-e-4_noise/{tau_ext}_tauext_s_{seed_str}.pdf")
                 save_path.parent.mkdir(exist_ok=True, parents=True)
@@ -310,6 +313,24 @@ def generateDepinningDatasets(path_to_velocities):
         save_path.parent.mkdir(exist_ok=True, parents=True)
         depinning_df.to_csv(save_path, sep=";")
 
+def generateDepinningPlots(path_to_depinning, out_dir):
+    path_to_depinning, out_dir = Path(path_to_depinning), Path(out_dir)
+    for depinning_csv in path_to_depinning.iterdir():
+        df = pd.read_csv(depinning_csv, sep=";", header=0, index_col=0)
+        noise = float((depinning_csv.name.split('-')[2]).split('.csv')[0])
+
+        fig, ax = plt.subplots(figsize=(5,5))
+        ax.set_title(f'$\\Delta R = {noise}$')
+        ax.scatter(df['tau_ext'], df['v_rel'], marker='.')
+        fig.tight_layout()
+
+        save_path = out_dir.joinpath(f"{noise*1e4:.3f}e-4-R-depinning.pdf")
+        save_path.parent.mkdir(exist_ok=True, parents=True)
+        fig.savefig(save_path)
+        plt.close()
+        pass
+    pass
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze dislocation depinning data.")
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -326,9 +347,12 @@ if __name__ == "__main__":
     parser_velocity_histories = subparsers.add_parser('hist', help='Generate velocity history plots')
     parser_velocity_histories.add_argument('vel_dataset', type=str,
         default="debug/test-run-further/deltaR_0.00030888435964774815-seed-3.0/velocity-datasets")
-
     parser_velocity_histories.add_argument('plot_dir', type=str,
         default="debug/test-run-further/plots/vel-history")
+    
+    parser_depinning_plots = subparsers.add_parser('depinning_plot', help='Generate depinning plots')
+    parser_depinning_plots.add_argument('depinning_dataset', type=str)
+    parser_depinning_plots.add_argument('plot_dir', type=str)
 
     args = parser.parse_args()
 
@@ -339,5 +363,7 @@ if __name__ == "__main__":
         generateDepinningDatasets(args.vel_folder)
     elif args.command == 'hist':
         generateVelocityHistoryPlots(args.vel_dataset, args.plot_dir)
+    elif args.command == 'depinning_plot':
+        generateDepinningPlots(args.depinning_dataset, args.plot_dir)
     else:
         parser.print_help()

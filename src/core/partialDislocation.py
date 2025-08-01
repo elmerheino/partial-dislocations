@@ -76,13 +76,24 @@ class PartialDislocationsSimulation(Simulation):
                 y1_last, y2_last = failsafe_data['y_last']
             
             if 'sf_hist' in failsafe_data.keys():
-                v_cm_hist, sf_hist = failsafe_data['v_cm_hist'], failsafe_data['sf_hist']
+                sf_hist = failsafe_data['sf_hist']
             else:
-                v_cm_hist, sf_hist = failsafe_data['v_cm_hist'], failsafe_data['sf_width']
+                sf_hist = failsafe_data['sf_width']
+            
+            if 'avg_v_cm_history' in failsafe_data.keys():
+                v_cm_hist = failsafe_data['avg_v_cm_history']
+            elif 'v_cm_hist' in failsafe_data.keys():
+                v_cm_hist = failsafe_data['v_cm_hist']
+            else:
+                print(failsafe_path)
+                print(failsafe_data.keys())
+
             selected_y1, selected_y2 = failsafe_data['selected_y1'], failsafe_data['selected_y2']
         
         new_dt = (params['dt'] if type(dt) == type(None) else dt)
+        # We are continuing from a finished simualation and 
         new_time = params['time'] + extra_time
+
         instance = cls(deltaR=float(params['deltaR']), bigB=params['bigB'], smallB=params['smallB'], b_p=params['b_p'], mu=params['mu'],
                 tauExt = params['tauExt'], bigN=int(params['bigN']), length=params['length'], dt=new_dt, time=new_time,
                 d0=params['d0'], c_gamma=params['c_gamma'], cLT1=params['cLT1'], cLT2=params['cLT2'], seed=int(params['seed']))

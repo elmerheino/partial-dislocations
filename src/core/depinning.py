@@ -233,13 +233,13 @@ class DepinningPartial(Depinning):
 
         return final_results
     
-    def integrateFurther(self,failsafe_path,tau_ext):
+    def integrateFurther(self,failsafe_path,tau_ext, time_further):
         backup_file = Path(failsafe_path)
-        sim = PartialDislocationsSimulation.fromFinishedFailsafe(failsafe_path, 10000)
+        sim = PartialDislocationsSimulation.fromFinishedFailsafe(failsafe_path, time_further)
         # Here 10k is the time how much longer its integrated
 
         self.updateStatusDict(tau_ext, "ongoing")
-        sim.run_in_chunks(backup_file, 10000/10)
+        sim.run_in_chunks(backup_file, time_further/10)
         self.updateStatusDict(tau_ext, "finished")
 
         final_results = sim.getResultsAsDict()
@@ -272,7 +272,7 @@ class DepinningPartial(Depinning):
             with mp.Pool(self.cores) as pool:
                 self.results = pool.map(partial(DepinningPartial.studyConstantStress, self), self.stresses)
     
-    def run_recovered_sequential(self, y1_0=None, y2_0=None):
+    def run_recovered_sequential(self, y1_0=None, y2_0=None, integrate_further=False, further_time=None):
         res = list()
         self.y1_0 = y1_0
         self.y2_0 = y2_0
@@ -281,12 +281,12 @@ class DepinningPartial(Depinning):
             # Check if the simulation is already complete
             # If not, load the failsafe from the dictionary
             # Create the dislocation object based on that failasfe
-            self.mp_helper(tau_ext)
+            self.mp_helper(tau_ext, integrate_further=integrate_further, further_time=further_time)
             pass
         
         self.results = res
 
-    def mp_helper(self, tau_ext, integrate_further=False):
+    def mp_helper(self, tau_ext, integrate_further=False, further_time=None):
         tau_ext_key = str(float(tau_ext))
         status = self.status_dict[tau_ext_key]
 
@@ -320,7 +320,7 @@ class DepinningPartial(Depinning):
                     # even further
                     if integrate_further:
                         print(f"Integrating further with tau_ext = {tau_ext}")
-                        results_i = self.integrateFurther(failsafe_path, tau_ext)
+                        results_i = self.integrateFurther(failsafe_path, tau_ext, further_time)
                     else:
                         with open(failsafe_path, "rb") as fp:
                             results_i = pickle.load(fp)
@@ -334,12 +334,13 @@ class DepinningPartial(Depinning):
 
         return results_i
 
-    def run_recovered_parallel(self, y1_0=None, y2_0=None, integrate_further=True):
+    def run_recovered_parallel(self, y1_0=None, y2_0=None, integrate_further=False, further_time=None):
         self.y1_0 = y1_0
         self.y2_0 = y2_0
 
         with mp.Pool(self.cores) as pool:
-            self.results = pool.map(partial(DepinningPartial.mp_helper, self, integrate_further=integrate_further), self.stresses)
+            self.results = pool.map(partial(DepinningPartial.mp_helper, self, integrate_further=integrate_further,
+                                            further_time=further_time), self.stresses)
 
     def getStresses(self):
         return self.stresses

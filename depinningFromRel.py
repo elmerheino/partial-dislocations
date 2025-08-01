@@ -126,7 +126,7 @@ def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int,
         pass
     pass
 
-def continue_depinning(path_to_params, input_folder, task_id):
+def continue_depinning(path_to_params, input_folder, task_id, integrate_further=False, further_time=None):
     """
     path_to_params : 
     """
@@ -135,7 +135,7 @@ def continue_depinning(path_to_params, input_folder, task_id):
 
     depinning = DepinningPartial.from_json_config(path_to_params)
     print(depinning.deltaR)
-    depinning.run_recovered_parallel()
+    depinning.run_recovered_parallel(integrate_further=integrate_further, further_time=further_time)
     depinning.dump_res_to_pickle(depining_folder.parent.joinpath("depinning-pickle-dumps"))
     pass
 
@@ -172,6 +172,13 @@ def argsmain():
                                  help='Path to the depinning_params.json file from the simulation to continue.')
     parser_continue.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from triton. ')
 
+    parser_run_further = subparsers.add_parser('further', help='Integrate finished depinning simulation further in time.')
+    parser_run_further.add_argument('--initial-relaxations', type=str, required=True,
+                                 help='Path to the folder with the initial relaxed configurations.')
+    parser_run_further.add_argument('--depinning-params', type=str, required=True,
+                                 help='Path to the depinning_params.json file from the simulation to continue.')
+    parser_run_further.add_argument('--task-id', type=int, required=True, help='SLURM_ARRAY_TASK_ID from triton. ')
+    parser_run_further.add_argument('--time', type=int, required=True, help='How much longer should the simulation be run.')
 
     args = parser.parse_args()
 
@@ -186,7 +193,12 @@ def argsmain():
             compute_depinnings_from_dir(input_folder=Path(args.folder), task_id=args.task_id, cores=args.cores, points=args.points, time=args.time, dt=args.dt, output_folder=Path(args.out_folder), perfect=True)
     elif args.command == 'continue':
         print(f"Continuing depinning simulation.")
-        continue_depinning(path_to_params=args.depinning_params, input_folder=args.initial_relaxations, task_id=args.task_id)
+        continue_depinning(path_to_params=args.depinning_params, input_folder=args.initial_relaxations, task_id=args.task_id,
+                           integrate_further=False)
+    elif args.command == 'further':
+        print(f"Integrating depinning simulations even further.")
+        continue_depinning(path_to_params=args.depinning_params, input_folder=args.initial_relaxations, task_id=args.task_id,
+                           integrate_further=True, further_time=args.time)
 
     return # The code below this point in the original function is now handled within the command logic.
 
