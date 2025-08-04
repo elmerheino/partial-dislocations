@@ -77,7 +77,7 @@ def spawn_relaxation(rmin, rmax, rpoints, system_size, d0, seeds, save_path, per
 
 kansion_nimi = "24-7-weak-coupling"
 
-for sys_size in [32, 64, 128, 265, 512, 1024]:
+for sys_size in [32, 64, 128, 256, 512, 1024]:
     save_path = f"${{WRKDIR}}/{kansion_nimi}/perfect/l-{sys_size}"
     spawn_relaxation(-4, 4, 50, system_size=sys_size, d0=0, seeds=10, save_path=save_path, 
                      perfect_partial="--perfect", hours_limit=24, cores=10)
