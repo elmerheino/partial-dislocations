@@ -103,11 +103,18 @@ def relax_one_dislocations(deltaRseed, length, bigN, folder, y0=None, t0=None):
 
     # Find a minima using FIRE, and then save it
     y0_fire, success = sim.relax_w_FIRE()
+    if success:
+        sim.setInitialY0Config(y0_fire, 0)
+    
+    failsafe_path = Path(folder).joinpath(f"relaxation-failsafes/dislocation-{sim.getUniqueHashString()}.npz")
+    failsafe_path.parent.mkdir(exist_ok=True, parents=True)
+    sim.run_in_chunks(failsafe_path, sim.time/10, shape_save_freq=1)
+    y = sim.getLineProfiles()
 
     results_save_path = Path(folder).joinpath(f"relaxed-configurations/dislocation-noise-{deltaR}-seed-{seed}.npz")
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
-    np.savez( results_save_path, y_fire=y0_fire, params=sim.getParameteters(), success=success )
+    np.savez( results_save_path, y_fire=y0_fire, y=y, params=sim.getParameteters(), success=success )
 
     # If relaxation was successfull, update the run_params file to keep track
     if success:
@@ -121,7 +128,7 @@ def relax_one_partial_dislocation(deltaRseed, length, bigN, folder, d0, y0_1=Non
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
     # Create the partial dislocation object
-    sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=1, dt=1, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
+    sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=10000, dt=1, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
                                 cLT1=1, cLT2=1, seed=seed, d0=d0)
     
     # Check if the results file already exists, if it does, use it as initial config for the FIRE relaxation
@@ -134,8 +141,18 @@ def relax_one_partial_dislocation(deltaRseed, length, bigN, folder, d0, y0_1=Non
 
     # Find a minima using FIRE and then save it to a file
     y1_0_fire, y2_0_fire, success = sim.relax_w_FIRE()
+    if success:
+        sim.setInitialY0Config(y1_0_fire, y2_0_fire, 0)     # Integrate for a while after all, but just for a short while
+    # else: just use the default initial value from the constructor
 
-    np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, params=sim.getParameters(), success=success)
+    failsafe_path = Path(folder).joinpath(f"relaxation-failsafes/dislocation-{sim.getUniqueHashString()}.npz")
+    failsafe_path.parent.mkdir(exist_ok=True, parents=True)
+    sim.run_in_chunks(failsafe_path, chunk_size=sim.time/10, shape_save_freq=1)
+
+    y1, y2 = sim.getLineProfiles()
+
+    np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, y1=y1, y2=y2, params=sim.getParameters(), 
+             success=success)
 
     # If the simulation was successfull, update the list to keep track
     if success:
