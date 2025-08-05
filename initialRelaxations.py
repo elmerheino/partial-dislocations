@@ -128,7 +128,7 @@ def relax_one_partial_dislocation(deltaRseed, length, bigN, folder, d0, y0_1=Non
     results_save_path.parent.mkdir(exist_ok=True, parents=True)
 
     # Create the partial dislocation object
-    sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=10000, dt=1, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
+    sim = PartialDislocationsSimulation(bigN=bigN, length=length, time=200000, dt=100, deltaR=deltaR, bigB=1, smallB=1, b_p=1, mu=1, tauExt=0, 
                                 cLT1=1, cLT2=1, seed=seed, d0=d0)
     
     # Check if the results file already exists, if it does, use it as initial config for the FIRE relaxation
@@ -143,8 +143,11 @@ def relax_one_partial_dislocation(deltaRseed, length, bigN, folder, d0, y0_1=Non
     y1_0_fire, y2_0_fire, success = sim.relax_w_FIRE()
     if success:
         sim.setInitialY0Config(y1_0_fire, y2_0_fire, 0)     # Integrate for a while after all, but just for a short while
-    # else: just use the default initial value from the constructor
+        np.savez(results_save_path, y1_fire=y1_0_fire, y2_fire=y2_0_fire, params=sim.getParameters(), 
+            success=success)
 
+    # else: just use the default initial value from the constructor
+    
     failsafe_path = Path(folder).joinpath(f"relaxation-failsafes/dislocation-{sim.getUniqueHashString()}.npz")
     failsafe_path.parent.mkdir(exist_ok=True, parents=True)
     sim.run_in_chunks(failsafe_path, chunk_size=sim.time/10, shape_save_freq=1)
