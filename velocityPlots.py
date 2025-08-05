@@ -304,17 +304,22 @@ def generateDepinningDatasets(path_to_velocities):
         noise_key = noise_folder.name.split("-")[1]
         depinning_df = extractDepinningFromVeclocity(noise_folder)
         
-        plt.scatter(depinning_df['tau_ext'], depinning_df['v_rel'])
-        plt.title(depinning_df.attrs['deltaR'])
-        plt.show()
-
         deltaR = depinning_df.attrs['deltaR']
         save_path = path_to_velocities.parent.joinpath(f"depinning-datasets/depinning-noise-{deltaR}.csv")
         save_path.parent.mkdir(exist_ok=True, parents=True)
         depinning_df.to_csv(save_path, sep=";")
 
 def generateDepinningPlots(path_to_depinning, out_dir):
+    """
+    Generates depinning plots from depinning data. At the same time collects critical forces using a simple treshold
+    method and returns them in a list containing datapoints.
+
+    path_to_depinning:path to folder containing csv files with v_rel against tau_ext
+
+    TODO: handle multiple seeds
+    """
     path_to_depinning, out_dir = Path(path_to_depinning), Path(out_dir)
+    critical_force_data = list()
     for depinning_csv in path_to_depinning.iterdir():
         df = pd.read_csv(depinning_csv, sep=";", header=0, index_col=0)
         noise = float((depinning_csv.name.split('-')[2]).split('.csv')[0])
@@ -324,12 +329,23 @@ def generateDepinningPlots(path_to_depinning, out_dir):
         ax.scatter(df['tau_ext'], df['v_rel'], marker='.')
         fig.tight_layout()
 
-        save_path = out_dir.joinpath(f"{noise*1e4:.3f}e-4-R-depinning.pdf")
+        velocity_threshold = 1e-6
+        if len(df[df['v_rel'] < velocity_threshold]) > 0:
+            last_pinned_index = df[df['v_rel'] < velocity_threshold].index[-1]
+            critical_force = df.loc[last_pinned_index, 'tau_ext']
+            ax.axvline(x=critical_force, color='r', linestyle='--', label=f'Critical Force (τc) ≈ {critical_force:.4f}')
+        else:
+            critical_force = np.nan
+        
+        critical_force_data.append((noise, critical_force))
+
+
+        save_path = out_dir.joinpath(f"{np.log(noise):.3f}-10e-depinning.pdf")
         save_path.parent.mkdir(exist_ok=True, parents=True)
         fig.savefig(save_path)
         plt.close()
         pass
-    pass
+    return critical_force_data
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze dislocation depinning data.")
@@ -364,6 +380,10 @@ if __name__ == "__main__":
     elif args.command == 'hist':
         generateVelocityHistoryPlots(args.vel_dataset, args.plot_dir)
     elif args.command == 'depinning_plot':
-        generateDepinningPlots(args.depinning_dataset, args.plot_dir)
+        critical_forces = generateDepinningPlots(args.depinning_dataset, args.plot_dir)
+        save_path = Path(args.depinning_dataset).parent.joinpath("critical_forces.csv")
+        df = pd.DataFrame(critical_forces, columns=['noise', 'critical_force'])
+        df.to_csv(save_path, sep=";")
+        
     else:
         parser.print_help()

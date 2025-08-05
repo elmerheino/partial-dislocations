@@ -42,11 +42,10 @@ def getIntegrationTime(noise_delta_r : float) -> int:
         return 600000
 
 def getTauLimits(noise):
-    if noise > 0.5:
-        return (0, noise*4)
-    else:
-        return (0, noise)
-
+    # For a system of size 64, approximately np.log(tau_c) = 1.24*np.log(noise) - 10 or tau_c = 10^(-0.1) noise**1.24
+    # So a good guess for the limits of tau would be tau_c - tau_c, 2*tau_c most likely
+    tau_c_guess = 10**(-0.1)*noise**1.24
+    return (0, tau_c_guess*4)
 
 def compute_depinnings_from_dir(input_folder : Path, task_id : int, cores : int, points, time : int, dt : int, output_folder : Path, perfect : bool):
     input_folder = Path(input_folder)
