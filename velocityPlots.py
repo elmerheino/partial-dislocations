@@ -209,7 +209,7 @@ def generateVelocityHistoryPlots(velocity_data, output_folder):
                 # ax.plot(time, velocities, label=f'$\\tau_{{ext}} = {tau_ext}$')
                 ax.legend()
 
-                save_path =output_folder.joinpath(f"{noise_val*1e4}-e-4_noise/{tau_ext}_tauext_s_{seed_str}.pdf")
+                save_path =output_folder.joinpath(f"{np.log10(noise_val)}-_noise/{tau_ext}_tauext_s_{seed_str}.pdf")
                 save_path.parent.mkdir(exist_ok=True, parents=True)
                 fig.savefig(save_path)
                 plt.close()

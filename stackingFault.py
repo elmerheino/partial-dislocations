@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from src.core.partialDislocation import PartialDislocationsSimulation
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 def extractStackingFaultsFromPickle(pickle_path):
     """
@@ -58,7 +59,7 @@ def generateAllSFDatasets(pickle_folder_path):
         The filename is generated based on the noise level (deltaR) and the seed value
         associated with the simulation.  The noise is log transformed for the filename.
     """ 
-    
+
     out_folder = Path(pickle_folder_path).parent / "stacking-fault-datasets"
     out_folder.mkdir(exist_ok=True)
     
@@ -68,12 +69,43 @@ def generateAllSFDatasets(pickle_folder_path):
             noise = df.attrs['deltaR']
             seed = df.attrs['seed']
                         
-            file_name = f"{np.log(noise):.4f}_noise_stacking_fault_{seed}.csv"
+            file_name = f"{np.log10(noise)}_noise_stacking_fault_{seed}.csv"
             file_path = out_folder / file_name
             
             df.to_csv(file_path)
     pass
 
+def generateSFvsVRelPlots(stacking_fault_datas, output_folder=None):
+    stacking_fault_datas = Path(stacking_fault_datas)
+
+    if type(output_folder) == type(None):
+        output_folder = stacking_fault_datas.parent.joinpath("plots/sf_width-vs-v_rel")
+        output_folder.mkdir(exist_ok=True, parents=True)
+
+    for csv_path in Path(stacking_fault_datas).iterdir():
+        df = pd.read_csv(csv_path)
+
+        deltaR = float(csv_path.name.split("_")[0])     # Log deltaR
+
+        fig, ax = plt.subplots(figsize=(5,5))
+        
+        print(df['tau_ext'].to_numpy().shape)
+        print(df.iloc[:, -1].to_numpy().shape)
+
+        last_10 = int(len(df.iloc[:, 0][1:])/10)
+
+        ax.scatter(df['tau_ext'], df.iloc[:, -last_10:].mean(axis=1), marker='.')
+        ax.set_xlabel('$\\tau_{ext}$')
+        ax.set_ylabel('SF Width when relaxed')
+        ax.set_title(f"$\\Delta R = 10^{{{deltaR:.3f}}}$")
+        ax.grid(True)
+
+        save_path = output_folder.joinpath(f"{deltaR}_noise-rel-staking-fault.pdf")
+        fig.savefig(save_path)
+    pass
+
 if __name__ == "__main__":
-    generateAllSFDatasets('results/01-08-2025-depinning/partial/l-64-d0-2.0/depinning-pickle-dumps')
+    for i in ["2.0", "4.0", "8.0", "16.0", "32.0"]:
+        generateAllSFDatasets(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/depinning-pickle-dumps')
+        generateSFvsVRelPlots(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/stacking-fault-datasets')
     pass
