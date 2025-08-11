@@ -48,7 +48,7 @@ class PartialDislocationsSimulation(Simulation):
             failsafe_data = pickle.load(fp)
         params = PartialDislocationsSimulation.paramListToDict(failsafe_data['params'])
         y_last = failsafe_data['y_last']
-        fail_time = failsafe_data['time']
+        fail_time = failsafe_data['time'] - params['dt']
 
         instance = cls(deltaR=float(params['deltaR']), bigB=params['bigB'], smallB=params['smallB'], b_p=params['b_p'], mu=params['mu'],
                        tauExt = params['tauExt'], bigN=int(params['bigN']), length=params['length'], dt=params['dt'], time=params['time'],
@@ -61,7 +61,10 @@ class PartialDislocationsSimulation(Simulation):
 
         instance.y0 = y_last
         instance.t0 = fail_time
-        instance.tau_cutoff = 0
+        if fail_time >= params['time']:
+            instance.tau_cutoff = 0
+        else:
+            instance.tau_cutoff = params['time']/10
         
         return instance
     
@@ -187,6 +190,9 @@ class PartialDislocationsSimulation(Simulation):
 
         So when using this method, these other varibaled will not be computed from the "last 10%" of simulation time, unless
         chunk_size is one tenth of it and it so happend that exactly ten chunks is used to achieve relaxation.
+
+        backup_file: the file where some data is saved after integrating each chunk so that if the simulation fails,
+        it will be possible to recover from that chunk.
         """
 
         if timeit:
@@ -210,9 +216,11 @@ class PartialDislocationsSimulation(Simulation):
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
 
-            t_evals = np.arange(start_i, end_i, self.dt)
+            t_evals = np.arange(start_i, end_i, self.dt)        # Here is a problem, t_evals[-1] = end_i - dt
+
+            last_y0 = last_y0.flatten()
             
-            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0.flatten(), method=method, 
+            sol_i = solve_ivp(self.rhs, [start_i, end_i], last_y0, method=method, 
                             t_eval=t_evals,
                             rtol=self.rtol)
             
@@ -229,7 +237,8 @@ class PartialDislocationsSimulation(Simulation):
                 data = {
                     "y_last": last_y0,
                     "params": self.getParameters(),
-                    "time": end_i,
+                    "time": end_i,                      # And again, here the problem is that the time of y_last is actyally t_evals[-1]
+                    "t_eval_last": t_evals[-1],
                     "chunk_size":chunk_size,
                     "selected_y1_shapes": self.selected_y1_shapes,
                     "selected_y2_shapes": self.selected_y2_shapes,
@@ -592,9 +601,9 @@ if __name__ == "__main__":
     sim = PartialDislocationsSimulation(
         bigN=32,             # Number of points
         length=32,           # Length of dislocation
-        time=10,           # Total simulation time
-        dt=1,               # Time step
-        deltaR=1000,         # Random force correlation length
+        time=10,             # Total simulation time
+        dt=0.1,                # Time step
+        deltaR=0.001,         # Random force correlation length
         bigB=1.0,           # Drag coefficient
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
@@ -606,7 +615,7 @@ if __name__ == "__main__":
     fire_y1, fire_y2, success = sim.relax_w_FIRE()
     sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
-    print(sim.getResultsAsDict())
+    results = sim.getResultsAsDict()
     firet100_y1, firet100_y2 = sim.getLineProfiles()
 
     fig,ax = plt.subplots()
@@ -621,6 +630,10 @@ if __name__ == "__main__":
     ax.set_ylabel("Displacement")
     ax.set_title("Dislocation Line Profiles (FIRE)")
     
+    plt.show()
+
+    fig, ax = plt.subplots()
+    ax.plot(results['sf_hist'])
     plt.show()
     
 
