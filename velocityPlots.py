@@ -204,7 +204,7 @@ def generateVelocityHistoryPlots(velocity_data, output_folder):
                 time = df.columns[1:].to_numpy(dtype=float)
 
                 fig, ax = plt.subplots(figsize=(linewidth, linewidth/2))
-                makeVelHistPlot(fig, ax, velocities, 100, tau_ext)
+                makeVelHistPlot(fig, ax, velocities, time[1] - time[0], tau_ext)
                 ax.set_title(f"$\\Delta R = {noise_val} $")
                 # ax.plot(time, velocities, label=f'$\\tau_{{ext}} = {tau_ext}$')
                 ax.legend()
@@ -370,6 +370,9 @@ if __name__ == "__main__":
     parser_depinning_plots.add_argument('depinning_dataset', type=str)
     parser_depinning_plots.add_argument('plot_dir', type=str)
 
+    parser_all = subparsers.add_parser('all')
+    parser_all.add_argument('pickle_folder')
+
     args = parser.parse_args()
 
     if args.command == 'velocity_dataset':
@@ -384,6 +387,16 @@ if __name__ == "__main__":
         save_path = Path(args.depinning_dataset).parent.joinpath("critical_forces.csv")
         df = pd.DataFrame(critical_forces, columns=['noise', 'critical_force'])
         df.to_csv(save_path, sep=";")
+    elif args.command == 'all':
+        pickle_folder = Path(args.pickle_folder)
+        if pickle_folder.name != "depinning-pickle-dumps":
+            raise Exception("path should point to folder depinning-pickle-dumps")
+        
+        velocity_datas = pickle_folder.parent.joinpath("velocity-datasets")
+        generateVelocityDatasets(pickle_folder, velocity_datas)
+        generateDepinningDatasets(velocity_datas)
+        generateVelocityHistoryPlots(velocity_datas, pickle_folder.parent.joinpath("plots/velocity"))
+        generateDepinningPlots(pickle_folder.parent.joinpath("depinning-datasets"), pickle_folder.parent.joinpath("plots/depinning"))
         
     else:
         parser.print_help()
