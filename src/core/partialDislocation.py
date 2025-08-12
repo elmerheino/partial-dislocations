@@ -216,7 +216,7 @@ class PartialDislocationsSimulation(Simulation):
             start_i = total_time_so_far
             end_i = total_time_so_far + chunk_size
 
-            t_evals = np.arange(start_i, end_i, self.dt)        # Here is a problem, t_evals[-1] = end_i - dt
+            t_evals = np.linspace(start_i, end_i, int((end_i - start_i) / self.dt) + 1)
 
             last_y0 = last_y0.flatten()
             
@@ -266,7 +266,7 @@ class PartialDislocationsSimulation(Simulation):
             self.selected_y2_shapes.extend(zip(selected_times, selected_y2s))
 
             if len(total_CM_i) > 2:
-                v_cm_i = np.gradient(total_CM_i, self.dt).flatten()
+                v_cm_i = np.gradient(total_CM_i, sol_i.t).flatten()
 
                 self.avg_v_cm_history.extend(v_cm_i)                # Record v_cm velocity
                 self.avg_stacking_fault_history.extend(sf_width)    # Record stacking fault width
@@ -288,8 +288,9 @@ class PartialDislocationsSimulation(Simulation):
             # If not relaxed after max_time, run one more chunk
             start_t = total_time_so_far
             end_t = total_time_so_far + chunk_size
+            t_evals = np.linspace(start_t, end_t, int((end_t - start_t) / self.dt) + 1)
             sol = solve_ivp(self.rhs, [start_t, end_t], last_y0.flatten(), method=method, 
-                                t_eval=np.arange(start_t, end_t, self.dt),
+                                t_eval=t_evals,
                                 rtol=self.rtol)
             
             sol.y = sol.y.reshape(2, self.bigN, -1)
