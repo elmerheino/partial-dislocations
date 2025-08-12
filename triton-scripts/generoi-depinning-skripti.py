@@ -47,9 +47,8 @@ def generate_scirpt(path_to_run_params):
     length = args_used['length']
     d0 = args_used['d0']
 
-    output_path = f"${{WRKDIR}}/date-depinning/{'perfect' if perfect else 'partial'}/l-{ args_used['length'] }/"
     today_str = date.today().strftime("%d-%m-%Y")
-    output_path = f"${{WRKDIR}}/{today_str}-depinning/{'perfect' if perfect else 'partial'}/l-{ args_used['length'] }-d0-{d0}/"
+    output_path = f"${{WRKDIR}}/{today_str}-depinning-weak-coupling/{'perfect' if perfect else 'partial'}/l-{ args_used['length'] }-d0-{d0}/"
 
     script_parameters = {
         'hours': 10,
