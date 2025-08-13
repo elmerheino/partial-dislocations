@@ -325,7 +325,7 @@ def generateDepinningPlots(path_to_depinning, out_dir):
         noise = float((depinning_csv.name.split('-')[2]).split('.csv')[0])
 
         fig, ax = plt.subplots(figsize=(5,5))
-        ax.set_title(f'$\\Delta R = {noise}$')
+        ax.set_title(f'$\\Delta R = 10^{{{np.log10(noise)}}}$')
         ax.scatter(df['tau_ext'], df['v_rel'], marker='.')
         fig.tight_layout()
 
@@ -340,7 +340,7 @@ def generateDepinningPlots(path_to_depinning, out_dir):
         critical_force_data.append((noise, critical_force))
 
 
-        save_path = out_dir.joinpath(f"{np.log(noise):.3f}-10e-depinning.pdf")
+        save_path = out_dir.joinpath(f"{np.log10(noise):.3f}-10e-depinning.pdf")
         save_path.parent.mkdir(exist_ok=True, parents=True)
         fig.savefig(save_path)
         plt.close()

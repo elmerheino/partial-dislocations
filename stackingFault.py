@@ -79,7 +79,7 @@ def generateSFvsVRelPlots(stacking_fault_datas, output_folder=None):
     stacking_fault_datas = Path(stacking_fault_datas)
 
     if type(output_folder) == type(None):
-        output_folder = stacking_fault_datas.parent.joinpath("plots/sf_width-vs-v_rel")
+        output_folder = stacking_fault_datas.parent.joinpath("plots/sf_width-at-last10")
         output_folder.mkdir(exist_ok=True, parents=True)
 
     for csv_path in Path(stacking_fault_datas).iterdir():
@@ -89,12 +89,14 @@ def generateSFvsVRelPlots(stacking_fault_datas, output_folder=None):
 
         fig, ax = plt.subplots(figsize=(5,5))
         
-        print(df['tau_ext'].to_numpy().shape)
-        print(df.iloc[:, -1].to_numpy().shape)
-
         last_10 = int(len(df.iloc[:, 0][1:])/10)
 
-        ax.scatter(df['tau_ext'], df.iloc[:, -last_10:].mean(axis=1), marker='.')
+        mean_sf = df.iloc[:, -last_10:].mean(axis=1)
+        std_sf = df.iloc[:, -last_10:].std(axis=1)
+
+        ax.scatter(df['tau_ext'], mean_sf, marker='.')
+        ax.fill_between(df['tau_ext'], mean_sf-std_sf, mean_sf+std_sf, color='blue', alpha=0.2)
+
         ax.set_xlabel('$\\tau_{ext}$')
         ax.set_ylabel('SF Width when relaxed')
         ax.set_title(f"$\\Delta R = 10^{{{deltaR:.3f}}}$")
@@ -104,8 +106,43 @@ def generateSFvsVRelPlots(stacking_fault_datas, output_folder=None):
         fig.savefig(save_path)
     pass
 
+
+def generateSFt0Plots(stacking_fault_datas, output_folder=None):
+    stacking_fault_datas = Path(stacking_fault_datas)
+
+    if type(output_folder) == type(None):
+        output_folder = stacking_fault_datas.parent.joinpath("plots/sf_width-t0_vs_v-rel")
+        output_folder.mkdir(exist_ok=True, parents=True)
+
+    for csv_path in Path(stacking_fault_datas).iterdir():
+        df = pd.read_csv(csv_path, index_col=0)
+
+        deltaR = float(csv_path.name.split("_")[0])     # Log deltaR
+
+        fig, ax = plt.subplots(figsize=(5,5))
+        
+        print(df['tau_ext'].to_numpy().shape)
+        print(df.iloc[:, -1].to_numpy().shape)
+
+        sf_at_t0 = df.iloc[:, 1]
+
+        ax.scatter(df['tau_ext'], sf_at_t0, marker='.')
+
+        ax.set_xlabel('$\\tau_{ext}$')
+        ax.set_ylabel('SF Width at t=0')
+        ax.set_title(f"$\\Delta R = 10^{{{deltaR:.3f}}}$")
+        ax.grid(True)
+
+        save_path = output_folder.joinpath(f"{deltaR}_noise-rel-staking-fault.pdf")
+        fig.savefig(save_path)
+    pass
+
 if __name__ == "__main__":
-    for i in ["2.0", "4.0", "8.0", "16.0", "32.0"]:
-        generateAllSFDatasets(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/depinning-pickle-dumps')
-        generateSFvsVRelPlots(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/stacking-fault-datasets')
+    # for i in ["2.0", "4.0", "8.0", "16.0", "32.0"]:
+    #     generateAllSFDatasets(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/depinning-pickle-dumps')
+    #     generateSFvsVRelPlots(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/stacking-fault-datasets')
+    #     generateSFt0Plots(f'results/01-08-2025-depinning/partial/l-64-d0-{i}/stacking-fault-datasets')
+
+    generateAllSFDatasets('results/01-08-2025-depinning/partial/l-512-d0-8.0/depinning-pickle-dumps')
+    generateSFvsVRelPlots('results/01-08-2025-depinning/partial/l-512-d0-8.0/stacking-fault-datasets')
     pass
