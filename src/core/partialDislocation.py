@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 class PartialDislocationsSimulation(Simulation):
 
-    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, cLT1=1, cLT2=1, d0=1, c_gamma=1,
+    def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, d0, cLT1=1, cLT2=1, c_gamma=1,
                  seed=None, rtol=1e-8):
         
         super().__init__(bigN, length, time, dt, deltaR, bigB, smallB, mu, tauExt, seed)
