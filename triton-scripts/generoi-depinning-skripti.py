@@ -51,7 +51,7 @@ def generate_scirpt(path_to_run_params):
     output_path = f"${{WRKDIR}}/{today_str}-depinning-weak-coupling/{'perfect' if perfect else 'partial'}/l-{ args_used['length'] }-d0-{d0}/"
 
     script_parameters = {
-        'hours': 10,
+        'hours': 1,
         'minutes': "00",
         'seconds': "00",
         'job-name': f'l-{length}-d0-{d0}-{today_str}',
@@ -59,8 +59,8 @@ def generate_scirpt(path_to_run_params):
         'arr-start': 0,
         'arr-end': rpoints*seeds - 1,
         'input-path': str(input_folder),
-        'rel-time': 200000,
-        'sample-dt': 100,
+        'rel-time': 10000,
+        'sample-dt': 10,
         'output-path': output_path,
         'perfect-partial' : f"{'--perfect' if perfect else '--partial'}"
     }
@@ -108,4 +108,4 @@ if __name__ == '__main__':
     run_params_paths = find_run_params_files(args.path)
     for path_i in run_params_paths:
         script_path = generate_scirpt(path_i)
-        os.system(f"sbatch {script_path}")
+        # os.system(f"sbatch {script_path}")
