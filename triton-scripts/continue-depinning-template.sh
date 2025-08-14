@@ -10,4 +10,4 @@
 module load scicomp-python-env
 
 
-srun python3 ../depinningFromRel.py continue --initial-relaxations {initial-relaxations} --depinning-params {depinning-params} --task-id {task-id}
+srun python3 ../depinningFromRel.py continue --depinning-params {depinning-params}

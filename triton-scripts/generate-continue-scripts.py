@@ -73,9 +73,7 @@ def generate(path_to_run_params, n):
         'hours':10, 'minutes': '00', 'seconds':'00',
         'job-name':job_name,
         'cores' : cores, 
-        'initial-relaxations' : 'none',
         'depinning-params' : str(path_to_run_params),
-        'task-id' : 0
     }
 
     out_script_path = script_dir.joinpath(f'continue-{job_name}.sh')
