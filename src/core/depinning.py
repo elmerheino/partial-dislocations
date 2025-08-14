@@ -21,7 +21,11 @@ class Depinning(object):
 
         self.time = time
         self.dt = dt
-        self.seed = seed
+
+        if type(seed) == type(None):
+            self.seed = np.random.randint(0, 2**32 - 1)
+        else:
+            self.seed = seed
 
         self.sequential = sequential
         self.cores = cores
@@ -167,7 +171,7 @@ class DepinningPartial(Depinning):
                     raise
                 time.sleep(retry_delay)
 
-    def initialRelaxation(self, relaxation_time=1e6):
+    def initialRelaxation(self, relaxation_time=10):
         """
         This function finds the relaxed configuration of the system with external force being zero.
         """
@@ -615,4 +619,11 @@ class DepinningSingle(Depinning):
             pickle.dump(self.results, fp)
 
 if __name__ == "__main__":
+    N = 32
+    L = 32
+    d0 = 10
+
+    depinning = DepinningPartial(0, 2, 10, 1000, 0.1, 10, "remove_me", 1, None, N, L, d0)
+    depinning.run()
+    depinning.dump_res_to_pickle("remove_me/depinning-pickle-dumps/")
     pass

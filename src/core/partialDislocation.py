@@ -23,8 +23,8 @@ class PartialDislocationsSimulation(Simulation):
         self.b_p = b_p
 
         self.y0 = np.vstack((
-            np.ones(self.bigN)*self.d0,     # y1
-            np.zeros(self.bigN)             # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
+            np.ones(self.bigN, dtype=np.float64)*self.d0,     # y1
+            np.zeros(self.bigN, dtype=np.float64)             # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
         ))
         self.t0 = 0
 
@@ -231,7 +231,11 @@ class PartialDislocationsSimulation(Simulation):
             current_chunk_timesteps = sol_i.t[1:] - sol_i.t[:-1]
 
             # Save a bakcup from this chunk
-            last_y0 = y_i[:, :, -1]
+            # last_y0 = y_i[:, :, -1]
+            last_y0 = np.vstack([
+                current_chunk_y1[-1],
+                current_chunk_y2[-1]
+            ])
             backup_file.parent.mkdir(exist_ok=True, parents=True)
             with open(backup_file, "wb") as fp:
                 data = {
@@ -345,8 +349,8 @@ class PartialDislocationsSimulation(Simulation):
         h1 = self.y0[0]
         h2 = self.y0[1]             # h2 is the trailing partial
 
-        v1 = np.zeros(self.bigN)
-        v2 = np.zeros(self.bigN)
+        v1 = np.zeros(self.bigN, dtype=np.float64)
+        v2 = np.zeros(self.bigN, dtype=np.float64)
 
         # Initialize FIRE parameters
         dt = self.DT_INITIAL
@@ -609,7 +613,7 @@ if __name__ == "__main__":
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
         mu=1.0,             # Shear modulus
-        tauExt=0,          # External stress
+        tauExt=0.1,          # External stress
         d0=10,
         seed=10
     )
@@ -636,5 +640,10 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     ax.plot(results['sf_hist'])
     plt.show()
+
+    fig, ax = plt.subplots()
+    ax.plot(results['v_cm_hist'])
+    plt.show()
+
     
 

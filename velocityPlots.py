@@ -267,19 +267,21 @@ def generateVelocityDatasets(path_to_pickle_dumps, out_folder):
         fname = f"noise-{float(df.attrs['deltaR'])}/velocities_deltaR_{float(df.attrs['deltaR'])}_seed_{int(df.attrs['seed'])}.csv"
         save_path = out_folder.joinpath(fname)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(save_path, sep=";")
+        if not save_path.exists():
+            df.to_csv(save_path, sep=";")
     pass
 
 def extractDepinningFromVeclocity(path_to_velocity_data):
     """
     path_to_velocity_data should point to the folder where the velocity dataframes are located, usually named by the noise
-    of the data in question.
+    of the data in question. The returned data frame contains the relaxed velocities for all seeds.
     """
     path_to_velocity_data = Path(path_to_velocity_data)
     depinning_dataset = list()
     noise_key = float(path_to_velocity_data.name.split("-")[1])
     for vel_file in path_to_velocity_data.iterdir():
         noise_key = vel_file.name.split("_")[2]
+        seed_key = vel_file.name.split("_")[4].split(".csv")[0]
         df = pd.read_csv(vel_file, sep=";", header=0, index_col=0)
 
         tau_ext = df["tau_ext"].values
