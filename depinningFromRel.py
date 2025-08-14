@@ -33,13 +33,13 @@ def getIntegrationTime(noise_delta_r : float) -> int:
         The suggested integration time in seconds.
     """
     if noise_delta_r > 91e-4:
-        return 100000
+        return 10000
     elif noise_delta_r >= 9e-4:
-        return 200000
+        return 20000
     elif noise_delta_r > 1e-4:
-        return 400000
+        return 40000
     else:  # Handles the case for approximately 1e-4 and smaller
-        return 600000
+        return 60000
 
 def getTauLimits(noise):
     # For a system of size 64, approximately np.log(tau_c) = 1.24*np.log(noise) - 10 or tau_c = 10^(-0.1) noise**1.24
