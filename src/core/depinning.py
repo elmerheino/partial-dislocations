@@ -2,6 +2,7 @@ import fcntl
 import json
 import pickle
 import time
+from matplotlib import pyplot as plt
 import numpy as np
 import multiprocessing as mp
 from functools import partial
@@ -9,6 +10,7 @@ from src.core.partialDislocation import PartialDislocationsSimulation
 from src.core.singleDislocation import DislocationSimulation
 from pathlib import Path
 import hashlib
+import csv
 
 class Depinning(object):
 
@@ -444,7 +446,7 @@ class DepinningSingle(Depinning):
                         cLT1=1, rtol=1e-8
                 ):
 
-        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, d0, sequential, seed)
+        super().__init__(tau_min, tau_max, points, time, dt, cores, folder_name, deltaR, bigB, smallB, mu, bigN, length, None, sequential, seed)
         self.cLT1 = cLT1
         self.rtol = rtol
 
@@ -524,28 +526,44 @@ class DepinningSingle(Depinning):
         
         # return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
     
+    def mp_function(self, tauExt):
+        sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
+                        mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
+                        dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
+        print(f"External force is {tauExt}")
+        shape, success = sim.relax_w_FIRE()
+        return success, shape
+
     def findCriticalForceWithFIRE(self):
         res = {
-            'tau_ext' : list(),
+            'tau_ext' : self.stresses,
             'converged' : list(),
             'shapes' : list()
         }
-        for tauExt in self.stresses:
-            sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
-                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
-                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
-            print(f"External force is {tauExt}")
-            shape, success = sim.relax_w_FIRE()
-            res['tau_ext'].append(tauExt)
-            res['converged'].append(success)
-            res['shapes'].append(shape)
+        ## This is the sequential implementation, keeping it here just in case
+        # for tauExt in self.stresses:
+        #     sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
+        #                             mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
+        #                             dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
+        #     print(f"External force is {tauExt}")
+        #     shape, success = sim.relax_w_FIRE()
+        #     res['tau_ext'].append(tauExt)
+        #     res['converged'].append(success)
+        #     res['shapes'].append(shape)
+
+        with mp.Pool(self.cores) as pool:
+            results = pool.map(partial(DepinningSingle.mp_function, self), self.stresses)
+            successes = [i[0] for i in results]
+            shapes = [i[1] for i in results]
+            res['converged'] = successes
+            res['shapes'] = shapes
         
         index = np.argmax( ~(np.array(res['converged'])) )
 
         tau_c = res['tau_ext'][index]
         shape = res['shapes'][index]
 
-        return tau_c, shape
+        return tau_c, shape, res
 
     def getParameteters(self):
         parameters = np.array([
@@ -641,12 +659,43 @@ class DepinningSingle(Depinning):
         with open(dump_path, "wb") as fp:
             pickle.dump(self.results, fp)
 
-if __name__ == "__main__":
-    N = 32
-    L = 32
-    d0 = 10
+class NoiseData(object):
+    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, dt=0.1, points=20):
+        self.N = N
+        self.L = L
+        self.cores = cores
+        self.folder_name = folder_name
+        self.seed = seed
+        self.time = time
+        self.dt = dt
 
-    depinning = DepinningSingle(0, 0.01, 10, 1000, 0.1, 10, "remove_me", 0.01, 0, N, L)
-    tau_c, shape = depinning.findCriticalForceWithFIRE()
-    print(f"Critical force is {tau_c}")
+    def noise_tauc_FIRE(self, rmin, rmax, points):
+
+        data = list()
+        for deltaR in np.logspace(rmin, rmax, points):
+            tau_c_guess = deltaR
+            depinning = DepinningSingle(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
+                                        deltaR=deltaR, seed=0, bigN=self.N, length=self.L)
+            tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
+            data.append((deltaR, tau_c))
+        
+        return data
+    
+    def save_data(self, data, folder):
+        paath = Path(folder).joinpath(f"noise_tauc_data_l-{self.L}-s-{self.seed}.csv")
+        paath.parent.mkdir(exist_ok=True, parents=True)
+        with open(paath, 'w', newline='') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerow(['deltaR', 'tau_c'])  # Write header
+            csvwriter.writerows(data)  # Write data rows
+    
+    def do_all_steps(self, rmin, rmax, rpoints, save_folder):
+        data = self.noise_tauc_FIRE(rmin, rmax, rpoints)
+        self.save_data(data, save_folder)
+
+if __name__ == "__main__":
+
+    tauc_vs_deltaR = NoiseData(64, 64, 10, seed=0)
+    tauc_vs_deltaR.do_all_steps(-4, 0, 20, "debug/6-9-dataa")
+
     pass
