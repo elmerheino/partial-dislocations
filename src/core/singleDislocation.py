@@ -192,7 +192,7 @@ class DislocationSimulation(Simulation):
 
         noise_force = np.array([self.splines[i](h[i]) for i in range(self.bigN)])
 
-        return line_tension_force + noise_force
+        return line_tension_force + noise_force + self.tauExt
 
     def relax_w_FIRE(self):
         """
@@ -244,7 +244,7 @@ class DislocationSimulation(Simulation):
                 break
         else:
             print("⚠️ Maximum steps reached without convergence.")
-            return None
+            return h, success
 
         return h, success
     

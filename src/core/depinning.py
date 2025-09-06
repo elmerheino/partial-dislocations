@@ -437,7 +437,7 @@ class DepinningPartial(Depinning):
 
 class DepinningSingle(Depinning):
 
-    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float, seed=None, bigN=1024, length=1024, d0=39, sequential=False,
+    def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float, seed=None, bigN=1024, length=1024, sequential=False,
                         bigB=1,
                         smallB=1,    # b^2 = a^2 / 2 = 1
                         mu=1,
@@ -524,6 +524,29 @@ class DepinningSingle(Depinning):
         
         # return velocities, l_ranges[0], w_avgs, y_last, v_cms, params
     
+    def findCriticalForceWithFIRE(self):
+        res = {
+            'tau_ext' : list(),
+            'converged' : list(),
+            'shapes' : list()
+        }
+        for tauExt in self.stresses:
+            sim = DislocationSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
+                                    mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, 
+                                    dt=self.dt, time=self.time, cLT1=self.cLT1, seed=self.seed, rtol=self.rtol)
+            print(f"External force is {tauExt}")
+            shape, success = sim.relax_w_FIRE()
+            res['tau_ext'].append(tauExt)
+            res['converged'].append(success)
+            res['shapes'].append(shape)
+        
+        index = np.argmax( ~(np.array(res['converged'])) )
+
+        tau_c = res['tau_ext'][index]
+        shape = res['shapes'][index]
+
+        return tau_c, shape
+
     def getParameteters(self):
         parameters = np.array([
             self.bigN, self.length, self.time, self.dt,
@@ -623,7 +646,7 @@ if __name__ == "__main__":
     L = 32
     d0 = 10
 
-    depinning = DepinningPartial(0, 2, 10, 1000, 0.1, 10, "remove_me", 1, None, N, L, d0)
-    depinning.run()
-    depinning.dump_res_to_pickle("remove_me/depinning-pickle-dumps/")
+    depinning = DepinningSingle(0, 0.01, 10, 1000, 0.1, 10, "remove_me", 0.01, 0, N, L)
+    tau_c, shape = depinning.findCriticalForceWithFIRE()
+    print(f"Critical force is {tau_c}")
     pass
