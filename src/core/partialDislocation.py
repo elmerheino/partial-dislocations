@@ -335,8 +335,8 @@ class PartialDislocationsSimulation(Simulation):
         noise_force1 = self.tau(h1)
         noise_force2 = self.tau(h2)
 
-        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2)
-        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2)
+        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2) + self.tauExt
+        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2) + self.tauExt
 
         return force1_tot, force2_tot
 

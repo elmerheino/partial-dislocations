@@ -351,6 +351,36 @@ class DepinningPartial(Depinning):
     def getStresses(self):
         return self.stresses
     
+    def mp_function(self, tauExt):
+        sim = PartialDislocationsSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
+                        mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, b_p=self.b_p, d0=self.d0,
+                        dt=self.dt, time=self.time, cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
+        print(f"External force is {tauExt}")
+        h1, h2, success = sim.relax_w_FIRE()
+        shape = (h1,h2)
+        return success, shape
+
+    def findCriticalForceWithFIRE(self):
+        res = {
+            'tau_ext' : self.stresses,
+            'converged' : list(),
+            'shapes' : list()
+        }
+
+        with mp.Pool(self.cores) as pool:
+            results = pool.map(partial(DepinningPartial.mp_function, self), self.stresses)
+            successes = [i[0] for i in results]
+            shapes = [i[1] for i in results]
+            res['converged'] = successes
+            res['shapes'] = shapes
+        
+        index = np.argmax( ~(np.array(res['converged'])) )
+
+        tau_c = res['tau_ext'][index]
+        shape = res['shapes'][index]
+
+        return tau_c, shape, res
+    
     def save_results(self, folder_path):
         """
         Saves the results in a directeory structure of files and folders.
@@ -660,7 +690,7 @@ class DepinningSingle(Depinning):
             pickle.dump(self.results, fp)
 
 class NoiseData(object):
-    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, dt=0.1, points=20):
+    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, dt=0.1, points=20, d0=None):
         self.N = N
         self.L = L
         self.cores = cores
@@ -668,9 +698,9 @@ class NoiseData(object):
         self.seed = seed
         self.time = time
         self.dt = dt
+        self.d0 = d0
 
     def noise_tauc_FIRE(self, rmin, rmax, points):
-
         data = list()
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
@@ -678,7 +708,16 @@ class NoiseData(object):
                                         deltaR=deltaR, seed=0, bigN=self.N, length=self.L)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
             data.append((deltaR, tau_c))
-        
+        return data
+    
+    def noise_tauc_FIRE_partial(self, rmin, rmax, points):
+        data = list()
+        for deltaR in np.logspace(rmin, rmax, points):
+            tau_c_guess = deltaR
+            depinning = DepinningPartial(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
+                                        deltaR=deltaR, seed=0, bigN=self.N, length=self.L, d0=self.d0)
+            tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
+            data.append((deltaR, tau_c))
         return data
     
     def save_data(self, data, folder):
@@ -692,10 +731,14 @@ class NoiseData(object):
     def do_all_steps(self, rmin, rmax, rpoints, save_folder):
         data = self.noise_tauc_FIRE(rmin, rmax, rpoints)
         self.save_data(data, save_folder)
+    
+    def do_all_steps_partial(self, rmin, rmax, rpoints, save_folder):
+        data = self.noise_tauc_FIRE_partial(rmin, rmax, rpoints)
+        self.save_data(data, save_folder)
 
 if __name__ == "__main__":
 
     tauc_vs_deltaR = NoiseData(64, 64, 10, seed=0)
-    tauc_vs_deltaR.do_all_steps(-4, 0, 20, "debug/6-9-dataa")
+    tauc_vs_deltaR.do_all_steps_partial(-4, 0, 20, "debug/6-9-dataa")
 
     pass
