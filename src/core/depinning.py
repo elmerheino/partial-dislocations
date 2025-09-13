@@ -702,26 +702,31 @@ class NoiseData(object):
 
     def noise_tauc_FIRE(self, rmin, rmax, points):
         data = list()
+        extra_infos = list()
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
             depinning = DepinningSingle(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
                                         deltaR=deltaR, seed=0, bigN=self.N, length=self.L)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
             data.append((deltaR, tau_c))
-        return data
+            extra_infos.append(extra_info)
+        return data, extra_infos
     
     def noise_tauc_FIRE_partial(self, rmin, rmax, points):
         data = list()
+        extra_infos = list()
+
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
             depinning = DepinningPartial(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
                                         deltaR=deltaR, seed=0, bigN=self.N, length=self.L, d0=self.d0)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
             data.append((deltaR, tau_c))
-        return data
+            extra_infos.append(extra_info)
+        return data, extra_infos
     
     def save_data(self, data, folder):
-        paath = Path(folder).joinpath(f"noise_tauc_data_l-{self.L}-s-{self.seed}.csv")
+        paath = Path(folder).joinpath(f"noise_tauc_data_l-{self.L}-s-{self.seed}-d0-{self.d0}.csv")
         paath.parent.mkdir(exist_ok=True, parents=True)
         with open(paath, 'w', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)
@@ -729,12 +734,31 @@ class NoiseData(object):
             csvwriter.writerows(data)  # Write data rows
     
     def do_all_steps(self, rmin, rmax, rpoints, save_folder):
-        data = self.noise_tauc_FIRE(rmin, rmax, rpoints)
-        self.save_data(data, save_folder)
+        data, extra_infos = self.noise_tauc_FIRE(rmin, rmax, rpoints)
+
+        path = Path(save_folder).joinpath("force_data")
+        path.mkdir(exist_ok=True, parents=True)
+        self.save_data(data, path)
+
+        path1 = Path(save_folder).joinpath(f"shape_data/extra_info_dump-l-{self.L}-s-{self.seed}.pickle")
+        path1.parent.mkdir(exist_ok=True, parents=True)
+
+        with open(path1, "wb") as fp:
+            pickle.dump(extra_infos, fp)
     
     def do_all_steps_partial(self, rmin, rmax, rpoints, save_folder):
-        data = self.noise_tauc_FIRE_partial(rmin, rmax, rpoints)
-        self.save_data(data, save_folder)
+        data, extra_infos = self.noise_tauc_FIRE_partial(rmin, rmax, rpoints)
+
+        path = Path(save_folder).joinpath("force_data")
+        path.mkdir(exist_ok=True, parents=True)
+        self.save_data(data, path)
+
+        path1 = Path(save_folder).joinpath(f"shape_data/extra_info_dump-l-{self.L}-s-{self.seed}-d0-{self.d0}.pickle")
+        path1.parent.mkdir(exist_ok=True, parents=True)
+
+        with open(path1, "wb") as fp:
+            pickle.dump(extra_infos, fp)
+
 
 if __name__ == "__main__":
 

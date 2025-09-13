@@ -4,7 +4,7 @@
 #SBATCH --error=fire_critical_force_%A_%a.err
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=10
-#SBATCH --mem=8G
+#SBATCH --mem=2G
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=elmer.heino@aalto.fi
 #SBATCH --array=1-10
@@ -15,22 +15,24 @@ module load scicomp-python-env
 
 N=$1
 L=$1
+D0=$3
 CORES=10
-FOLDER_NAME=$2
+FOLDER_NAME=$2                  # Unused variable, completely irrelevant, still must be specified.
 SEED=${SLURM_ARRAY_TASK_ID}
 TIME=1000.0
 DT=0.01
 POINTS=50
 RMIN=-4.0
 RMAX=0
-SAVE_FOLDER=${FOLDER_NAME}/simulation_backups
+SAVE_FOLDER=${FOLDER_NAME}      # Save folder is where all the data is saved
 
 # Run the script
 srun python3 ../criticalForceUsingFIRE.py \
     --N $N \
     --L $L \
     --cores $CORES \
-    --folder_name $FOLDER_NAME \
+    --folder_name ${FOLDER_NAME}/backups \
+    --d0 $D0 \
     --seed $SEED \
     --time $TIME \
     --dt $DT \
