@@ -719,7 +719,7 @@ class NoiseData(object):
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
             depinning = DepinningPartial(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
-                                        deltaR=deltaR, seed=0, bigN=self.N, length=self.L, d0=self.d0)
+                                        deltaR=deltaR, seed=0, bigN=self.N, length=self.L, d0=self.d0, c_gamma=0.3)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
             data.append((deltaR, tau_c))
             extra_infos.append(extra_info)

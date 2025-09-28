@@ -332,11 +332,11 @@ class PartialDislocationsSimulation(Simulation):
 
         # 2. Quenched Noise Force (from splines)
 
-        noise_force1 = self.tau(h1)
-        noise_force2 = self.tau(h2)
+        noise_force1 = self.tau(h1)*self.b_p/self.smallB
+        noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
-        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2) + self.tauExt
-        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2) + self.tauExt
+        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2)*self.c_gamma/self.cLT1 + self.tauExt*(1/2)
+        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2)*self.c_gamma/self.cLT2 + self.tauExt*(1/2)
 
         return force1_tot, force2_tot
 
