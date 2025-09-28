@@ -319,24 +319,33 @@ class PartialDislocationsSimulation(Simulation):
         Calculates forces using Fourier method for line tension and spline derivatives for noise.
         """
         # 1. Line Tension Force of first partial (via Fourier Domain)
+
+        line_tension_prefactor = 1
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h1_k = rfft(h1)
         laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
-        line_tension_force1 = self.cLT1*self.mu*(self.smallB**2) * irfft(laplacian_k1, n=self.bigN)
+        line_tension_force1 = line_tension_prefactor(self.b_p/self.smallB)**2 * irfft(laplacian_k1, n=self.bigN)
 
         # 2. Line tension of the second partial
+    
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h2_k = rfft(h2)
         laplacian_k2 = -(k**2) * h2_k         # Second derivative in Fourier space
-        line_tension_force2 = self.cLT1*self.mu*(self.smallB**2) * irfft(laplacian_k2, n=self.bigN)
+        line_tension_force2 = line_tension_prefactor*(self.b_p/self.smallB)**2 * irfft(laplacian_k2, n=self.bigN)
 
         # 2. Quenched Noise Force (from splines)
 
         noise_force1 = self.tau(h1)*self.b_p/self.smallB
         noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
-        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2)*self.c_gamma/self.cLT1 + self.tauExt*(1/2)
-        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2)*self.c_gamma/self.cLT2 + self.tauExt*(1/2)
+        interaction_prefactor = 0.3 # This is the C_gamma/C_LT
+        interaction_force1 = self.force1(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+        interaction_force2 = self.force2(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+
+        external_force = self.tauExt*(8)**(-1/2)
+
+        force1_tot = line_tension_force1 + noise_force1 + interaction_force1 + external_force
+        force2_tot = line_tension_force2 + noise_force2 + interaction_force2 + external_force
 
         return force1_tot, force2_tot
 
