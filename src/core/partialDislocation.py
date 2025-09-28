@@ -324,7 +324,7 @@ class PartialDislocationsSimulation(Simulation):
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h1_k = rfft(h1)
         laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
-        line_tension_force1 = line_tension_prefactor(self.b_p/self.smallB)**2 * irfft(laplacian_k1, n=self.bigN)
+        line_tension_force1 = line_tension_prefactor*(self.b_p/self.smallB)**2 * irfft(laplacian_k1, n=self.bigN)
 
         # 2. Line tension of the second partial
     
@@ -342,7 +342,7 @@ class PartialDislocationsSimulation(Simulation):
         interaction_force1 = self.force1(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
         interaction_force2 = self.force2(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
 
-        external_force = self.tauExt*(8)**(-1/2)
+        external_force = self.tauExt*8**(-1/2)
 
         force1_tot = line_tension_force1 + noise_force1 + interaction_force1 + external_force
         force2_tot = line_tension_force2 + noise_force2 + interaction_force2 + external_force
