@@ -690,23 +690,23 @@ class DepinningSingle(Depinning):
             pickle.dump(self.results, fp)
 
 class NoiseData(object):
-    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, dt=0.1, points=20, d0=None):
+    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, tau_points=20, d0=None):
         self.N = N
         self.L = L
         self.cores = cores
         self.folder_name = folder_name
         self.seed = seed
         self.time = time
-        self.dt = dt
         self.d0 = d0
+        self.tau_points = tau_points
 
     def noise_tauc_FIRE(self, rmin, rmax, points):
         data = list()
         extra_infos = list()
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
-            depinning = DepinningSingle(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
-                                        deltaR=deltaR, seed=0, bigN=self.N, length=self.L)
+            depinning = DepinningSingle(0, tau_c_guess*1.3, self.tau_points, 1000, 0.1, cores=self.cores, folder_name="remove_me", 
+                                        deltaR=deltaR, seed=self.seed, bigN=self.N, length=self.L)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
             data.append((deltaR, tau_c))
             extra_infos.append(extra_info)
@@ -718,8 +718,8 @@ class NoiseData(object):
 
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
-            depinning = DepinningPartial(0, tau_c_guess*1.3, 20, 1000, 0.1, cores=10, folder_name="remove_me", 
-                                        deltaR=deltaR, seed=0, bigN=self.N, length=self.L, d0=self.d0, c_gamma=0.3)
+            depinning = DepinningPartial(0, tau_c_guess*1.3, self.tau_points, 1000, 0.1, cores=self.cores, folder_name="remove_me", 
+                                        deltaR=deltaR, seed=self.seed, bigN=self.N, length=self.L, d0=self.d0, c_gamma=0.3)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
             data.append((deltaR, tau_c))
             extra_infos.append(extra_info)
@@ -762,7 +762,5 @@ class NoiseData(object):
 
 if __name__ == "__main__":
 
-    tauc_vs_deltaR = NoiseData(64, 64, 10, seed=0)
+    tauc_vs_deltaR = NoiseData(8, 8, 10, seed=0, tau_points=40, d0=1)
     tauc_vs_deltaR.do_all_steps_partial(-4, 0, 20, "debug/6-9-dataa")
-
-    pass

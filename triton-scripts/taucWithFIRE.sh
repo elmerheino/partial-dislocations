@@ -25,7 +25,7 @@ POINTS=50
 RMIN=-4.0
 RMAX=0
 SAVE_FOLDER=${FOLDER_NAME}      # Save folder is where all the data is saved
-
+TAUPOINTS=100
 # Run the script
 srun python3 ../criticalForceUsingFIRE.py \
     --N $N \
@@ -39,4 +39,5 @@ srun python3 ../criticalForceUsingFIRE.py \
     --points $POINTS \
     --rmin $RMIN \
     --rmax $RMAX \
-    --save_folder $SAVE_FOLDER
+    --save_folder $SAVE_FOLDER \
+    --taupoints $TAUPOINTS
