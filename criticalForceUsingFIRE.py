@@ -27,7 +27,6 @@ def main():
         folder_name=args.folder_name,
         seed=args.seed,
         time=args.time,
-        points=args.points,
         d0=args.d0,
         tau_points=args.taupoints
     )
