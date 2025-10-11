@@ -7,6 +7,7 @@ from src.core.simulation import Simulation
 from scipy.integrate import solve_ivp
 import time
 from pathlib import Path
+from scipy.optimize import minimize
 class PartialDislocationsSimulation(Simulation):
 
     def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, d0, cLT1=1, cLT2=1, c_gamma=1,
@@ -320,7 +321,7 @@ class PartialDislocationsSimulation(Simulation):
         """
         # 1. Line Tension Force of first partial (via Fourier Domain)
 
-        line_tension_prefactor = 1
+        line_tension_prefactor = 1 # This is C_LT TODO: update f1 and f2 to follow the same convention.
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h1_k = rfft(h1)
         laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
@@ -338,7 +339,7 @@ class PartialDislocationsSimulation(Simulation):
         noise_force1 = self.tau(h1)*self.b_p/self.smallB
         noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
-        interaction_prefactor = 0.3 # This is the C_gamma/C_LT
+        interaction_prefactor = 0.3 # This is the C_gamma/C_LT TODO: update f1 and f2 to follow the same convention.
         interaction_force1 = self.force1(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
         interaction_force2 = self.force2(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
 
@@ -412,6 +413,42 @@ class PartialDislocationsSimulation(Simulation):
             print("⚠️ Maximum steps reached without convergence.")
             
         return h1, h2, success
+
+    def relax_w_gd(self):
+        h1_initial = self.y0[0]
+        h2_initial = self.y0[1]
+        
+        initial_guess = np.concatenate([h1_initial, h2_initial])
+
+        def objective_function(h_flat):
+            h1 = h_flat[:self.bigN]
+            h2 = h_flat[self.bigN:]
+            
+            force1, force2 = self.calculate_forces_FIRE(h1, h2)
+            
+            return np.sum(force1**2) + np.sum(force2**2)
+
+        print("🚀 Starting Gradient Descent relaxation...")
+        
+        result = minimize(
+            objective_function,
+            initial_guess,
+            method='trust-constr',
+            # method='CG',
+            options={'disp': True, 'gtol': 1e-7} # gtol is the tolerance for the gradient norm
+        )
+
+        if result.success:
+            print(f"✅ Gradient Descent Converged: {result.message}")
+        else:
+            print(f"⚠️ Gradient Descent did not converge: {result.message}")
+
+        # Extract the relaxed configurations
+        h_final = result.x
+        h1_relaxed = h_final[:self.bigN]
+        h2_relaxed = h_final[self.bigN:]
+
+        return h1_relaxed, h2_relaxed, result.success
 
     def getLineProfiles(self):
         """
@@ -622,11 +659,13 @@ if __name__ == "__main__":
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
         mu=1.0,             # Shear modulus
-        tauExt=0.1,          # External stress
+        tauExt=10,          # External stress
         d0=10,
         seed=10
     )
     fire_y1, fire_y2, success = sim.relax_w_FIRE()
+    gd_y1, gd_y2, success = sim.relax_w_gd()
+
     sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
     results = sim.getResultsAsDict()
@@ -635,6 +674,9 @@ if __name__ == "__main__":
     fig,ax = plt.subplots()
     ax.plot(fire_y1, label="Line 1 (FIRE) t=0", color='red')
     ax.plot(fire_y2, label="Line 2 (FIRE) t=0", color='red')
+
+    ax.plot(gd_y1, label="Line 1 (GD) t=0", color='red')
+    ax.plot(gd_y2, label="Line 2 (GD) t=0", color='red')
 
     ax.plot(firet100_y1, label="Line 1 t=100", color='blue')
     ax.plot(firet100_y2, label="Line 2 t=100", color='blue')

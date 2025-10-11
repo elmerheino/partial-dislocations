@@ -351,16 +351,21 @@ class DepinningPartial(Depinning):
     def getStresses(self):
         return self.stresses
     
-    def mp_function(self, tauExt):
+    def mp_function(self, tauExt, use_gd=False):
         sim = PartialDislocationsSimulation(deltaR=self.deltaR, bigB=self.bigB, smallB=self.smallB,
                         mu=self.mu, tauExt=tauExt, bigN=self.bigN, length=self.length, b_p=self.b_p, d0=self.d0,
                         dt=self.dt, time=self.time, cLT1=self.cLT1, cLT2=self.cLT2, seed=self.seed)
         print(f"External force is {tauExt}")
-        h1, h2, success = sim.relax_w_FIRE()
+
+        if use_gd:
+            h1, h2, success = sim.relax_w_gd()
+        else:
+            h1, h2, success = sim.relax_w_FIRE()
+
         shape = (h1,h2)
         return success, shape
 
-    def findCriticalForceWithFIRE(self):
+    def findCriticalForceWithFIRE(self, use_gd=False):
         res = {
             'tau_ext' : self.stresses,
             'converged' : list(),
@@ -368,7 +373,7 @@ class DepinningPartial(Depinning):
         }
 
         with mp.Pool(self.cores) as pool:
-            results = pool.map(partial(DepinningPartial.mp_function, self), self.stresses)
+            results = pool.map(partial(DepinningPartial.mp_function, self, use_gd=use_gd), self.stresses)
             successes = [i[0] for i in results]
             shapes = [i[1] for i in results]
             res['converged'] = successes
