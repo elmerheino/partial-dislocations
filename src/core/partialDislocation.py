@@ -139,19 +139,19 @@ class PartialDislocationsSimulation(Simulation):
 
     def weak_coupling(self, h1, h2):
         d_avg = np.mean(np.abs(h1 - h2))
-        return self.d0 / d_avg - 1
+        return (self.d0 / d_avg - 1)*(1/self.d0)
     
     def strong_coupling(self, h1, h2):
         d_avg = np.mean(np.abs(h1 - h2))
         d = np.abs(h1 - h2)
-        return (self.d0 - d)/d_avg
+        return (1/self.d0)*(self.d0 - d)/d_avg
 
     def force1(self, y1,y2):
-        factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
+        factor = (self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2
         return factor*self.weak_coupling(y1, y2)
 
     def force2(self, y1,y2):
-        factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
+        factor = -(self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2
         return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
 
     def f1(self, y1,y2, t):
@@ -340,8 +340,8 @@ class PartialDislocationsSimulation(Simulation):
         noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
         interaction_prefactor = 0.1 # This is the C_gamma/C_LT TODO: update f1 and f2 to follow the same convention.
-        interaction_force1 = self.force1(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
-        interaction_force2 = self.force2(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+        interaction_force1 = self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+        interaction_force2 = - self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
 
         external_force = self.tauExt*8**(-1/2)
 
