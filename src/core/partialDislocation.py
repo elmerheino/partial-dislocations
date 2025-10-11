@@ -339,7 +339,7 @@ class PartialDislocationsSimulation(Simulation):
         noise_force1 = self.tau(h1)*self.b_p/self.smallB
         noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
-        interaction_prefactor = 0.3 # This is the C_gamma/C_LT TODO: update f1 and f2 to follow the same convention.
+        interaction_prefactor = 0.1 # This is the C_gamma/C_LT TODO: update f1 and f2 to follow the same convention.
         interaction_force1 = self.force1(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
         interaction_force2 = self.force2(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
 
