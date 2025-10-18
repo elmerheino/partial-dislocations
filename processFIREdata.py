@@ -83,7 +83,7 @@ def process_shape_data(path_to_extra, path_to_force_data, partial=True):
 
     return organized_data
 
-def process_folder(path_p : str):
+def process_folder(path_p : str, partial=True):
     path_p = Path(path_p)
     save_path = path_p.joinpath("processed_data")
     save_path.mkdir(exist_ok=True, parents=True)
@@ -100,11 +100,11 @@ def process_folder(path_p : str):
 
 
     for pickle_path, csv_path in zip(pickle_files, csv_files):
-        processed_data = process_shape_data(pickle_path, csv_path)
+        processed_data = process_shape_data(pickle_path, csv_path, partial=partial)
         with open(save_path.joinpath(f"processed_data_{extract_sort_key(pickle_path)}.pickle"), "wb") as fp:
             pickle.dump(processed_data, fp)
 
-def collect_shapes(path_to_processed_data, output_file : Path):
+def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
     path_to_processed_data = Path(path_to_processed_data)
     collected_data = dict()
 
@@ -113,7 +113,10 @@ def collect_shapes(path_to_processed_data, output_file : Path):
         with open(data_paska, "rb") as fp:
             data = pickle.load(fp)
         
-        seed = data_paska.name.split("_")[2].split("-")[3]
+        if partial:
+            seed = data_paska.name.split("_")[2].split("-")[3]
+        else:
+            seed = data_paska.name.split("_")[2].split("-")[3].split('.')[0]
 
         for item in data:
             deltaR = item['deltaR']
@@ -134,11 +137,14 @@ def collect_shapes(path_to_processed_data, output_file : Path):
 
     h5file.close()
 
-def get_psd(noise_key='0.0885866790410082'):
+def get_psd(h5_file_path='results/5-10-vahemman-rpoints/partial/l-32-d-4/shapes.h5',noise_key=None):
     psds = list()
     
-    f = h5py.File("results/5-10-vahemman-rpoints/partial/l-32-d-4/shapes.h5", "r")
+    f = h5py.File(h5_file_path, "r")
     print(f.keys())
+
+    if type(noise_key) == type(None):
+        noise_key = list(f.keys())[0]
 
     for seed in f[noise_key].keys():
         dataset = f[noise_key][seed]
@@ -146,7 +152,7 @@ def get_psd(noise_key='0.0885866790410082'):
         heights = dataset[-1]
         force = dataset.attrs['tau_exts'][-1]
 
-        heights = np.mean(heights, axis=0)
+        # heights = np.mean(heights, axis=0)
 
         k = np.fft.fft(heights)
         fq = np.fft.fftfreq(len(k))
@@ -174,34 +180,40 @@ if __name__ == "__main__":
 
     if args.command == 'process':
         depinning_folder = args.main
-        for folder in Path(f"{depinning_folder}/partial").iterdir():
-            process_folder(folder)
 
-            for folder1 in folder.iterdir():
+        partial = True
 
-                collect_shapes(
-                    f"{folder1}/processed_data",
-                    f"{folder1}/shapes.h5"
-                    )
+        for folder in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
+            print(f"Processing folder {folder}")
+            process_folder(folder, partial=partial)
+
+        for folder1 in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
+
+            collect_shapes(
+                f"{folder1}/processed_data",
+                f"{folder1}/shapes.h5",
+                partial=partial
+                )
 
     elif args.command == 'plot':
         # The plotting part of the script will be executed.
         # No specific arguments needed for plot command based on current script structure.
-        psd = get_psd()
+        fig, ax = plt.subplots(figsize=(5,5))
 
-        plt.plot(psd, label="0.089")
-        plt.plot(get_psd('0.0001'), label="0.0001")
-        plt.plot(get_psd('0.0127427498570313'), label="0.013")
-        plt.plot(get_psd('1.0'), label='1.0')
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='1.0'), label="1.0")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.1389495494373137'), label="0.14")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.0001'), label="0.0001")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.01'), label="0.01")
+        
 
-        plt.yscale('log')
-        plt.xscale('log')
+        ax.set_yscale('log')
+        ax.set_xscale('log')
 
-        plt.xlabel('$k$')
-        plt.ylabel('PSD')
+        ax.set_xlabel('$k$')
+        ax.set_ylabel('PSD')
 
-        plt.tight_layout()
-        plt.legend()
-        plt.grid(True)
+        fig.tight_layout()
+        ax.legend()
+        ax.grid(True)
 
         plt.show()
