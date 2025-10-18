@@ -694,7 +694,7 @@ class DepinningSingle(Depinning):
         with open(dump_path, "wb") as fp:
             pickle.dump(self.results, fp)
 
-class NoiseData(object):
+class NoiseVsCriticalForce(object):
     def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, tau_points=20, d0=None):
         self.N = N
         self.L = L
@@ -767,5 +767,5 @@ class NoiseData(object):
 
 if __name__ == "__main__":
 
-    tauc_vs_deltaR = NoiseData(8, 8, 10, seed=0, tau_points=40, d0=1)
+    tauc_vs_deltaR = NoiseVsCriticalForce(8, 8, 10, seed=0, tau_points=40, d0=1)
     tauc_vs_deltaR.do_all_steps_partial(-4, 0, 20, "debug/6-9-dataa")

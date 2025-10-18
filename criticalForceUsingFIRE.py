@@ -1,5 +1,5 @@
 import argparse
-from src.core.depinning import NoiseData
+from src.core.depinning import NoiseVsCriticalForce
 
 def main():
     parser = argparse.ArgumentParser(description="Run FIRE critical force calculation with NoiseData.")
@@ -20,7 +20,7 @@ def main():
     
     args = parser.parse_args()
 
-    noise_data = NoiseData(
+    noise_data = NoiseVsCriticalForce(
         N=args.N,
         L=args.L,
         cores=args.cores,
