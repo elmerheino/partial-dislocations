@@ -433,8 +433,8 @@ class PartialDislocationsSimulation(Simulation):
         result = minimize(
             objective_function,
             initial_guess,
-            method='trust-constr',
-            # method='CG',
+            # method='trust-constr',
+            method='CG',
             options={'disp': True, 'gtol': 1e-7} # gtol is the tolerance for the gradient norm
         )
 
@@ -659,12 +659,15 @@ if __name__ == "__main__":
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
         mu=1.0,             # Shear modulus
-        tauExt=10,          # External stress
-        d0=10,
+        tauExt=0,          # External stress
+        d0=20,
         seed=10
     )
+
     fire_y1, fire_y2, success = sim.relax_w_FIRE()
     gd_y1, gd_y2, success = sim.relax_w_gd()
+
+    print(np.mean(gd_y1), np.mean(gd_y2))
 
     sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)

@@ -369,7 +369,8 @@ class DepinningPartial(Depinning):
         res = {
             'tau_ext' : self.stresses,
             'converged' : list(),
-            'shapes' : list()
+            'shapes' : list(),
+            'deltaR' : self.deltaR
         }
 
         with mp.Pool(self.cores) as pool:
@@ -573,7 +574,9 @@ class DepinningSingle(Depinning):
         res = {
             'tau_ext' : self.stresses,
             'converged' : list(),
-            'shapes' : list()
+            'shapes' : list(),
+            'deltaR' : self.deltaR,
+            'params' : self.getParameteters()
         }
         ## This is the sequential implementation, keeping it here just in case
         # for tauExt in self.stresses:
