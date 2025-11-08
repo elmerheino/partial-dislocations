@@ -125,6 +125,7 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
         
         if partial:
             seed = data_paska.name.split("_")[2].split("-")[3]
+            d0 = data_paska.name.split("-")[-1].split(".")[0]
         else:
             seed = data_paska.name.split("_")[2].split("-")[3].split('.')[0]
 
@@ -149,6 +150,45 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
 
             y1 = heights[-1][0]
             y2 = heights[-1][1]
+
+            # Integrate the shape further in time to obtain a time average
+            bigN = len(heights[-1][0])
+            b_p = 0.5773499805
+            sim = PartialDislocationsSimulation(bigN, bigN, 5, 0.01, deltaR, 1,1, b_p, 1, tau_exts[-1], int(d0), c_gamma=0.3, 
+                                                    seed=int(seed)
+                                                )
+            sim.setInitialY0Config(y1, y2, 0)
+            results = sim.run_in_one_go()
+
+            shapes = np.array(results.y.reshape(2, bigN, -1))
+            times = np.array(results.t)
+
+            integration_dataset = group_seed.create_dataset("integrated shapes", data=shapes)
+            integration_dataset.attrs['times'] = times
+
+            y1_values_over_time = shapes[0]
+            y2_values_over_time = shapes[1]
+
+            psd_y1s, psd_y2s, psd_cms = list(), list(), list()
+            for y1_i, y2_i in zip(y1_values_over_time, y2_values_over_time):
+                psd_y1_i, fq_y1_i = power_spectral_desity(y1_i)
+                psd_y2_i, fq_y2_i = power_spectral_desity(y2_i)
+                cm = (y1_i + y2_i)/2
+                psd_cm_i,fq_cm_i = power_spectral_desity(cm)
+
+                psd_y1s.append(psd_y1_i)
+                psd_y2s.append(psd_y2_i)
+                psd_cms.append(psd_cm_i)
+
+            psd_y1s, psd_y2s, psd_cms = np.array(psd_y1s), np.array(psd_y2s), np.array(psd_cms)
+
+            psd_y1_mean = np.mean(psd_y1s, axis=0)
+            psd_y2_mean = np.mean(psd_y2s, axis=0)
+            psd_cm_mean = np.mean(psd_cms, axis=0)
+
+            group_seed.create_dataset("psd-y1-mean", data=psd_y1_mean)
+            group_seed.create_dataset("psd-y2-mean", data=psd_y2_mean)
+            group_seed.create_dataset("psd-cm-mean", data=psd_cm_mean)
 
             cm = (y1 + y2)/2
 
