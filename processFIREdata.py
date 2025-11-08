@@ -35,99 +35,6 @@ def power_spectral_desity(heights):
 
     return psd, fq
 
-def get_psd(h5_file_path='../results/5-10-vahemman-rpoints/partial/l-32-d-4/shapes.h5',noise_key=None, d0=2):
-    psds = list()
-    
-    f = h5py.File(h5_file_path, "r")
-
-    if type(noise_key) == type(None):
-        noise_key = list(f.keys())[0]
-
-    for seed in f[noise_key].keys():
-        dataset = f[noise_key][seed]
-
-        heights = dataset[-1]
-
-        n = heights[0].size
-
-        force = dataset.attrs['tau_exts'][-1]
-
-        # Integrate the line shape further in time
-
-        partial_dislocation = PartialDislocationsSimulation(n, n, 10, 0.01, float(noise_key), 1,1,
-                 0.5773499805, 1, force, d0, seed=int(seed))
-        partial_dislocation.setInitialY0Config(np.array(heights[0]), np.array(heights[1]))
-        partial_dislocation.run_in_chunks("remove_me", 1, shape_save_freq=10)
-
-        y1_profiles, y2_profiles = partial_dislocation.getSelectedYshapes()
-
-        # Compute the PSD for each line profile at the time steps that were saved
-        psds_over_time = list()
-        fq_i = 0
-        for y1_i, y2_i in zip(y1_profiles, y2_profiles):
-            shape1_i = y1_i[1:]
-            shape2_i = y2_i[1:]
-
-            cm = (shape1_i + shape2_i)/2
-
-            psd_i, fq_i = power_spectral_desity(cm)
-            fq_i = fq_i
-            psds_over_time.append(psd_i)
-        
-        # Take the time average of the PSDs
-        psds_over_time = np.array(psds_over_time)
-        psd = np.mean(psds_over_time, axis=0)
-
-        psds.append(psd)
-    
-    psds = np.array(psds)
-    psd = np.mean(psds, axis=0)
-    return {'psd' : psd, 'fq' : fq_i}
-
-
-def get_psd_perfect(h5_file_path='../results/5-10-vahemman-rpoints/perfect/l-256/shapes.h5',noise_key=None,d0=0):
-    psds = list()
-    
-    f = h5py.File(h5_file_path, "r")
-
-    if type(noise_key) == type(None):
-        noise_key = list(f.keys())[0]
-
-    for seed in f[noise_key].keys():
-        dataset = f[noise_key][seed]
-
-        heights = dataset[-1]
-
-        n = heights.size
-
-        force = dataset.attrs['tau_exts'][-1]
-
-        # Integrate the line shape further in time
-
-        dislocation = DislocationSimulation(n, n, 10, 0.01, float(noise_key), 1,1, 1, force, 1, seed=int(seed))
-        dislocation.setInitialY0Config(np.array(heights), 0)
-        dislocation.run_in_chunks("remove_me", 1, shape_save_freq=10)
-
-        y_profiles = dislocation.getSelectedYshapes()
-
-        # Compute the PSD for each line profile at the time steps that were saved
-        psds_over_time = list()
-        fq_i = 0
-        for y_i in y_profiles:
-            psd_i, fq_i = power_spectral_desity(y_i)
-            fq_i = fq_i
-            psds_over_time.append(psd_i)
-        
-        # Take the time average of the PSDs
-        psds_over_time = np.array(psds_over_time)
-        psd = np.mean(psds_over_time, axis=0)
-
-        psds.append(psd)
-    
-    psds = np.array(psds)
-    psd = np.mean(psds, axis=0)
-    return {'psd' : psd, 'fq' : fq_i}
-
 def process_shape_data(path_to_extra, path_to_force_data, partial=True):
     with open(path_to_extra, "rb") as fp:
         data = pickle.load(fp)
@@ -277,10 +184,6 @@ if __name__ == "__main__":
     process_parser = subparsers.add_parser('process', help='Process raw simulation data.')
     process_parser.add_argument("main", type=str, help="Path to the main data folder.")
 
-    # Create the parser for the "plot" command
-    plot_parser = subparsers.add_parser('plot', help='Plot the processed data.')
-    # This command currently takes no arguments as the paths are hardcoded in the plotting section
-
     args = parser.parse_args()
 
     if args.command == 'process':
@@ -299,34 +202,3 @@ if __name__ == "__main__":
                 f"{folder1}/shapes.h5",
                 partial=partial
                 )
-
-    elif args.command == 'plot':
-        # The plotting part of the script will be executed.
-        # No specific arguments needed for plot command based on current script structure.
-        fig, ax = plt.subplots(figsize=(5,5))
-
-        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='1.0'), label="1.0")
-        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.1389495494373137'), label="0.14")
-        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.0001'), label="0.0001")
-        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.01'), label="0.01")
-        
-
-        ax.set_yscale('log')
-        ax.set_xscale('log')
-
-        ax.set_xlabel('$k$')
-        ax.set_ylabel('PSD')
-
-        fig.tight_layout()
-        ax.legend()
-        ax.grid(True)
-
-        plt.show()
-
-# if __name__ == "__main__":
-#     psd = get_psd("results/2025-10-27-depinning-dR--3-1/partial/l-32-d-8/shapes.h5")
-#     plt.plot(psd)
-#     plt.yscale('log')
-#     plt.xscale('log')
-#     plt.grid(True)
-#     plt.show()
