@@ -85,7 +85,7 @@ def get_psd(h5_file_path='../results/5-10-vahemman-rpoints/partial/l-32-d-4/shap
     return {'psd' : psd, 'fq' : fq_i}
 
 
-def get_psd_perfect(h5_file_path='../results/5-10-vahemman-rpoints/perfect/l-256/shapes.h5',noise_key=None, d0=2):
+def get_psd_perfect(h5_file_path='../results/5-10-vahemman-rpoints/perfect/l-256/shapes.h5',noise_key=None,d0=0):
     psds = list()
     
     f = h5py.File(h5_file_path, "r")
@@ -104,7 +104,7 @@ def get_psd_perfect(h5_file_path='../results/5-10-vahemman-rpoints/perfect/l-256
 
         # Integrate the line shape further in time
 
-        dislocation = DislocationSimulation(n, n, 10, 0.01, float(noise_key), 1,1, 1, force, d0, seed=int(seed))
+        dislocation = DislocationSimulation(n, n, 10, 0.01, float(noise_key), 1,1, 1, force, 1, seed=int(seed))
         dislocation.setInitialY0Config(np.array(heights), 0)
         dislocation.run_in_chunks("remove_me", 1, shape_save_freq=10)
 
@@ -232,72 +232,101 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
                 continue
 
             group_deltaR = h5file.require_group(str(deltaR))
-            shape_dataset = group_deltaR.create_dataset(seed, data=heights)
+            group_seed = group_deltaR.require_group(seed)
+
+            shape_dataset = group_seed.create_dataset("heights", data=heights)
 
             shape_dataset.attrs['seed'] = int(seed)
             shape_dataset.attrs['deltaR'] = deltaR
             shape_dataset.attrs['tau_exts'] = tau_exts
 
+            y1 = heights[-1][0]
+            y2 = heights[-1][1]
+
+            cm = (y1 + y2)/2
+
+            psd_critical, fq_critical = power_spectral_desity(cm)
+            psd_y1, fq_y1 = power_spectral_desity(y1)
+            psd_y2, fq_y2 = power_spectral_desity(y2)
+
+            psd_dataset_critical = group_seed.create_dataset("psd_critical", data=psd_critical)
+
+            psd_dataset_critical.attrs['seed'] = int(seed)
+            psd_dataset_critical.attrs['deltaR'] = deltaR
+            psd_dataset_critical.attrs['dft-fqns'] = fq_critical
+
+            psd_dataset_y1 = group_seed.create_dataset("psd_y1", data=psd_y1)
+
+            psd_dataset_y1.attrs['seed'] = int(seed)
+            psd_dataset_y1.attrs['deltaR'] = deltaR
+            psd_dataset_y1.attrs['dft-fqns'] = fq_y1
+
+            psd_dataset_y2 = group_seed.create_dataset("psd_y2", data=psd_y2)
+
+            psd_dataset_y2.attrs['seed'] = int(seed)
+            psd_dataset_y2.attrs['deltaR'] = deltaR
+            psd_dataset_y2.attrs['dft-fqns'] = fq_y2
+
     h5file.close()
 
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(description="Process and plot dislocation data.")
-#     subparsers = parser.add_subparsers(dest='command', help='Available commands', required=True)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process and plot dislocation data.")
+    subparsers = parser.add_subparsers(dest='command', help='Available commands', required=True)
 
-#     # Create the parser for the "process" command
-#     process_parser = subparsers.add_parser('process', help='Process raw simulation data.')
-#     process_parser.add_argument("main", type=str, help="Path to the main data folder.")
+    # Create the parser for the "process" command
+    process_parser = subparsers.add_parser('process', help='Process raw simulation data.')
+    process_parser.add_argument("main", type=str, help="Path to the main data folder.")
 
-#     # Create the parser for the "plot" command
-#     plot_parser = subparsers.add_parser('plot', help='Plot the processed data.')
-#     # This command currently takes no arguments as the paths are hardcoded in the plotting section
+    # Create the parser for the "plot" command
+    plot_parser = subparsers.add_parser('plot', help='Plot the processed data.')
+    # This command currently takes no arguments as the paths are hardcoded in the plotting section
 
-#     args = parser.parse_args()
+    args = parser.parse_args()
 
-#     if args.command == 'process':
-#         depinning_folder = args.main
+    if args.command == 'process':
+        depinning_folder = args.main
 
-#         partial = True
+        partial = True
 
-#         for folder in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
-#             print(f"Processing folder {folder}")
-#             process_folder(folder, partial=partial)
+        for folder in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
+            print(f"Processing folder {folder}")
+            process_folder(folder, partial=partial)
 
-#         for folder1 in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
+        for folder1 in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
 
-#             collect_shapes(
-#                 f"{folder1}/processed_data",
-#                 f"{folder1}/shapes.h5",
-#                 partial=partial
-#                 )
+            collect_shapes(
+                f"{folder1}/processed_data",
+                f"{folder1}/shapes.h5",
+                partial=partial
+                )
 
-#     elif args.command == 'plot':
-#         # The plotting part of the script will be executed.
-#         # No specific arguments needed for plot command based on current script structure.
-#         fig, ax = plt.subplots(figsize=(5,5))
+    elif args.command == 'plot':
+        # The plotting part of the script will be executed.
+        # No specific arguments needed for plot command based on current script structure.
+        fig, ax = plt.subplots(figsize=(5,5))
 
-#         ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='1.0'), label="1.0")
-#         ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.1389495494373137'), label="0.14")
-#         ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.0001'), label="0.0001")
-#         ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.01'), label="0.01")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='1.0'), label="1.0")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.1389495494373137'), label="0.14")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.0001'), label="0.0001")
+        ax.plot(get_psd("results/11-10-pieni-c_gamma/perfect/l-128/shapes.h5", noise_key='0.01'), label="0.01")
         
 
-#         ax.set_yscale('log')
-#         ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xscale('log')
 
-#         ax.set_xlabel('$k$')
-#         ax.set_ylabel('PSD')
+        ax.set_xlabel('$k$')
+        ax.set_ylabel('PSD')
 
-#         fig.tight_layout()
-#         ax.legend()
-#         ax.grid(True)
+        fig.tight_layout()
+        ax.legend()
+        ax.grid(True)
 
-#         plt.show()
+        plt.show()
 
-if __name__ == "__main__":
-    psd = get_psd("results/2025-10-27-depinning-dR--3-1/partial/l-32-d-8/shapes.h5")
-    plt.plot(psd)
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.grid(True)
-    plt.show()
+# if __name__ == "__main__":
+#     psd = get_psd("results/2025-10-27-depinning-dR--3-1/partial/l-32-d-8/shapes.h5")
+#     plt.plot(psd)
+#     plt.yscale('log')
+#     plt.xscale('log')
+#     plt.grid(True)
+#     plt.show()
