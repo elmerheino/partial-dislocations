@@ -23,6 +23,8 @@ class PartialDislocationsSimulation(Simulation):
         self.d0 = d0                            # Initial distance separating the partials
         self.b_p = b_p
 
+        self.interaction_prefactor = 0.1
+
         self.y0 = np.vstack((
             np.ones(self.bigN, dtype=np.float64)*self.d0,     # y1
             np.zeros(self.bigN, dtype=np.float64)             # y2 ensure that in the beginning y1 > y2, meaning that y2 is the trailing partial
@@ -147,29 +149,33 @@ class PartialDislocationsSimulation(Simulation):
         return (1/self.d0)*(self.d0 - d)/d_avg
 
     def force1(self, y1,y2):
-        factor = (self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2
-        return factor*self.weak_coupling(y1, y2)
+        # factor = (self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2 # self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+        # return factor*self.weak_coupling(y1, y2)
+        return self.weak_coupling(y1, y2)*self.interaction_prefactor*(self.b_p/self.smallB)**2
 
     def force2(self, y1,y2):
-        factor = -(self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2
-        return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
+        # factor = -(self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2
+        # return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
+        return -self.weak_coupling(y1, y2)*self.interaction_prefactor*(self.b_p/self.smallB)**2
 
     def f1(self, y1,y2, t):
+        line_tension_prefactor = 1 # = self.cLT1*self.mu
         dy = ( 
-            self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.b_p*self.tau(y1) # The random stress term
-            + self.force1(y1, y2)   # Interaction force
-            + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) # The external stress term
-            ) * ( self.bigB/self.smallB )
+            line_tension_prefactor*(self.b_p/self.smallB)**2*self.secondDerivative(y1) # The gradient term # type: ignore
+            + (self.b_p/self.smallB)*self.tau(y1)              # The random stress term
+            + self.force1(y1, y2)                              # Interaction force
+            + ( 8**(-1/2) )*self.tau_ext(t)*np.ones(self.bigN) # The external stress term
+            )
 
         return dy
 
     def f2(self, y1,y2,t):
+        line_tension_prefactor = 1 # = self.cLT2*self.mu
         dy = ( 
-            self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
-            + self.b_p*self.tau(y2) 
+            line_tension_prefactor*(self.b_p/self.smallB)**2*self.secondDerivative(y2) 
+            + (self.b_p/self.smallB)*self.tau(y2) 
             + self.force2(y1, y2)
-            + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
+            + ( 8**(-1/2) )*self.tau_ext(t)*np.ones(self.bigN) )
 
         return dy
     
@@ -315,6 +321,13 @@ class PartialDislocationsSimulation(Simulation):
         
         return relaxed
     
+    def run_in_one_go(self):
+        t_evals = np.linspace(self.t0, self.time, int((self.time - self.t0) / self.dt) + 1)
+        sol = solve_ivp(self.rhs, [self.t0, self.time], self.y0.flatten(), method='RK45', 
+                t_eval=t_evals,
+                rtol=self.rtol)
+        return sol
+    
     def calculate_forces_FIRE(self, h1, h2):
         """
         Calculates forces using Fourier method for line tension and spline derivatives for noise.
@@ -339,7 +352,7 @@ class PartialDislocationsSimulation(Simulation):
         noise_force1 = self.tau(h1)*self.b_p/self.smallB
         noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
-        interaction_prefactor = 0.1 # This is the C_gamma/C_LT TODO: update f1 and f2 to follow the same convention.
+        interaction_prefactor = 0.1 # This is the C_gamma/C_LT
         interaction_force1 = self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
         interaction_force2 = - self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
 
