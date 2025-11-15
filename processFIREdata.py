@@ -8,6 +8,7 @@ import argparse
 import h5py
 from src.core.partialDislocation import PartialDislocationsSimulation
 from src.core.singleDislocation import DislocationSimulation
+import multiprocessing as mp
 
 # Define roughness
 def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
@@ -116,6 +117,9 @@ def process_folder(path_p : str, partial=True):
 
 def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
     path_to_processed_data = Path(path_to_processed_data)
+    if not path_to_processed_data.is_dir():
+        return
+    
     collected_data = dict()
 
     h5file = h5py.File(output_file, "w")
@@ -148,73 +152,90 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
             shape_dataset.attrs['deltaR'] = deltaR
             shape_dataset.attrs['tau_exts'] = tau_exts
 
-            y1 = heights[-1][0]
-            y2 = heights[-1][1]
+            if partial:
+                y1 = heights[-1][0]
+                y2 = heights[-1][1]
+                # Integrate the shape further in time to obtain a time average
+                bigN = len(heights[-1][0])
+                b_p = 0.5773499805
+                sim = PartialDislocationsSimulation(bigN=bigN, length=bigN, time=10, dt=0.01, deltaR=deltaR, bigB=1,smallB=1, 
+                                                    b_p=b_p, mu=1, tauExt=tau_exts[-1], d0=int(d0), c_gamma=0.1, seed=int(seed))
+                sim.setInitialY0Config(y1, y2, 0)
+                results = sim.run_in_one_go()
 
-            # Integrate the shape further in time to obtain a time average
-            bigN = len(heights[-1][0])
-            b_p = 0.5773499805
-            sim = PartialDislocationsSimulation(bigN, bigN, 5, 0.01, deltaR, 1,1, b_p, 1, tau_exts[-1], int(d0), c_gamma=0.3, 
-                                                    seed=int(seed)
-                                                )
-            sim.setInitialY0Config(y1, y2, 0)
-            results = sim.run_in_one_go()
+                shapes = np.array(results.y.reshape(2, bigN, -1))
+                times = np.array(results.t)
 
-            shapes = np.array(results.y.reshape(2, bigN, -1))
-            times = np.array(results.t)
+                integration_dataset = group_seed.create_dataset("integrated shapes", data=shapes)
+                integration_dataset.attrs['times'] = times
 
-            integration_dataset = group_seed.create_dataset("integrated shapes", data=shapes)
-            integration_dataset.attrs['times'] = times
+                y1_values_over_time = shapes[0].T
+                y2_values_over_time = shapes[1].T
 
-            y1_values_over_time = shapes[0]
-            y2_values_over_time = shapes[1]
+                psd_y1s, psd_y2s, psd_cms = list(), list(), list()
+                for y1_i, y2_i in zip(y1_values_over_time, y2_values_over_time):
+                    psd_y1_i, fq_y1_i = power_spectral_desity(y1_i)
+                    psd_y2_i, fq_y2_i = power_spectral_desity(y2_i)
 
-            psd_y1s, psd_y2s, psd_cms = list(), list(), list()
-            for y1_i, y2_i in zip(y1_values_over_time, y2_values_over_time):
-                psd_y1_i, fq_y1_i = power_spectral_desity(y1_i)
-                psd_y2_i, fq_y2_i = power_spectral_desity(y2_i)
-                cm = (y1_i + y2_i)/2
-                psd_cm_i,fq_cm_i = power_spectral_desity(cm)
+                    cm = (y1_i + y2_i)/2
+                    psd_cm_i,fq_cm_i = power_spectral_desity(cm)
 
-                psd_y1s.append(psd_y1_i)
-                psd_y2s.append(psd_y2_i)
-                psd_cms.append(psd_cm_i)
+                    psd_y1s.append(psd_y1_i)
+                    psd_y2s.append(psd_y2_i)
+                    psd_cms.append(psd_cm_i)
 
-            psd_y1s, psd_y2s, psd_cms = np.array(psd_y1s), np.array(psd_y2s), np.array(psd_cms)
+                psd_y1s, psd_y2s, psd_cms = np.array(psd_y1s), np.array(psd_y2s), np.array(psd_cms)
 
-            psd_y1_mean = np.mean(psd_y1s, axis=0)
-            psd_y2_mean = np.mean(psd_y2s, axis=0)
-            psd_cm_mean = np.mean(psd_cms, axis=0)
+                psd_y1_mean = np.mean(psd_y1s, axis=0)
+                psd_y2_mean = np.mean(psd_y2s, axis=0)
+                psd_cm_mean = np.mean(psd_cms, axis=0)
 
-            group_seed.create_dataset("psd-y1-mean", data=psd_y1_mean)
-            group_seed.create_dataset("psd-y2-mean", data=psd_y2_mean)
-            group_seed.create_dataset("psd-cm-mean", data=psd_cm_mean)
+                group_seed.create_dataset("psd-y1-mean", data=psd_y1_mean)
+                group_seed.create_dataset("psd-y2-mean", data=psd_y2_mean)
+                group_seed.create_dataset("psd-cm-mean", data=psd_cm_mean)
 
-            cm = (y1 + y2)/2
+                cm = (y1 + y2)/2
 
-            psd_critical, fq_critical = power_spectral_desity(cm)
-            psd_y1, fq_y1 = power_spectral_desity(y1)
-            psd_y2, fq_y2 = power_spectral_desity(y2)
+                psd_critical, fq_critical = power_spectral_desity(cm)
+                psd_y1, fq_y1 = power_spectral_desity(y1)
+                psd_y2, fq_y2 = power_spectral_desity(y2)
 
-            psd_dataset_critical = group_seed.create_dataset("psd_critical", data=psd_critical)
+                psd_dataset_critical = group_seed.create_dataset("psd_critical", data=psd_critical)
 
-            psd_dataset_critical.attrs['seed'] = int(seed)
-            psd_dataset_critical.attrs['deltaR'] = deltaR
-            psd_dataset_critical.attrs['dft-fqns'] = fq_critical
+                psd_dataset_critical.attrs['seed'] = int(seed)
+                psd_dataset_critical.attrs['deltaR'] = deltaR
+                psd_dataset_critical.attrs['dft-fqns'] = fq_critical
 
-            psd_dataset_y1 = group_seed.create_dataset("psd_y1", data=psd_y1)
+                psd_dataset_y1 = group_seed.create_dataset("psd_y1", data=psd_y1)
 
-            psd_dataset_y1.attrs['seed'] = int(seed)
-            psd_dataset_y1.attrs['deltaR'] = deltaR
-            psd_dataset_y1.attrs['dft-fqns'] = fq_y1
+                psd_dataset_y1.attrs['seed'] = int(seed)
+                psd_dataset_y1.attrs['deltaR'] = deltaR
+                psd_dataset_y1.attrs['dft-fqns'] = fq_y1
 
-            psd_dataset_y2 = group_seed.create_dataset("psd_y2", data=psd_y2)
+                psd_dataset_y2 = group_seed.create_dataset("psd_y2", data=psd_y2)
 
-            psd_dataset_y2.attrs['seed'] = int(seed)
-            psd_dataset_y2.attrs['deltaR'] = deltaR
-            psd_dataset_y2.attrs['dft-fqns'] = fq_y2
+                psd_dataset_y2.attrs['seed'] = int(seed)
+                psd_dataset_y2.attrs['deltaR'] = deltaR
+                psd_dataset_y2.attrs['dft-fqns'] = fq_y2
+            else:
+                y = heights
+                bigN = len(heights)
+                sim = DislocationSimulation(bigN, bigN, 10, 0.01, deltaR, bigB=1, smallB=1, mu=1, tauExt=tau_exts[-1], 
+                                            cLT1=1, seed=int(seed))
+                sim.setInitialY0Config(y, 0)
+                
+                pds_critical, fq_critical = power_spectral_desity(y)
+                psd_dataset_critical_no_integration = group_seed.create_dataset("psd-crit-no-integration", data=pds_critical)
+                psd_dataset_critical_no_integration.attrs['fq'] = fq_critical
 
     h5file.close()
+
+def mp_helper(folder1):
+    collect_shapes(
+        f"{folder1}/processed_data",
+        f"{folder1}/shapes.h5",
+        partial=False
+        )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process and plot dislocation data.")
@@ -229,16 +250,11 @@ if __name__ == "__main__":
     if args.command == 'process':
         depinning_folder = args.main
 
-        partial = True
+        partial = False
 
-        for folder in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
-            print(f"Processing folder {folder}")
-            process_folder(folder, partial=partial)
+        # for folder in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
+        #     print(f"Processing folder {folder}")
+        #     process_folder(folder, partial=partial)
 
-        for folder1 in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
-
-            collect_shapes(
-                f"{folder1}/processed_data",
-                f"{folder1}/shapes.h5",
-                partial=partial
-                )
+        with mp.Pool(10) as pool:
+            pool.map(mp_helper, Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir())
