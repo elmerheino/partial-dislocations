@@ -9,6 +9,7 @@ import h5py
 from src.core.partialDislocation import PartialDislocationsSimulation
 from src.core.singleDislocation import DislocationSimulation
 import multiprocessing as mp
+from functools import partial
 
 # Define roughness
 def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
@@ -96,6 +97,9 @@ def process_shape_data(path_to_extra, path_to_force_data, partial=True):
 
 def process_folder(path_p : str, partial=True):
     path_p = Path(path_p)
+    if not path_p.is_dir():
+        return
+
     save_path = path_p.joinpath("processed_data")
     save_path.mkdir(exist_ok=True, parents=True)
 
@@ -119,8 +123,6 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
     path_to_processed_data = Path(path_to_processed_data)
     if not path_to_processed_data.is_dir():
         return
-    
-    collected_data = dict()
 
     h5file = h5py.File(output_file, "w")
     for data_paska in path_to_processed_data.iterdir():
@@ -217,24 +219,83 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
                 psd_dataset_y2.attrs['seed'] = int(seed)
                 psd_dataset_y2.attrs['deltaR'] = deltaR
                 psd_dataset_y2.attrs['dft-fqns'] = fq_y2
-            else:
-                y = heights
-                bigN = len(heights)
-                sim = DislocationSimulation(bigN, bigN, 10, 0.01, deltaR, bigB=1, smallB=1, mu=1, tauExt=tau_exts[-1], 
-                                            cLT1=1, seed=int(seed))
-                sim.setInitialY0Config(y, 0)
-                
+
+
+    h5file.close()
+
+def collect_shapes_perfect(path_to_processed_data, output_file : Path):
+    path_to_processed_data = Path(path_to_processed_data)
+    if not path_to_processed_data.is_dir():
+        return
+    
+    h5file = h5py.File(output_file, "w")
+    for data_paska in path_to_processed_data.iterdir():
+        with open(data_paska, "rb") as fp:
+            data = pickle.load(fp)
+            seed = data_paska.name.split("_")[2].split("-")[3].split('.')[0]
+            for item in data:
+                deltaR = item['deltaR']
+                heights = item['shape']
+
+                try:
+                    tau_exts, heights = zip(*heights)
+                except:
+                    print(item)
+                    continue
+
+                group_deltaR = h5file.require_group(str(deltaR))
+                group_seed = group_deltaR.require_group(seed)
+
+                shape_dataset = group_seed.create_dataset("heights", data=heights)
+
+                shape_dataset.attrs['seed'] = int(seed)
+                shape_dataset.attrs['deltaR'] = deltaR
+                shape_dataset.attrs['tau_exts'] = tau_exts
+
+                y = heights[-1]
+
                 pds_critical, fq_critical = power_spectral_desity(y)
                 psd_dataset_critical_no_integration = group_seed.create_dataset("psd-crit-no-integration", data=pds_critical)
                 psd_dataset_critical_no_integration.attrs['fq'] = fq_critical
 
-    h5file.close()
+                bigN = len(y)
+                sim = DislocationSimulation(bigN, bigN, 10, 0.01, deltaR, bigB=1, smallB=1, mu=1, tauExt=tau_exts[-1], 
+                                            cLT1=1, seed=int(seed))
+                sim.setInitialY0Config(y, 0)
+                results = sim.run_in_one_go()
 
-def mp_helper(folder1):
-    collect_shapes(
-        f"{folder1}/processed_data",
-        f"{folder1}/shapes.h5",
-        partial=False
+                shapes = np.array(results.y.reshape(bigN, -1))
+                times = np.array(results.t)
+
+                print(shapes.shape)
+
+                integration_dataset = group_seed.create_dataset("integrated shapes", data=shapes)
+                integration_dataset.attrs['times'] = times
+
+                psds = list()
+                for y in shapes.T:
+                    psd_cm_i,fq_cm_i = power_spectral_desity(y)
+
+                    psds.append(psd_cm_i)
+                
+                psds = np.array(psds)
+                psd_mean = np.mean(psds, axis=0)
+
+                group_seed.create_dataset("psd-mean", data=psd_mean)
+
+    h5file.close()
+    pass
+
+def mp_helper(folder1, partial_d=False):
+    if partial_d:
+        collect_shapes(
+            f"{folder1}/processed_data",
+            f"{folder1}/shapes.h5",
+            partial=partial_d
+            )
+    else:
+        collect_shapes_perfect(f"{folder1}/processed_data",
+            f"{folder1}/shapes.h5"
         )
 
 if __name__ == "__main__":
@@ -250,11 +311,15 @@ if __name__ == "__main__":
     if args.command == 'process':
         depinning_folder = args.main
 
-        partial = False
+        partial_d = True
 
-        # for folder in Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir():
-        #     print(f"Processing folder {folder}")
-        #     process_folder(folder, partial=partial)
+        folders = list(Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
+        if folders:
+            with mp.Pool(processes=10) as pool:
+                pool.map(partial(process_folder, partial=partial_d), folders)
+        
+        # for folder in Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir():
+        #     mp_helper(folder, partial_d=partial_d)
 
         with mp.Pool(10) as pool:
-            pool.map(mp_helper, Path(f"{depinning_folder}/{'partial' if partial else 'perfect'}/").iterdir())
+            pool.map(partial(mp_helper, partial_d=partial_d), Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())

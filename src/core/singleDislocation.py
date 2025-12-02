@@ -170,6 +170,23 @@ class DislocationSimulation(Simulation):
             print(f"Time taken for simulation: {t1 - t0}")
         return relaxed
     
+    def rhs_from_FIRE(self, t, u_flat):
+        # Reshape the flat array back to its original shape
+        u = u_flat.reshape(self.bigN)
+                
+        # Compute the right-hand side using the function defined above
+        dudt = np.array(self.calculate_forces(u, t))
+        
+        # Flatten the result back to a 1D array
+        return dudt.flatten()
+    
+    def run_in_one_go(self):
+        t_evals = np.arange(self.t0, self.time, self.dt)
+        sol = solve_ivp(self.rhs_from_FIRE, [self.t0, self.time], self.y0.flatten(), method="RK45", 
+                        t_eval=t_evals,
+                        rtol=self.rtol)
+        return sol
+    
     def setup_splines(self):
         """Creates cubic spline interpolators for the generated random noise."""
         # Define grid for the potential
@@ -184,7 +201,7 @@ class DislocationSimulation(Simulation):
 
         return splines
 
-    def calculate_forces(self, h):
+    def calculate_forces(self, h, t=None):
         k = fft.rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h_k = fft.rfft(h)
         laplacian_k = -(k**2) * h_k         # Second derivative in Fourier space

@@ -186,7 +186,7 @@ class PartialDislocationsSimulation(Simulation):
             self.f1(u[0], u[1], t), # y1
             self.f2(u[0], u[1], t)  # y2
         ])
-        
+
         return dudt.flatten()
 
     def run_in_chunks(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, until_relaxed=False, method='RK45'):
@@ -321,20 +321,31 @@ class PartialDislocationsSimulation(Simulation):
         
         return relaxed
     
+    def rhs_from_FIRE(self, t, u_flat : np.ndarray):
+        u = u_flat.reshape(2, self.bigN)
+        
+        y1, y2 = self.calculate_forces_FIRE(u[0], u[1], t=t)
+
+        dudt = np.array([
+            y1, # y1
+            y2  # y2
+        ])
+        return dudt.flatten()
+
     def run_in_one_go(self):
         t_evals = np.linspace(self.t0, self.time, int((self.time - self.t0) / self.dt) + 1)
-        sol = solve_ivp(self.rhs, [self.t0, self.time], self.y0.flatten(), method='RK45', 
+        sol = solve_ivp(self.rhs_from_FIRE, [self.t0, self.time], self.y0.flatten(), method='RK45', 
                 t_eval=t_evals,
                 rtol=self.rtol)
         return sol
     
-    def calculate_forces_FIRE(self, h1, h2):
+    def calculate_forces_FIRE(self, h1, h2, t=None):
         """
         Calculates forces using Fourier method for line tension and spline derivatives for noise.
         """
         # 1. Line Tension Force of first partial (via Fourier Domain)
 
-        line_tension_prefactor = 1 # This is C_LT TODO: update f1 and f2 to follow the same convention.
+        line_tension_prefactor = 1 # This is C_LTs
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h1_k = rfft(h1)
         laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
