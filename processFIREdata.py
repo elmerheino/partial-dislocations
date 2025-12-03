@@ -38,8 +38,12 @@ def power_spectral_desity(heights):
     return psd, fq
 
 def process_shape_data(path_to_extra, path_to_force_data, partial=True):
-    with open(path_to_extra, "rb") as fp:
-        data = pickle.load(fp)
+    try:
+        with open(path_to_extra, "rb") as fp:
+            data = pickle.load(fp)
+    except Exception as e:
+        print(e)
+        print(f"Data file path: {path_to_extra}")
     
     df = pd.read_csv(path_to_force_data)
 
@@ -103,6 +107,9 @@ def process_folder(path_p : str, partial=True):
     save_path = path_p.joinpath("processed_data")
     save_path.mkdir(exist_ok=True, parents=True)
 
+    if any(save_path.glob("*.pickle")):
+        return
+
     def extract_sort_key(filepath):
         if 'extra_info_dump-' in filepath.stem:
             return filepath.stem.replace('extra_info_dump-', '')
@@ -110,9 +117,8 @@ def process_folder(path_p : str, partial=True):
             return filepath.stem.replace('noise_tauc_data_', '')
         return filepath.stem
 
-    pickle_files = sorted(path_p.joinpath("shape_data").iterdir(), key=extract_sort_key)
-    csv_files = sorted(path_p.joinpath("force_data").iterdir(), key=extract_sort_key)
-
+    pickle_files = sorted([p for p in path_p.joinpath("shape_data").iterdir() if p.suffix == '.pickle'], key=extract_sort_key)
+    csv_files = sorted([p for p in path_p.joinpath("force_data").iterdir() if p.suffix == '.csv'], key=extract_sort_key)
 
     for pickle_path, csv_path in zip(pickle_files, csv_files):
         processed_data = process_shape_data(pickle_path, csv_path, partial=partial)
@@ -240,7 +246,7 @@ def collect_shapes_perfect(path_to_processed_data, output_file : Path):
                 try:
                     tau_exts, heights = zip(*heights)
                 except:
-                    print(item)
+                    print("There was error concerning: ", item)
                     continue
 
                 group_deltaR = h5file.require_group(str(deltaR))
@@ -252,14 +258,16 @@ def collect_shapes_perfect(path_to_processed_data, output_file : Path):
                 shape_dataset.attrs['deltaR'] = deltaR
                 shape_dataset.attrs['tau_exts'] = tau_exts
 
+                # Use the critical configuration, the last on that did converge.
                 y = heights[-1]
+                external_force = tau_exts[-1]
 
                 pds_critical, fq_critical = power_spectral_desity(y)
                 psd_dataset_critical_no_integration = group_seed.create_dataset("psd-crit-no-integration", data=pds_critical)
                 psd_dataset_critical_no_integration.attrs['fq'] = fq_critical
 
                 bigN = len(y)
-                sim = DislocationSimulation(bigN, bigN, 10, 0.01, deltaR, bigB=1, smallB=1, mu=1, tauExt=tau_exts[-1], 
+                sim = DislocationSimulation(bigN, bigN, 10, 0.01, deltaR, bigB=1, smallB=1, mu=1, tauExt=external_force, 
                                             cLT1=1, seed=int(seed))
                 sim.setInitialY0Config(y, 0)
                 results = sim.run_in_one_go()
@@ -305,21 +313,29 @@ if __name__ == "__main__":
     # Create the parser for the "process" command
     process_parser = subparsers.add_parser('process', help='Process raw simulation data.')
     process_parser.add_argument("main", type=str, help="Path to the main data folder.")
+    process_parser.add_argument('--partial', action='store_true', help='Set for partial dislocations, otherwise perfect dislocations are assumed.')
+    process_parser.add_argument('--perfect', action='store_true', help='Set for perfect dislocations.')
 
     args = parser.parse_args()
 
     if args.command == 'process':
         depinning_folder = args.main
 
-        partial_d = True
-
+        # Determine if we are processign partial or perfect dislocations when dealing with 
+        partial_d = args.partial
+        if args.perfect:
+            partial_d = False
+        
+        # Process and store raw simualton data into intermediate form, computing all relevant metrics.
         folders = list(Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
         if folders:
             with mp.Pool(processes=10) as pool:
                 pool.map(partial(process_folder, partial=partial_d), folders)
-        
+
+        # # This code is sequential for easier debugging if the need be
         # for folder in Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir():
         #     mp_helper(folder, partial_d=partial_d)
 
+        # Parallel code to collect processed data into .h5 files
         with mp.Pool(10) as pool:
             pool.map(partial(mp_helper, partial_d=partial_d), Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
