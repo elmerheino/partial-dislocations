@@ -129,6 +129,10 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
     path_to_processed_data = Path(path_to_processed_data)
     if not path_to_processed_data.is_dir():
         return
+    
+    pickle_files = [f for f in path_to_processed_data.iterdir() if f.suffix == ".pickle"]
+    if not pickle_files:
+        return
 
     h5file = h5py.File(output_file, "w")
     for data_paska in path_to_processed_data.iterdir():
