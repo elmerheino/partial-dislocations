@@ -1,5 +1,5 @@
 import argparse
-from src.core.depinning import NoiseData
+from src.core.depinning import NoiseVsCriticalForce
 
 def main():
     parser = argparse.ArgumentParser(description="Run FIRE critical force calculation with NoiseData.")
@@ -16,19 +16,19 @@ def main():
     parser.add_argument('--rmax', type=float, required=True, help='log10(max deltaR) (required)')
     parser.add_argument('--save_folder', type=str, required=True, help='Folder to save results (required)')
     parser.add_argument('--partial', action='store_true', help='Enable partial dislocations')
+    parser.add_argument('--taupoints', type=int, required=True, help='The number of external forces to test.')
     
     args = parser.parse_args()
 
-    noise_data = NoiseData(
+    noise_data = NoiseVsCriticalForce(
         N=args.N,
         L=args.L,
         cores=args.cores,
         folder_name=args.folder_name,
         seed=args.seed,
         time=args.time,
-        dt=args.dt,
-        points=args.points,
-        d0=args.d0
+        d0=args.d0,
+        tau_points=args.taupoints
     )
     if args.partial:
         noise_data.do_all_steps_partial(args.rmin, args.rmax, args.points, args.save_folder)

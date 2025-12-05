@@ -7,6 +7,7 @@ from src.core.simulation import Simulation
 from scipy.integrate import solve_ivp
 import time
 from pathlib import Path
+from scipy.optimize import minimize
 class PartialDislocationsSimulation(Simulation):
 
     def __init__(self, bigN, length, time, dt, deltaR, bigB, smallB, b_p, mu, tauExt, d0, cLT1=1, cLT2=1, c_gamma=1,
@@ -21,6 +22,8 @@ class PartialDislocationsSimulation(Simulation):
         self.c_gamma = c_gamma                  # Parameter in the interaction force, should be small
         self.d0 = d0                            # Initial distance separating the partials
         self.b_p = b_p
+
+        self.interaction_prefactor = 0.1
 
         self.y0 = np.vstack((
             np.ones(self.bigN, dtype=np.float64)*self.d0,     # y1
@@ -138,37 +141,41 @@ class PartialDislocationsSimulation(Simulation):
 
     def weak_coupling(self, h1, h2):
         d_avg = np.mean(np.abs(h1 - h2))
-        return self.d0 / d_avg - 1
+        return (self.d0 / d_avg - 1)*(1/self.d0)
     
     def strong_coupling(self, h1, h2):
         d_avg = np.mean(np.abs(h1 - h2))
         d = np.abs(h1 - h2)
-        return (self.d0 - d)/d_avg
+        return (1/self.d0)*(self.d0 - d)/d_avg
 
     def force1(self, y1,y2):
-        factor = (1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        return factor*self.weak_coupling(y1, y2)
+        # factor = (self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2 # self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+        # return factor*self.weak_coupling(y1, y2)
+        return self.weak_coupling(y1, y2)*self.interaction_prefactor*(self.b_p/self.smallB)**2
 
     def force2(self, y1,y2):
-        factor = -(1/self.d0)*self.c_gamma*self.mu*(self.b_p**2)
-        return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
+        # factor = -(self.c_gamma/self.cLT1)*(self.b_p/self.smallB)**2
+        # return factor*self.weak_coupling(y1,y2) # Term from Vaid et Al B.7
+        return -self.weak_coupling(y1, y2)*self.interaction_prefactor*(self.b_p/self.smallB)**2
 
     def f1(self, y1,y2, t):
+        line_tension_prefactor = 1 # = self.cLT1*self.mu
         dy = ( 
-            self.cLT1*self.mu*(self.b_p**2)*self.secondDerivative(y1) # The gradient term # type: ignore
-            + self.b_p*self.tau(y1) # The random stress term
-            + self.force1(y1, y2)   # Interaction force
-            + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) # The external stress term
-            ) * ( self.bigB/self.smallB )
+            line_tension_prefactor*(self.b_p/self.smallB)**2*self.secondDerivative(y1) # The gradient term # type: ignore
+            + (self.b_p/self.smallB)*self.tau(y1)              # The random stress term
+            + self.force1(y1, y2)                              # Interaction force
+            + ( 8**(-1/2) )*self.tau_ext(t)*np.ones(self.bigN) # The external stress term
+            )
 
         return dy
 
     def f2(self, y1,y2,t):
+        line_tension_prefactor = 1 # = self.cLT2*self.mu
         dy = ( 
-            self.cLT2*self.mu*(self.b_p**2)*self.secondDerivative(y2) 
-            + self.b_p*self.tau(y2) 
+            line_tension_prefactor*(self.b_p/self.smallB)**2*self.secondDerivative(y2) 
+            + (self.b_p/self.smallB)*self.tau(y2) 
             + self.force2(y1, y2)
-            + (self.smallB/2)*self.tau_ext(t)*np.ones(self.bigN) ) * ( self.bigB/self.smallB )
+            + ( 8**(-1/2) )*self.tau_ext(t)*np.ones(self.bigN) )
 
         return dy
     
@@ -179,7 +186,7 @@ class PartialDislocationsSimulation(Simulation):
             self.f1(u[0], u[1], t), # y1
             self.f2(u[0], u[1], t)  # y2
         ])
-        
+
         return dudt.flatten()
 
     def run_in_chunks(self, backup_file, chunk_size : int, timeit=False, tolerance=1e-6, shape_save_freq=1, until_relaxed=False, method='RK45'):
@@ -314,29 +321,56 @@ class PartialDislocationsSimulation(Simulation):
         
         return relaxed
     
-    def calculate_forces_FIRE(self, h1, h2):
+    def rhs_from_FIRE(self, t, u_flat : np.ndarray):
+        u = u_flat.reshape(2, self.bigN)
+        
+        y1, y2 = self.calculate_forces_FIRE(u[0], u[1], t=t)
+
+        dudt = np.array([
+            y1, # y1
+            y2  # y2
+        ])
+        return dudt.flatten()
+
+    def run_in_one_go(self):
+        t_evals = np.linspace(self.t0, self.time, int((self.time - self.t0) / self.dt) + 1)
+        sol = solve_ivp(self.rhs_from_FIRE, [self.t0, self.time], self.y0.flatten(), method='RK45', 
+                t_eval=t_evals,
+                rtol=self.rtol)
+        return sol
+    
+    def calculate_forces_FIRE(self, h1, h2, t=None):
         """
         Calculates forces using Fourier method for line tension and spline derivatives for noise.
         """
         # 1. Line Tension Force of first partial (via Fourier Domain)
+
+        line_tension_prefactor = 1 # This is C_LTs
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h1_k = rfft(h1)
         laplacian_k1 = -(k**2) * h1_k         # Second derivative in Fourier space
-        line_tension_force1 = self.cLT1*self.mu*(self.smallB**2) * irfft(laplacian_k1, n=self.bigN)
+        line_tension_force1 = line_tension_prefactor*(self.b_p/self.smallB)**2 * irfft(laplacian_k1, n=self.bigN)
 
         # 2. Line tension of the second partial
+    
         k = rfftfreq(self.bigN, d=self.deltaL) * 2 * np.pi  # Wavevectors
         h2_k = rfft(h2)
         laplacian_k2 = -(k**2) * h2_k         # Second derivative in Fourier space
-        line_tension_force2 = self.cLT1*self.mu*(self.smallB**2) * irfft(laplacian_k2, n=self.bigN)
+        line_tension_force2 = line_tension_prefactor*(self.b_p/self.smallB)**2 * irfft(laplacian_k2, n=self.bigN)
 
         # 2. Quenched Noise Force (from splines)
 
-        noise_force1 = self.tau(h1)
-        noise_force2 = self.tau(h2)
+        noise_force1 = self.tau(h1)*self.b_p/self.smallB
+        noise_force2 = self.tau(h2)*self.b_p/self.smallB
 
-        force1_tot = line_tension_force1 + noise_force1 + self.force1(h1, h2) + self.tauExt
-        force2_tot = line_tension_force2 + noise_force2 + self.force2(h1, h2) + self.tauExt
+        interaction_prefactor = 0.1 # This is the C_gamma/C_LT
+        interaction_force1 = self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+        interaction_force2 = - self.weak_coupling(h1, h2)*interaction_prefactor*(self.b_p/self.smallB)**2
+
+        external_force = self.tauExt*8**(-1/2)
+
+        force1_tot = line_tension_force1 + noise_force1 + interaction_force1 + external_force
+        force2_tot = line_tension_force2 + noise_force2 + interaction_force2 + external_force
 
         return force1_tot, force2_tot
 
@@ -403,6 +437,42 @@ class PartialDislocationsSimulation(Simulation):
             print("⚠️ Maximum steps reached without convergence.")
             
         return h1, h2, success
+
+    def relax_w_gd(self):
+        h1_initial = self.y0[0]
+        h2_initial = self.y0[1]
+        
+        initial_guess = np.concatenate([h1_initial, h2_initial])
+
+        def objective_function(h_flat):
+            h1 = h_flat[:self.bigN]
+            h2 = h_flat[self.bigN:]
+            
+            force1, force2 = self.calculate_forces_FIRE(h1, h2)
+            
+            return np.sum(force1**2) + np.sum(force2**2)
+
+        print("🚀 Starting Gradient Descent relaxation...")
+        
+        result = minimize(
+            objective_function,
+            initial_guess,
+            # method='trust-constr',
+            method='CG',
+            options={'disp': True, 'gtol': 1e-7} # gtol is the tolerance for the gradient norm
+        )
+
+        if result.success:
+            print(f"✅ Gradient Descent Converged: {result.message}")
+        else:
+            print(f"⚠️ Gradient Descent did not converge: {result.message}")
+
+        # Extract the relaxed configurations
+        h_final = result.x
+        h1_relaxed = h_final[:self.bigN]
+        h2_relaxed = h_final[self.bigN:]
+
+        return h1_relaxed, h2_relaxed, result.success
 
     def getLineProfiles(self):
         """
@@ -613,11 +683,16 @@ if __name__ == "__main__":
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
         mu=1.0,             # Shear modulus
-        tauExt=0.1,          # External stress
-        d0=10,
+        tauExt=0,          # External stress
+        d0=20,
         seed=10
     )
+
     fire_y1, fire_y2, success = sim.relax_w_FIRE()
+    gd_y1, gd_y2, success = sim.relax_w_gd()
+
+    print(np.mean(gd_y1), np.mean(gd_y2))
+
     sim.setInitialY0Config(fire_y1, fire_y2)
     sim.run_in_chunks("remove_me", sim.time/10, True, shape_save_freq=1)
     results = sim.getResultsAsDict()
@@ -626,6 +701,9 @@ if __name__ == "__main__":
     fig,ax = plt.subplots()
     ax.plot(fire_y1, label="Line 1 (FIRE) t=0", color='red')
     ax.plot(fire_y2, label="Line 2 (FIRE) t=0", color='red')
+
+    ax.plot(gd_y1, label="Line 1 (GD) t=0", color='red')
+    ax.plot(gd_y2, label="Line 2 (GD) t=0", color='red')
 
     ax.plot(firet100_y1, label="Line 1 t=100", color='blue')
     ax.plot(firet100_y2, label="Line 2 t=100", color='blue')

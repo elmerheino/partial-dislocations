@@ -2,7 +2,7 @@
 #SBATCH --job-name=fire_critical_force
 #SBATCH --output=fire_critical_force_%A_%a.out
 #SBATCH --error=fire_critical_force_%A_%a.err
-#SBATCH --time=02:00:00
+#SBATCH --time=30:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --mem=2G
 #SBATCH --mail-type=ALL
@@ -21,11 +21,11 @@ FOLDER_NAME=$2                  # Unused variable, completely irrelevant, still 
 SEED=${SLURM_ARRAY_TASK_ID}
 TIME=1000.0
 DT=0.01
-POINTS=50
+POINTS=15
 RMIN=-4.0
 RMAX=0
 SAVE_FOLDER=${FOLDER_NAME}      # Save folder is where all the data is saved
-
+TAUPOINTS=100
 # Run the script
 srun python3 ../criticalForceUsingFIRE.py \
     --N $N \
@@ -39,4 +39,6 @@ srun python3 ../criticalForceUsingFIRE.py \
     --points $POINTS \
     --rmin $RMIN \
     --rmax $RMAX \
-    --save_folder $SAVE_FOLDER
+    --save_folder $SAVE_FOLDER \
+    --taupoints $TAUPOINTS \
+    --partial
