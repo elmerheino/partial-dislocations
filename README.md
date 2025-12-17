@@ -113,3 +113,38 @@ libraries such as pandas and matplotlib.
 In principle there exists also the `roughessPlots.py` script, which can generate all the roughness plots. However, since
 the way the results are saved was recently changes, it does not work as is. The pickles can be converted to the directory
 structure that was previously used by using the `save_results()` function found in classes `DepinningPartial` and `DepinningSingle`
+
+## Running simulations using FIRE
+
+In addition to all these other scrips we also have the new option of runnning such simulations to find out the critical
+force by just using FIRE relaxation. The script required to do this is called `criticalForceUsingFIRE.py`. It is used as follows:
+
+```
+usage: criticalForceUsingFIRE.py [-h] --N N --L L --d0 D0 --cores CORES --folder_name FOLDER_NAME --seed SEED --time TIME --dt DT --points POINTS --rmin RMIN --rmax RMAX
+                                 --save_folder SAVE_FOLDER [--partial] --taupoints TAUPOINTS
+
+Run FIRE critical force calculation with NoiseData.
+
+options:
+  -h, --help            show this help message and exit
+  --N N                 System size N (required)
+  --L L                 System length L (required)
+  --d0 D0               separation of the partials only relevan if --partial is given
+  --cores CORES         Number of cores (required)
+  --folder_name FOLDER_NAME
+                        Folder name for output (required)
+  --seed SEED           Random seed (required)
+  --time TIME           Simulation time (required)
+  --dt DT               Timestep (required)
+  --points POINTS       Number of points in deltaR (required)
+  --rmin RMIN           log10(min deltaR) (required)
+  --rmax RMAX           log10(max deltaR) (required)
+  --save_folder SAVE_FOLDER
+                        Folder to save results (required)
+  --partial             Enable partial dislocations
+  --taupoints TAUPOINTS
+                        The number of external forces to test.
+```
+
+The script saves all the critical forces that were tested and also the relaxed configurations all as pickle files in the
+directory specified using the --save_folder flag.
