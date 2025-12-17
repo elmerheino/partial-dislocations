@@ -698,13 +698,16 @@ class DepinningSingle(Depinning):
             pickle.dump(self.results, fp)
 
 class NoiseVsCriticalForce(object):
-    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, time=1000, tau_points=20, d0=None):
+    """
+    This class is there to allow to run depinning simulations with various deltaR values in some range of critical forces by just using
+    the FIRE relaxation algorithm.
+    """
+    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, tau_points=20, d0=None):
         self.N = N
         self.L = L
         self.cores = cores
         self.folder_name = folder_name
         self.seed = seed
-        self.time = time
         self.d0 = d0
         self.tau_points = tau_points
 

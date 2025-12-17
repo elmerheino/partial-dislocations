@@ -2,20 +2,25 @@ import argparse
 from src.core.depinning import NoiseVsCriticalForce
 
 def main():
+    """
+    Entry point from terminal to use the NoiseVsCriticalForce class.
+    """
+
     parser = argparse.ArgumentParser(description="Run FIRE critical force calculation with NoiseData.")
-    parser.add_argument('--N', type=int, required=True, help='System size N (required)')
-    parser.add_argument('--L', type=int, required=True, help='System length L (required)')
-    parser.add_argument('--d0', type=int, required=True, default=None, help='separation of the partials only relevan if --partial is given')
+    parser.add_argument('--N', type=int, required=True, help='System size N (required) usualy N = L')
+    parser.add_argument('--L', type=int, required=True, help='System length L (required) usually L=N')
+
+    parser.add_argument('--partial', action='store_true', help='Give this flag to simulate partial dislocations. Otherwise the script simulates just a single dislocation')
+    parser.add_argument('--d0', type=int, required=True, default=None, help='Separation of the partials only relevant if --partial is given')
+
     parser.add_argument('--cores', type=int, required=True, help='Number of cores (required)')
-    parser.add_argument('--folder_name', type=str, required=True, help='Folder name for output (required)')
     parser.add_argument('--seed', type=int, required=True, help='Random seed (required)')
-    parser.add_argument('--time', type=float, required=True, help='Simulation time (required)')
-    parser.add_argument('--dt', type=float, required=True, help='Timestep (required)')
+
     parser.add_argument('--points', type=int, required=True, help='Number of points in deltaR (required)')
     parser.add_argument('--rmin', type=float, required=True, help='log10(min deltaR) (required)')
     parser.add_argument('--rmax', type=float, required=True, help='log10(max deltaR) (required)')
-    parser.add_argument('--save_folder', type=str, required=True, help='Folder to save results (required)')
-    parser.add_argument('--partial', action='store_true', help='Enable partial dislocations')
+
+    parser.add_argument('--save_folder', type=str, required=True, help='Folder where simulations results are saved (required)')
     parser.add_argument('--taupoints', type=int, required=True, help='The number of external forces to test.')
     
     args = parser.parse_args()
@@ -24,9 +29,8 @@ def main():
         N=args.N,
         L=args.L,
         cores=args.cores,
-        folder_name=args.folder_name,
+        folder_name=f"{args.save_folder}/backups",
         seed=args.seed,
-        time=args.time,
         d0=args.d0,
         tau_points=args.taupoints
     )
