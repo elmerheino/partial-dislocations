@@ -472,8 +472,12 @@ class DislocationSimulation(Simulation):
 
 # For debugging
 if __name__ == "__main__":
-    # Load from backup file
-    dislocation = DislocationSimulation(32, 32, 1000, 10, 100, 1, 1, 1, 0, 1, seed=1)
+
+    # This code relaxes the dislocation using both FIRE and brute force integratio and then compares the
+    # two results. So in essence it does a sanity check.
+
+    deltaR = 10**(-5) # Linear units.
+    dislocation = DislocationSimulation(32, 32, 1000, 10, deltaR, 1, 1, 1, 0, 1, seed=None)
     relaxed_h, success = dislocation.relax_w_FIRE()
     # dislocation.setInitialY0Config(None, 0)
     dislocation.run_in_chunks("remove_me", 1000/10, 1, until_relaxed=False, timeit=True)

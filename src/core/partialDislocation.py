@@ -678,7 +678,7 @@ if __name__ == "__main__":
         length=32,           # Length of dislocation
         time=10,             # Total simulation time
         dt=0.1,                # Time step
-        deltaR=0.001,         # Random force correlation length
+        deltaR=10**(-4),         # Random force correlation length
         bigB=1.0,           # Drag coefficient
         smallB=1.0,         # Burgers vector
         b_p=1.0,            # Partial Burgers vector
