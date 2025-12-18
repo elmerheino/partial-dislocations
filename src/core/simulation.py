@@ -51,7 +51,7 @@ class Simulation(object):
         # --- Setup the random force and its spline interpolation ---
         # self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
 
-        X, Y, tau = generate_random_field(self.bigN, field_rms=1.0)
+        X, Y, tau = generate_random_field(self.bigN, field_rms=1.5)
         self.stressField = tau
         
         # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
