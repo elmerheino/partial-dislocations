@@ -4,6 +4,7 @@ from scipy.interpolate import CubicSpline
 import numpy as np
 from numba import jit
 from scipy.ndimage import map_coordinates
+from src.core.pinned_field import generate_random_field
 
 class Simulation(object):
     def __init__(self, bigN, length, time, dt, deltaR : float, bigB, smallB, mu, tauExt, seed=None):
@@ -48,7 +49,10 @@ class Simulation(object):
         self.CONVERGENCE_FORCE = 1e-7
 
         # --- Setup the random force and its spline interpolation ---
-        self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
+        # self.stressField = np.random.normal(0,self.deltaR,[self.bigN, self.bigN]) # Generate a random stress field
+
+        X, Y, tau = generate_random_field(self.bigN, field_rms=1.0)
+        self.stressField = tau
         
         # Set endpoints of the generated random field equal to allow use of periodic boundary conditions
         self.stressField[:,-1] = self.stressField[:,0]
