@@ -120,31 +120,76 @@ In addition to all these other scrips we also have the new option of runnning su
 force by just using FIRE relaxation. The script required to do this is called `criticalForceUsingFIRE.py`. It is used as follows:
 
 ```
-usage: criticalForceUsingFIRE.py [-h] --N N --L L --d0 D0 --cores CORES --folder_name FOLDER_NAME --seed SEED --time TIME --dt DT --points POINTS --rmin RMIN --rmax RMAX
-                                 --save_folder SAVE_FOLDER [--partial] --taupoints TAUPOINTS
+usage: criticalForceUsingFIRE.py [-h] --N N --L L [--partial] --d0 D0 --cores CORES --seed SEED --points POINTS --rmin RMIN --rmax RMAX --save_folder SAVE_FOLDER
+                                 --taupoints TAUPOINTS
 
 Run FIRE critical force calculation with NoiseData.
 
 options:
   -h, --help            show this help message and exit
-  --N N                 System size N (required)
-  --L L                 System length L (required)
-  --d0 D0               separation of the partials only relevan if --partial is given
+  --N N                 System size N (required) usualy N = L
+  --L L                 System length L (required) usually L=N
+  --partial             Give this flag to simulate partial dislocations. Otherwise the script simulates just a single dislocation
+  --d0 D0               Separation of the partials only relevant if --partial is given
   --cores CORES         Number of cores (required)
-  --folder_name FOLDER_NAME
-                        Folder name for output (required)
   --seed SEED           Random seed (required)
-  --time TIME           Simulation time (required)
-  --dt DT               Timestep (required)
   --points POINTS       Number of points in deltaR (required)
   --rmin RMIN           log10(min deltaR) (required)
   --rmax RMAX           log10(max deltaR) (required)
   --save_folder SAVE_FOLDER
-                        Folder to save results (required)
-  --partial             Enable partial dislocations
+                        Folder where simulations results are saved (required)
   --taupoints TAUPOINTS
                         The number of external forces to test.
 ```
 
 The script saves all the critical forces that were tested and also the relaxed configurations all as pickle files in the
 directory specified using the --save_folder flag.
+
+Example usage
+
+```
+python3 ./criticalForceUsingFIRE.py --N 32 --L 32 --d0 1 --cores 10 --seed 0 --points 10 --rmin -3 --rmax 1 --save_folder "here" --partial --taupoints 10
+```
+
+
+## Useful triton commands
+
+First `cd` into the `triton-scripts` folder and then use these to submit triton jobs to simulate partial dislocations with various stacking fault widths:
+
+```
+for d in 32 16 8 4 2                                                  
+do
+        sbatch taucWithFIRE.sh 32 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-32-d-$d $d
+done
+
+
+for d in 64 32 16 8 4 2                                                  
+do
+        sbatch taucWithFIRE.sh 64 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-64-d-$d $d
+done
+
+
+for d in 128 64 32 16 8 4 2                                                  
+do
+        sbatch taucWithFIRE.sh 128 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-128-d-$d $d
+done
+
+for d in 256 128 64 32 16 8 4 2                                                  
+do
+        sbatch taucWithFIRE.sh 256 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-256-d-$d $d
+done
+
+for d in 512 256 128 64 32 16 8 4 2                                                  
+do
+        sbatch taucWithFIRE.sh 512 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-512-d-$d $d
+done
+```
+
+and this for the perfect dislocation case
+
+```
+for l in 32 64 128 256 512                                                 
+do
+        sbatch perfectTaucWithFIRE.sh taucWithFIRE.sh $l $WRKDIR/2025-10-27-depinning-dR—3-1/perfect/l-$l 0
+done
+```
