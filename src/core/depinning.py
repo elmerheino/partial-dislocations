@@ -12,6 +12,7 @@ from pathlib import Path
 import hashlib
 import csv
 
+# A parent class for depinning objects which contais some shared parameters.
 class Depinning(object):
 
     def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float, bigB, smallB,
@@ -46,6 +47,10 @@ class Depinning(object):
         self.stresses = np.linspace(self.tau_min, self.tau_max, self.points)
 
 class DepinningPartial(Depinning):
+    """
+    This class handles depinning simulations for partial dislocations and saving the results. The class supports are two ways 
+    of doing this: using either brute force integration or FIRE relaxation.
+    """
 
     def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR : float,
                  seed=None, bigN=1024, length=1024, d0=39, sequential=False,
@@ -474,6 +479,9 @@ class DepinningPartial(Depinning):
         pass
 
 class DepinningSingle(Depinning):
+    """
+    Class that handles depinning simulations for perfect dislocations and saves the data.
+    """
 
     def __init__(self, tau_min, tau_max, points, time, dt, cores, folder_name, deltaR:float, seed=None, bigN=1024, length=1024, sequential=False,
                         bigB=1,
@@ -737,6 +745,12 @@ class NoiseVsCriticalForce(object):
         return data, extra_infos
     
     def save_data(self, data, folder):
+        """
+        Saves the critical forces into a .csv file in folder
+        
+        :param data: The deltaR vs critical force data.
+        :param folder: Folder where csv data is to be saved.
+        """
         paath = Path(folder).joinpath(f"noise_tauc_data_l-{self.L}-s-{self.seed}-d0-{self.d0}.csv")
         paath.parent.mkdir(exist_ok=True, parents=True)
         with open(paath, 'w', newline='') as csvfile:
@@ -745,6 +759,15 @@ class NoiseVsCriticalForce(object):
             csvwriter.writerows(data)  # Write data rows
     
     def do_all_steps(self, rmin, rmax, rpoints, save_folder):
+        """
+        Finds the critical forces in some deltaR interval and saves the results for a system of a single perfect dislocation.
+        
+        :param rmin: Logarithmic starting point for the deltaR sweep
+        :param rmax: Logarithmic endpoint point for the deltaR sweep
+        :param rpoints: Number or deltaR points in the interval [rmin, rmax]
+        :param save_folder: The folder where simulations results are to be saved
+        """
+
         data, extra_infos = self.noise_tauc_FIRE(rmin, rmax, rpoints)
 
         path = Path(save_folder).joinpath("force_data")
@@ -754,10 +777,19 @@ class NoiseVsCriticalForce(object):
         path1 = Path(save_folder).joinpath(f"shape_data/extra_info_dump-l-{self.L}-s-{self.seed}.pickle")
         path1.parent.mkdir(exist_ok=True, parents=True)
 
+        # Dump the extra info into a pickle. Contains shape data for each disorder magnitude and external force tested.
         with open(path1, "wb") as fp:
             pickle.dump(extra_infos, fp)
     
     def do_all_steps_partial(self, rmin, rmax, rpoints, save_folder):
+        """
+        Finds the critical forces in some deltaR interval and saves the results for a system of partial dislocations.
+        
+        :param rmin: Logarithmic starting point for the deltaR sweep
+        :param rmax: Logarithmic endpoint point for the deltaR sweep
+        :param rpoints: Number or deltaR points in the interval [rmin, rmax]
+        :param save_folder: The folder where simulations results are to be saved
+        """
         data, extra_infos = self.noise_tauc_FIRE_partial(rmin, rmax, rpoints)
 
         path = Path(save_folder).joinpath("force_data")
@@ -772,6 +804,6 @@ class NoiseVsCriticalForce(object):
 
 
 if __name__ == "__main__":
-
+    # Test the class for some random parameters values.
     tauc_vs_deltaR = NoiseVsCriticalForce(8, 8, 10, seed=0, tau_points=40, d0=1)
     tauc_vs_deltaR.do_all_steps_partial(-4, 0, 20, "debug/6-9-dataa")
