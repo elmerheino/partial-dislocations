@@ -38,6 +38,14 @@ def power_spectral_desity(heights):
     return psd, fq
 
 def process_shape_data(path_to_extra, path_to_force_data, partial=True):
+    """
+    Takes the path to the pickle dump and to the corresponding critical force csv. Then combines the
+    relevant data from the two and also computes metrics such as roughness.
+    
+    :param path_to_extra: Description
+    :param path_to_force_data: Description
+    :param partial: Description
+    """
     try:
         with open(path_to_extra, "rb") as fp:
             data = pickle.load(fp)
@@ -92,8 +100,13 @@ def process_shape_data(path_to_extra, path_to_force_data, partial=True):
             'deltaR_log10' : np.log10(deltaR),
             'tau_c' : tau_c,
             'shape' : list(zip(converged_tau_exts, converged_shapes)),
+            'converges_tau_exts' : converged_tau_exts,
+            'converged_shapes' : converged_shapes,
             'roughness' : roughness_list,
-            'roughness exponents' : slope_dataseries
+            'roughness exponents' : slope_dataseries,
+            'tau_exts' : tau_exts,
+            'shapes' : shapes,
+            'converged' : converged
         }
         organized_data.append(res)
 
