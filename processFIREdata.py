@@ -10,7 +10,8 @@ from src.core.partialDislocation import PartialDislocationsSimulation
 from src.core.singleDislocation import DislocationSimulation
 import multiprocessing as mp
 from functools import partial
-
+import warnings
+warnings.filterwarnings("ignore")
 # Define roughness
 def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
     l_range = np.arange(0,int(bigN))
@@ -113,6 +114,14 @@ def process_shape_data(path_to_extra, path_to_force_data, partial=True):
     return organized_data
 
 def process_folder(path_p : str, partial=True):
+    """
+    This method simply matches the extra into dumps with the critical force data and then saves it again, computing
+    some important metrics such as roughness in the same process.
+    
+    :param path_p: Description
+    :type path_p: str
+    :param partial: Description
+    """
     path_p = Path(path_p)
     if not path_p.is_dir():
         return
@@ -139,6 +148,14 @@ def process_folder(path_p : str, partial=True):
             pickle.dump(processed_data, fp)
 
 def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
+    """
+    This function reads the data and computes all the PSDs from the data.
+    
+    :param path_to_processed_data: Description
+    :param output_file: Description
+    :type output_file: Path
+    :param partial: Description
+    """
     path_to_processed_data = Path(path_to_processed_data)
     if not path_to_processed_data.is_dir():
         return
@@ -147,7 +164,9 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
     if not pickle_files:
         return
 
-    h5file = h5py.File(output_file, "w")
+    output_dir = Path(output_file)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     for data_paska in path_to_processed_data.iterdir():
         with open(data_paska, "rb") as fp:
             data = pickle.load(fp)
@@ -160,91 +179,76 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
 
         for item in data:
             deltaR = item['deltaR']
-            heights = item['shape']
+            heights = item['shapes']
+            tau_exts = item['tau_ext']
+            converged = item['converged']
 
-            try:
-                tau_exts, heights = zip(*heights)
-            except:
-                print(item)
-                continue
-
-            group_deltaR = h5file.require_group(str(deltaR))
-            group_seed = group_deltaR.require_group(seed)
-
-            shape_dataset = group_seed.create_dataset("heights", data=heights)
-
-            shape_dataset.attrs['seed'] = int(seed)
-            shape_dataset.attrs['deltaR'] = deltaR
-            shape_dataset.attrs['tau_exts'] = tau_exts
+            save_dict = {
+                "seed": int(seed),
+                "deltaR": deltaR,
+                "tau_exts": tau_exts,
+                "heights": heights,
+                "converged": converged
+            }
 
             if partial:
                 y1 = heights[-1][0]
                 y2 = heights[-1][1]
-                # Integrate the shape further in time to obtain a time average
+
                 bigN = len(heights[-1][0])
                 b_p = 0.5773499805
-                sim = PartialDislocationsSimulation(bigN=bigN, length=bigN, time=10, dt=0.01, deltaR=deltaR, bigB=1,smallB=1, 
-                                                    b_p=b_p, mu=1, tauExt=tau_exts[-1], d0=int(d0), c_gamma=0.1, seed=int(seed))
+                sim = PartialDislocationsSimulation(
+                    bigN=bigN, length=bigN, time=10, dt=0.01, deltaR=deltaR, bigB=1, smallB=1,
+                    b_p=b_p, mu=1, tauExt=tau_exts[-1], d0=int(d0), c_gamma=0.1, seed=int(seed)
+                )
                 sim.setInitialY0Config(y1, y2, 0)
                 results = sim.run_in_one_go()
 
                 shapes = np.array(results.y.reshape(2, bigN, -1))
                 times = np.array(results.t)
 
-                integration_dataset = group_seed.create_dataset("integrated shapes", data=shapes)
-                integration_dataset.attrs['times'] = times
+                save_dict["integrated_shapes"] = shapes
+                save_dict["integration_times"] = times
 
                 y1_values_over_time = shapes[0].T
                 y2_values_over_time = shapes[1].T
 
-                psd_y1s, psd_y2s, psd_cms = list(), list(), list()
+                psd_y1s, psd_y2s, psd_cms = [], [], []
                 for y1_i, y2_i in zip(y1_values_over_time, y2_values_over_time):
                     psd_y1_i, fq_y1_i = power_spectral_desity(y1_i)
                     psd_y2_i, fq_y2_i = power_spectral_desity(y2_i)
-
-                    cm = (y1_i + y2_i)/2
-                    psd_cm_i,fq_cm_i = power_spectral_desity(cm)
-
+                    cm = (y1_i + y2_i) / 2
+                    psd_cm_i, fq_cm_i = power_spectral_desity(cm)
                     psd_y1s.append(psd_y1_i)
                     psd_y2s.append(psd_y2_i)
                     psd_cms.append(psd_cm_i)
 
-                psd_y1s, psd_y2s, psd_cms = np.array(psd_y1s), np.array(psd_y2s), np.array(psd_cms)
+                psd_y1s = np.array(psd_y1s)
+                psd_y2s = np.array(psd_y2s)
+                psd_cms = np.array(psd_cms)
 
-                psd_y1_mean = np.mean(psd_y1s, axis=0)
-                psd_y2_mean = np.mean(psd_y2s, axis=0)
-                psd_cm_mean = np.mean(psd_cms, axis=0)
+                save_dict["psd_y1_mean"] = np.mean(psd_y1s, axis=0)
+                save_dict["psd_y2_mean"] = np.mean(psd_y2s, axis=0)
+                save_dict["psd_cm_mean"] = np.mean(psd_cms, axis=0)
 
-                group_seed.create_dataset("psd-y1-mean", data=psd_y1_mean)
-                group_seed.create_dataset("psd-y2-mean", data=psd_y2_mean)
-                group_seed.create_dataset("psd-cm-mean", data=psd_cm_mean)
-
-                cm = (y1 + y2)/2
+                cm = (y1 + y2) / 2
 
                 psd_critical, fq_critical = power_spectral_desity(cm)
                 psd_y1, fq_y1 = power_spectral_desity(y1)
                 psd_y2, fq_y2 = power_spectral_desity(y2)
 
-                psd_dataset_critical = group_seed.create_dataset("psd_critical", data=psd_critical)
+                save_dict["psd_critical"] = psd_critical
+                save_dict["fq_critical"] = fq_critical
+                save_dict["psd_y1"] = psd_y1
+                save_dict["fq_y1"] = fq_y1
+                save_dict["psd_y2"] = psd_y2
+                save_dict["fq_y2"] = fq_y2
 
-                psd_dataset_critical.attrs['seed'] = int(seed)
-                psd_dataset_critical.attrs['deltaR'] = deltaR
-                psd_dataset_critical.attrs['dft-fqns'] = fq_critical
-
-                psd_dataset_y1 = group_seed.create_dataset("psd_y1", data=psd_y1)
-
-                psd_dataset_y1.attrs['seed'] = int(seed)
-                psd_dataset_y1.attrs['deltaR'] = deltaR
-                psd_dataset_y1.attrs['dft-fqns'] = fq_y1
-
-                psd_dataset_y2 = group_seed.create_dataset("psd_y2", data=psd_y2)
-
-                psd_dataset_y2.attrs['seed'] = int(seed)
-                psd_dataset_y2.attrs['deltaR'] = deltaR
-                psd_dataset_y2.attrs['dft-fqns'] = fq_y2
-
-
-    h5file.close()
+            # Save to pickle
+            out_name = f"psd_data_seed-{seed}_deltaR-{np.log10(deltaR)}.pickle"
+            out_path = output_dir / out_name
+            with open(out_path, "wb") as out_fp:
+                pickle.dump(save_dict, out_fp)
 
 def collect_shapes_perfect(path_to_processed_data, output_file : Path):
     path_to_processed_data = Path(path_to_processed_data)
@@ -314,8 +318,8 @@ def collect_shapes_perfect(path_to_processed_data, output_file : Path):
 def mp_helper(folder1, partial_d=False):
     if partial_d:
         collect_shapes(
-            f"{folder1}/processed_data",
-            f"{folder1}/shapes.h5",
+            f"{folder1}/shape_data",
+            f"{folder1}/psd_data",
             partial=partial_d
             )
     else:
@@ -330,8 +334,10 @@ if __name__ == "__main__":
     # Create the parser for the "process" command
     process_parser = subparsers.add_parser('process', help='Process raw simulation data.')
     process_parser.add_argument("main", type=str, help="Path to the main data folder.")
-    process_parser.add_argument('--partial', action='store_true', help='Set for partial dislocations, otherwise perfect dislocations are assumed.')
-    process_parser.add_argument('--perfect', action='store_true', help='Set for perfect dislocations.')
+
+    group = process_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--partial', action='store_true', help='Set for partial dislocations, otherwise perfect dislocations are assumed.')
+    group.add_argument('--perfect', action='store_true', help='Set for perfect dislocations.')
 
     args = parser.parse_args()
 
@@ -344,10 +350,10 @@ if __name__ == "__main__":
             partial_d = False
         
         # Process and store raw simualton data into intermediate form, computing all relevant metrics.
-        folders = list(Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
-        if folders:
-            with mp.Pool(processes=10) as pool:
-                pool.map(partial(process_folder, partial=partial_d), folders)
+        # folders = list(Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
+        # if folders:
+        #     with mp.Pool(processes=10) as pool:
+        #         pool.map(partial(process_folder, partial=partial_d), folders)
 
         # # This code is sequential for easier debugging if the need be
         # for folder in Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir():
