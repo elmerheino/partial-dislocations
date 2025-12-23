@@ -12,6 +12,7 @@ import multiprocessing as mp
 from functools import partial
 import warnings
 warnings.filterwarnings("ignore")
+
 # Define roughness
 def roughnessW(y, bigN): # Calculates the cross correlation W(L) of a single dislocation
     l_range = np.arange(0,int(bigN))
@@ -147,7 +148,7 @@ def process_folder(path_p : str, partial=True):
         with open(save_path.joinpath(f"processed_data_{extract_sort_key(pickle_path)}.pickle"), "wb") as fp:
             pickle.dump(processed_data, fp)
 
-def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
+def compute_PSD(path_to_processed_data, output_file : Path, partial=True):
     """
     This function reads the data and computes all the PSDs from the data.
     
@@ -245,8 +246,9 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
                 save_dict["fq_y2"] = fq_y2
 
             # Save to pickle
-            out_name = f"psd_data_seed-{seed}_deltaR-{np.log10(deltaR)}.pickle"
-            out_path = output_dir / out_name
+            out_path = output_dir.joinpath(f"{np.log10(deltaR):.4f}/seed-{seed}.pickle")
+            out_path.parent.mkdir(exist_ok=True, parents=True)
+
             with open(out_path, "wb") as out_fp:
                 pickle.dump(save_dict, out_fp)
 
@@ -317,7 +319,7 @@ def collect_shapes_perfect(path_to_processed_data, output_file : Path):
 
 def mp_helper(folder1, partial_d=False):
     if partial_d:
-        collect_shapes(
+        compute_PSD(
             f"{folder1}/processed_data",
             f"{folder1}/psd_data",
             partial=partial_d
@@ -349,11 +351,11 @@ if __name__ == "__main__":
         if args.perfect:
             partial_d = False
         
-        # Process and store raw simualton data into intermediate form, computing all relevant metrics.
-        # folders = list(Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
-        # if folders:
-        #     with mp.Pool(processes=10) as pool:
-        #         pool.map(partial(process_folder, partial=partial_d), folders)
+        # Process and store raw simualton data into intermediate form where data is mathched with deltaR value
+        folders = list(Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir())
+        if folders:
+            with mp.Pool(processes=10) as pool:
+                pool.map(partial(process_folder, partial=partial_d), folders)
 
         # # This code is sequential for easier debugging if the need be
         # for folder in Path(f"{depinning_folder}/{'partial' if partial_d else 'perfect'}/").iterdir():
