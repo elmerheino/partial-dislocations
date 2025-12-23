@@ -80,11 +80,11 @@ def process_shape_data(path_to_extra, path_to_force_data, partial=True):
         # From the extracted shapes, compute the roughness of the CM and store it
         roughness_list = list()
         slope_dataseries = list()
-        for tau_ext, shapes in zip(converged_tau_exts, converged_shapes):
+        for tau_ext, shapes_i in zip(converged_tau_exts, converged_shapes):
             if partial:
-                cm = (shapes[0] + shapes[1])/2
+                cm = (shapes_i[0] + shapes_i[1])/2
             else:
-                cm = shapes
+                cm = shapes_i
             l,r = roughnessW(cm, len(cm))
             roughness_list.append((tau_ext, r))
 
@@ -180,7 +180,7 @@ def collect_shapes(path_to_processed_data, output_file : Path, partial=True):
         for item in data:
             deltaR = item['deltaR']
             heights = item['shapes']
-            tau_exts = item['tau_ext']
+            tau_exts = item['tau_exts']
             converged = item['converged']
 
             save_dict = {
@@ -318,7 +318,7 @@ def collect_shapes_perfect(path_to_processed_data, output_file : Path):
 def mp_helper(folder1, partial_d=False):
     if partial_d:
         collect_shapes(
-            f"{folder1}/shape_data",
+            f"{folder1}/processed_data",
             f"{folder1}/psd_data",
             partial=partial_d
             )

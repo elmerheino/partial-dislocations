@@ -157,39 +157,39 @@ python3 ./criticalForceUsingFIRE.py --N 32 --L 32 --d0 1 --cores 10 --seed 0 --p
 First `cd` into the `triton-scripts` folder and then use these to submit triton jobs to simulate partial dislocations with various stacking fault widths:
 
 ```
-for d in 32 16 8 4 2                                                  
+for d in 32 16 8 4 2
 do
-        sbatch taucWithFIRE.sh 32 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-32-d-$d $d
+        sbatch taucWithFIRE.sh 32 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-32-d-$d $d
 done
 
 
-for d in 64 32 16 8 4 2                                                  
+for d in 64 32 16 8 4 2
 do
-        sbatch taucWithFIRE.sh 64 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-64-d-$d $d
+        sbatch taucWithFIRE.sh 64 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-64-d-$d $d
 done
 
 
-for d in 128 64 32 16 8 4 2                                                  
+for d in 128 64 32 16 8 4 2
 do
-        sbatch taucWithFIRE.sh 128 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-128-d-$d $d
+        sbatch taucWithFIRE.sh 128 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-128-d-$d $d
 done
 
-for d in 256 128 64 32 16 8 4 2                                                  
+for d in 256 128 64 32 16 8 4 2
 do
-        sbatch taucWithFIRE.sh 256 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-256-d-$d $d
+        sbatch taucWithFIRE.sh 256 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-256-d-$d $d
 done
 
-for d in 512 256 128 64 32 16 8 4 2                                                  
+for d in 512 256 128 64 32 16 8 4 2
 do
-        sbatch taucWithFIRE.sh 512 $WRKDIR/2025-10-27-depinning-dR--3-1/partial/l-512-d-$d $d
+        sbatch taucWithFIRE.sh 512 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-512-d-$d $d
 done
 ```
 
 and this for the perfect dislocation case
 
 ```
-for l in 32 64 128 256 512                                                 
+for l in 32 64 128 256 512
 do
-        sbatch perfectTaucWithFIRE.sh taucWithFIRE.sh $l $WRKDIR/2025-10-27-depinning-dR—3-1/perfect/l-$l 0
+        sbatch perfectTaucWithFIRE.sh $l $WRKDIR/2025-12-18-depinning-dR--3-1/perfect/l-$l 0
 done
 ```
