@@ -11,7 +11,7 @@ diffrax==0.7.0
 equinox==0.13.0
 et_xmlfile==2.0.0
 executing==2.2.0
-fonttools==4.58.2
+fonttools==4.61.1
 h5py==3.14.0
 iniconfig==2.1.0
 ipykernel==6.30.0
