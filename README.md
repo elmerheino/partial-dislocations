@@ -4,10 +4,92 @@ Code for the interaction of two partial dislocations modeled as elastic lines. T
 using a line tension model following the Edwards-Wilkinson equation with quenched noise.  Multiprocessing is used to parallelize
 the code to gain results much faster.
 
-# Outline of the workflow
 
-The workflow for running simulation is composed of three major steps: initial relaxation, depinning and then if necessary running
-the depinning simulations further and finally the generation of figures based on the data.
+# Running simulations using FIRE
+
+In addition to all these other scrips we also have the new option of runnning such simulations to find out the critical
+force by just using FIRE relaxation. The script required to do this is called `criticalForceUsingFIRE.py`. It is used as follows:
+
+```
+usage: criticalForceUsingFIRE.py [-h] --N N --L L [--partial] --d0 D0 --cores CORES --seed SEED --points POINTS --rmin RMIN --rmax RMAX --save_folder SAVE_FOLDER
+                                 --taupoints TAUPOINTS
+
+Run FIRE critical force calculation with NoiseData.
+
+options:
+  -h, --help            show this help message and exit
+  --N N                 System size N (required) usualy N = L
+  --L L                 System length L (required) usually L=N
+  --partial             Give this flag to simulate partial dislocations. Otherwise the script simulates just a single dislocation
+  --d0 D0               Separation of the partials only relevant if --partial is given
+  --cores CORES         Number of cores (required)
+  --seed SEED           Random seed (required)
+  --points POINTS       Number of points in deltaR (required)
+  --rmin RMIN           log10(min deltaR) (required)
+  --rmax RMAX           log10(max deltaR) (required)
+  --save_folder SAVE_FOLDER
+                        Folder where simulations results are saved (required)
+  --taupoints TAUPOINTS
+                        The number of external forces to test.
+```
+
+The script saves all the critical forces that were tested and also the relaxed configurations all as pickle files in the
+directory specified using the --save_folder flag.
+
+Example usage
+
+```
+python3 ./criticalForceUsingFIRE.py --N 32 --L 32 --d0 1 --cores 10 --seed 0 --points 10 --rmin -3 --rmax 1 --save_folder "here" --partial --taupoints 10
+```
+
+
+## Useful triton commands
+
+First `cd` into the `triton-scripts` folder and then use these to submit triton jobs to simulate partial dislocations with various stacking fault widths:
+
+```
+for d in 32 16 8 4 2
+do
+        sbatch taucWithFIRE.sh 32 $WRKDIR/2025-12-29-depinning-dR--3-1-wider-tauc-limits/partial/l-32-d-$d $d
+done
+
+
+for d in 64 32 16 8 4 2
+do
+        sbatch taucWithFIRE.sh 64 $WRKDIR/2025-12-29-depinning-dR--3-1-wider-tauc-limits/partial/l-64-d-$d $d
+done
+
+
+for d in 128 64 32 16 8 4 2
+do
+        sbatch taucWithFIRE.sh 128 $WRKDIR/2025-12-29-depinning-dR--3-1-wider-tauc-limits/partial/l-128-d-$d $d
+done
+
+for d in 256 128 64 32 16 8 4 2
+do
+        sbatch taucWithFIRE.sh 256 $WRKDIR/2025-12-29-depinning-dR--3-1-wider-tauc-limits/partial/l-256-d-$d $d
+done
+
+for d in 512 256 128 64 32 16 8 4 2
+do
+        sbatch taucWithFIRE.sh 512 $WRKDIR/2025-12-29-depinning-dR--3-1-wider-tauc-limits/partial/l-512-d-$d $d
+done
+```
+
+and this for the perfect dislocation case
+
+```
+for l in 32 64 128 256 512
+do
+        sbatch perfectTaucWithFIRE.sh $l $WRKDIR/2025-12-29-depinning-dR--3-1-wider-tauc-limits/perfect/l-$l 0
+done
+```
+
+# Running simulations via direct numerical integration
+
+The workflow for running simulation using numerical integration is composed of three major steps: initial relaxation, depinning and then if necessary running
+the depinning simulations further and finally the generation of figures based on the data. These steps are separate so that in case the simulation timeouts,
+it's always possible to recover.
 
 
 ## Running initial relaxations
@@ -52,6 +134,38 @@ the partials.
 When running these initial relaxations in Triton, there is another script `triton-scripts/spawn-rel-jobs.py`, which generates
 the Triton batch scripts automatically and submits the jobs to Triton. In that script many values are hard coded into it, which
 must be changes according to what is needed.
+
+## Output files of the script
+
+The files are organized in the following directory structure:
+
+```
+root/
+├── partial/
+│   ├── l-32-d-2/
+│   │   ├── force_data
+        └── shape_data
+│   └── l-64-d-2/
+└── perfect/
+│   ├── l-32/
+│   └── l-64/
+```
+
+As the names suggest the folder partial and perfect contain partial and perfect dislocation data respectively, each 
+folder named by the length L and separation d of the partials.
+
+Under each folder is the simulation results of that system. The folder `force_data` contains the critical forces at each
+magnitude of disorder for all seeds (realizations of noise) in `.csv` form while `shape_data` on the other hand contains 
+the relaxed configurations at each magnitude of noise and critical force.
+
+Each file in `shape_data` is a pickle which is named as `extra_info_dump-l-128-s-1-d0-32.pickle` according to the size L,
+separation d, and seed used to generate the pinning field of the system. The pickle contains a simple python list where each
+item is a dictionary with keys tau_ext, converged, shapes, deltaR. Under the key tau_ext is a list of the external forces 
+attempted. Each item on this list stores the results for some value of deltaR. 
+
+Each key has the following contents: under converged is a list of boolean values indicating whether the simulation 
+converged or not under the tau_ext with the same index. Lastly, the shapes key contains a list of the converged or 
+nonconverged configurations of the system and deltaR simply indicates the noise magnitude.
 
 ## Running a depinning simulation
 
@@ -113,83 +227,3 @@ libraries such as pandas and matplotlib.
 In principle there exists also the `roughessPlots.py` script, which can generate all the roughness plots. However, since
 the way the results are saved was recently changes, it does not work as is. The pickles can be converted to the directory
 structure that was previously used by using the `save_results()` function found in classes `DepinningPartial` and `DepinningSingle`
-
-## Running simulations using FIRE
-
-In addition to all these other scrips we also have the new option of runnning such simulations to find out the critical
-force by just using FIRE relaxation. The script required to do this is called `criticalForceUsingFIRE.py`. It is used as follows:
-
-```
-usage: criticalForceUsingFIRE.py [-h] --N N --L L [--partial] --d0 D0 --cores CORES --seed SEED --points POINTS --rmin RMIN --rmax RMAX --save_folder SAVE_FOLDER
-                                 --taupoints TAUPOINTS
-
-Run FIRE critical force calculation with NoiseData.
-
-options:
-  -h, --help            show this help message and exit
-  --N N                 System size N (required) usualy N = L
-  --L L                 System length L (required) usually L=N
-  --partial             Give this flag to simulate partial dislocations. Otherwise the script simulates just a single dislocation
-  --d0 D0               Separation of the partials only relevant if --partial is given
-  --cores CORES         Number of cores (required)
-  --seed SEED           Random seed (required)
-  --points POINTS       Number of points in deltaR (required)
-  --rmin RMIN           log10(min deltaR) (required)
-  --rmax RMAX           log10(max deltaR) (required)
-  --save_folder SAVE_FOLDER
-                        Folder where simulations results are saved (required)
-  --taupoints TAUPOINTS
-                        The number of external forces to test.
-```
-
-The script saves all the critical forces that were tested and also the relaxed configurations all as pickle files in the
-directory specified using the --save_folder flag.
-
-Example usage
-
-```
-python3 ./criticalForceUsingFIRE.py --N 32 --L 32 --d0 1 --cores 10 --seed 0 --points 10 --rmin -3 --rmax 1 --save_folder "here" --partial --taupoints 10
-```
-
-
-## Useful triton commands
-
-First `cd` into the `triton-scripts` folder and then use these to submit triton jobs to simulate partial dislocations with various stacking fault widths:
-
-```
-for d in 32 16 8 4 2
-do
-        sbatch taucWithFIRE.sh 32 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-32-d-$d $d
-done
-
-
-for d in 64 32 16 8 4 2
-do
-        sbatch taucWithFIRE.sh 64 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-64-d-$d $d
-done
-
-
-for d in 128 64 32 16 8 4 2
-do
-        sbatch taucWithFIRE.sh 128 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-128-d-$d $d
-done
-
-for d in 256 128 64 32 16 8 4 2
-do
-        sbatch taucWithFIRE.sh 256 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-256-d-$d $d
-done
-
-for d in 512 256 128 64 32 16 8 4 2
-do
-        sbatch taucWithFIRE.sh 512 $WRKDIR/2025-12-18-depinning-dR--3-1/partial/l-512-d-$d $d
-done
-```
-
-and this for the perfect dislocation case
-
-```
-for l in 32 64 128 256 512
-do
-        sbatch perfectTaucWithFIRE.sh $l $WRKDIR/2025-12-18-depinning-dR--3-1/perfect/l-$l 0
-done
-```
