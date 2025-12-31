@@ -5,7 +5,7 @@ using a line tension model following the Edwards-Wilkinson equation with quenche
 the code to gain results much faster.
 
 
-# Running simulations using FIRE
+## Running simulations using FIRE
 
 In addition to all these other scrips we also have the new option of runnning such simulations to find out the critical
 force by just using FIRE relaxation. The script required to do this is called `criticalForceUsingFIRE.py`. It is used as follows:
@@ -42,8 +42,40 @@ Example usage
 python3 ./criticalForceUsingFIRE.py --N 32 --L 32 --d0 1 --cores 10 --seed 0 --points 10 --rmin -3 --rmax 1 --save_folder "here" --partial --taupoints 10
 ```
 
+### Output files of the script
 
-## Useful triton commands
+The files are organized in the following directory structure:
+
+```
+root/
+├── partial/
+│   ├── l-32-d-2/
+│   │   ├── force_data
+        └── shape_data
+│   └── l-64-d-2/
+└── perfect/
+│   ├── l-32/
+│   └── l-64/
+```
+
+As the names suggest the folder partial and perfect contain partial and perfect dislocation data respectively, each 
+folder named by the length L and separation d of the partials.
+
+Under each folder is the simulation results of that system. The folder `force_data` contains the critical forces at each
+magnitude of disorder for all seeds (realizations of noise) in `.csv` form while `shape_data` on the other hand contains 
+the relaxed configurations at each magnitude of noise and critical force.
+
+Each file in `shape_data` is a pickle which is named as `extra_info_dump-l-128-s-1-d0-32.pickle` according to the size L,
+separation d, and seed used to generate the pinning field of the system. The pickle contains a simple python list where each
+item is a dictionary with keys tau_ext, converged, shapes, deltaR. Under the key tau_ext is a list of the external forces 
+attempted. Each item on this list stores the results for some value of deltaR. 
+
+Each key has the following contents: under converged is a list of boolean values indicating whether the simulation 
+converged or not under the tau_ext with the same index. Lastly, the shapes key contains a list of the converged or 
+nonconverged configurations of the system and deltaR simply indicates the noise magnitude.
+
+
+### Useful triton commands
 
 First `cd` into the `triton-scripts` folder and then use these to submit triton jobs to simulate partial dislocations with various stacking fault widths:
 
@@ -85,14 +117,14 @@ do
 done
 ```
 
-# Running simulations via direct numerical integration
+## Running simulations via direct numerical integration
 
 The workflow for running simulation using numerical integration is composed of three major steps: initial relaxation, depinning and then if necessary running
 the depinning simulations further and finally the generation of figures based on the data. These steps are separate so that in case the simulation timeouts,
 it's always possible to recover.
 
 
-## Running initial relaxations
+### Running initial relaxations
 
 Before starting a new depinning simulation, you need an initial configuration of the system where a steady state is reached
 with zero external force.
@@ -135,39 +167,7 @@ When running these initial relaxations in Triton, there is another script `trito
 the Triton batch scripts automatically and submits the jobs to Triton. In that script many values are hard coded into it, which
 must be changes according to what is needed.
 
-## Output files of the script
-
-The files are organized in the following directory structure:
-
-```
-root/
-├── partial/
-│   ├── l-32-d-2/
-│   │   ├── force_data
-        └── shape_data
-│   └── l-64-d-2/
-└── perfect/
-│   ├── l-32/
-│   └── l-64/
-```
-
-As the names suggest the folder partial and perfect contain partial and perfect dislocation data respectively, each 
-folder named by the length L and separation d of the partials.
-
-Under each folder is the simulation results of that system. The folder `force_data` contains the critical forces at each
-magnitude of disorder for all seeds (realizations of noise) in `.csv` form while `shape_data` on the other hand contains 
-the relaxed configurations at each magnitude of noise and critical force.
-
-Each file in `shape_data` is a pickle which is named as `extra_info_dump-l-128-s-1-d0-32.pickle` according to the size L,
-separation d, and seed used to generate the pinning field of the system. The pickle contains a simple python list where each
-item is a dictionary with keys tau_ext, converged, shapes, deltaR. Under the key tau_ext is a list of the external forces 
-attempted. Each item on this list stores the results for some value of deltaR. 
-
-Each key has the following contents: under converged is a list of boolean values indicating whether the simulation 
-converged or not under the tau_ext with the same index. Lastly, the shapes key contains a list of the converged or 
-nonconverged configurations of the system and deltaR simply indicates the noise magnitude.
-
-## Running a depinning simulation
+### Running a depinning simulation
 
 After some relaxed configurations have been obtained, we are ready to run a depinning simulation from them. The script
 `depinningFromRel.py` does just this. The script has three commands: `new`, `continue` and `further`. Command `new`initiates
@@ -211,7 +211,7 @@ for submitting such jobs on Triton.
 Then finally there is also the `further` command, which allows integrating completed simulation even further in case such a
 need arises e.g. if the original simulation was not long enough to reach a steady state.
 
-## Generating figures from the results
+### Generating figures from the results
 
 There are currently three scripts for processing the simulation results: `velocityPlots.py`, `stackingFault.py`, and 
 `selectedYshapes.py`. Each of these scripts has a very straightforward command line interface, and the usage can be found
