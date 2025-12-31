@@ -705,44 +705,61 @@ class DepinningSingle(Depinning):
         with open(dump_path, "wb") as fp:
             pickle.dump(self.results, fp)
 
-class NoiseVsCriticalForce(object):
+class NoiseCriticalForceSearch(object):
     """
     This class is there to allow to run depinning simulations with various deltaR values in some range of critical forces by just using
-    the FIRE relaxation algorithm.
+    the FIRE relaxation algorithm. So in other words it handles doing a grid search for some range of tau_ext and deltaR.
     """
-    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, tau_points=20, d0=None):
+    def __init__(self, N=32, L=32, cores=10, folder_name="remove_me", seed=0, d0=None):
         self.N = N
         self.L = L
         self.cores = cores
         self.folder_name = folder_name
         self.seed = seed
         self.d0 = d0
-        self.tau_points = tau_points
 
-    def noise_tauc_FIRE(self, rmin, rmax, points):
-        data = list()
+    def noise_tauc_FIRE(self, rmin, rmax, points, tau_min, tau_max, tau_points):
+        """
+        For a delta R values in np.logspace(rmin, rmax, rpoints) tries to find the critical force by trying
+        external forces in the range [tau_c_guess*tau_min, tau_c_guess*tau_max] with tau_points number of forces
+        in that range.
+
+        This is done solely using FIRE and checking if the algorithm converges or not.
+        """
+
+        critical_forces = list()
         extra_infos = list()
+
         for deltaR in np.logspace(rmin, rmax, points):
             tau_c_guess = deltaR
-            depinning = DepinningSingle(0, tau_c_guess*1.3, self.tau_points, 1000, 0.1, cores=self.cores, folder_name="remove_me", 
-                                        deltaR=deltaR, seed=self.seed, bigN=self.N, length=self.L)
+            depinning = DepinningSingle(tau_c_guess*tau_min, tau_c_guess*tau_max, tau_points, 1000, 0.1, cores=self.cores, 
+                                        folder_name="remove_me", deltaR=deltaR, seed=self.seed, bigN=self.N, length=self.L)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
-            data.append((deltaR, tau_c))
+            critical_forces.append((deltaR, tau_c))
             extra_infos.append(extra_info)
-        return data, extra_infos
+        return critical_forces, extra_infos
     
-    def noise_tauc_FIRE_partial(self, rmin, rmax, points):
-        data = list()
+    def noise_tauc_FIRE_partial(self, rmin, rmax, rpoints, tau_min, tau_max, tau_points):
+        """
+        For a delta R values in np.logspace(rmin, rmax, rpoints) tries to find the critical force by trying
+        external forces in the range [tau_c_guess*tau_min, tau_c_guess*tau_max] with tau_points number of forces
+        in that range.
+
+        This is done solely using FIRE and checking if the algorithm converges or not.
+        """
+
+        critical_forces = list()
         extra_infos = list()
 
-        for deltaR in np.logspace(rmin, rmax, points):
+        for deltaR in np.logspace(rmin, rmax, rpoints):
             tau_c_guess = deltaR
-            depinning = DepinningPartial(0, tau_c_guess*1.3, self.tau_points, 1000, 0.1, cores=self.cores, folder_name="remove_me", 
-                                        deltaR=deltaR, seed=self.seed, bigN=self.N, length=self.L, d0=self.d0, c_gamma=0.3)
+            depinning = DepinningPartial(tau_c_guess*tau_min, tau_c_guess*tau_max, tau_points, time=1000, dt=0.1, cores=self.cores,
+                                        folder_name="remove_me", deltaR=deltaR, seed=self.seed, bigN=self.N, length=self.L,
+                                        d0=self.d0, c_gamma=0.3)
             tau_c, shape, extra_info = depinning.findCriticalForceWithFIRE()
-            data.append((deltaR, tau_c))
+            critical_forces.append((deltaR, tau_c))
             extra_infos.append(extra_info)
-        return data, extra_infos
+        return critical_forces, extra_infos
     
     def save_data(self, data, folder):
         """
@@ -758,7 +775,7 @@ class NoiseVsCriticalForce(object):
             csvwriter.writerow(['deltaR', 'tau_c'])  # Write header
             csvwriter.writerows(data)  # Write data rows
     
-    def do_all_steps(self, rmin, rmax, rpoints, save_folder):
+    def run_search_perfect(self, rmin, rmax, rpoints, save_folder, tau_min, tau_max, tau_points):
         """
         Finds the critical forces in some deltaR interval and saves the results for a system of a single perfect dislocation.
         
@@ -768,7 +785,7 @@ class NoiseVsCriticalForce(object):
         :param save_folder: The folder where simulations results are to be saved
         """
 
-        data, extra_infos = self.noise_tauc_FIRE(rmin, rmax, rpoints)
+        data, extra_infos = self.noise_tauc_FIRE(rmin, rmax, rpoints, tau_min, tau_max, tau_points)
 
         path = Path(save_folder).joinpath("force_data")
         path.mkdir(exist_ok=True, parents=True)
@@ -781,7 +798,7 @@ class NoiseVsCriticalForce(object):
         with open(path1, "wb") as fp:
             pickle.dump(extra_infos, fp)
     
-    def do_all_steps_partial(self, rmin, rmax, rpoints, save_folder):
+    def run_search_partial(self, rmin, rmax, rpoints, save_folder, tau_min, tau_max, tau_points):
         """
         Finds the critical forces in some deltaR interval and saves the results for a system of partial dislocations.
         
@@ -790,7 +807,7 @@ class NoiseVsCriticalForce(object):
         :param rpoints: Number or deltaR points in the interval [rmin, rmax]
         :param save_folder: The folder where simulations results are to be saved
         """
-        data, extra_infos = self.noise_tauc_FIRE_partial(rmin, rmax, rpoints)
+        data, extra_infos = self.noise_tauc_FIRE_partial(rmin, rmax, rpoints, tau_min, tau_max, tau_points)
 
         path = Path(save_folder).joinpath("force_data")
         path.mkdir(exist_ok=True, parents=True)
@@ -805,5 +822,5 @@ class NoiseVsCriticalForce(object):
 
 if __name__ == "__main__":
     # Test the class for some random parameters values.
-    tauc_vs_deltaR = NoiseVsCriticalForce(8, 8, 10, seed=0, tau_points=40, d0=1)
-    tauc_vs_deltaR.do_all_steps_partial(-4, 0, 20, "debug/6-9-dataa")
+    tauc_vs_deltaR = NoiseCriticalForceSearch(8, 8, 10, seed=0, tau_points=40, d0=1)
+    tauc_vs_deltaR.run_search_partial(-4, 0, 20, "debug/6-9-dataa")

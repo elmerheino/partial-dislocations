@@ -22,6 +22,9 @@ SEED=${SLURM_ARRAY_TASK_ID}
 POINTS=15
 RMIN=-4.0
 RMAX=0
+
+TAUMIN=0
+TAUMAX=10
 TAUPOINTS=100
 # Run the script
 srun python3 ../criticalForceUsingFIRE.py \
@@ -34,5 +37,7 @@ srun python3 ../criticalForceUsingFIRE.py \
     --rmin $RMIN \
     --rmax $RMAX \
     --save_folder $FOLDER_NAME \
+    --taumin $TAUMIN \
+    --taumax $TAUMAX \
     --taupoints $TAUPOINTS \
     --partial

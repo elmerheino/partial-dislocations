@@ -41,7 +41,8 @@ Example usage
 ```
 python3 ./criticalForceUsingFIRE.py --N 32 --L 32 --d0 1 --cores 10 --seed 0 --points 10 --rmin -3 --rmax 1 --save_folder "here" --partial --taupoints 10
 ```
-
+python ./criticalForceUsingFIRE.py --N 8 --L 8 --partial --d0 2 --cores 11 --seed 0 --points 2 --rmin -1 --rmax 2 
+--save_folder remove_me --taupoints 3
 ### Output files of the script
 
 The files are organized in the following directory structure:
