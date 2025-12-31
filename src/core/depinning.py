@@ -742,7 +742,7 @@ class NoiseCriticalForceSearch(object):
     def noise_tauc_FIRE_partial(self, rmin, rmax, rpoints, tau_min, tau_max, tau_points):
         """
         For a delta R values in np.logspace(rmin, rmax, rpoints) tries to find the critical force by trying
-        external forces in the range [tau_c_guess*tau_min, tau_c_guess*tau_max] with tau_points number of forces
+        external forces in the linear range [tau_c_guess*tau_min, tau_c_guess*tau_max] with tau_points number of forces
         in that range.
 
         This is done solely using FIRE and checking if the algorithm converges or not.

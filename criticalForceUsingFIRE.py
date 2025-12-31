@@ -10,7 +10,10 @@ def main():
     parser.add_argument('--N', type=int, required=True, help='System size N (required) usualy N = L')
     parser.add_argument('--L', type=int, required=True, help='System length L (required) usually L=N')
 
-    parser.add_argument('--partial', action='store_true', help='Give this flag to simulate partial dislocations. Otherwise the script simulates just a single dislocation')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--partial', action='store_true', help='Give this flag to simulate partial dislocations. Otherwise the script simulates just a single dislocation')
+    group.add_argument('--perfect', action='store_true', help='Give this flag to simulate a perfect dislocation. Otherwise the script simulates partial dislocations')
+
     parser.add_argument('--d0', type=int, required=True, default=None, help='Separation of the partials only relevant if --partial is given')
 
     parser.add_argument('--cores', type=int, required=True, help='Number of cores (required)')
@@ -28,6 +31,7 @@ def main():
     
     args = parser.parse_args()
 
+    # Create a critical force search class
     noise_data = NoiseCriticalForceSearch(
         N=args.N,
         L=args.L,
@@ -38,7 +42,7 @@ def main():
     )
     if args.partial:
         noise_data.run_search_partial(args.rmin, args.rmax, args.points, args.save_folder, args.taumin, args.taumax, args.taupoints)
-    else:
+    elif args.perfect:
         noise_data.run_search_perfect(args.rmin, args.rmax, args.points, args.save_folder, args.taumin, args.taumax, args.taupoints)
 
 if __name__ == "__main__":

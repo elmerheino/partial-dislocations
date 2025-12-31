@@ -15,17 +15,19 @@ module load scicomp-python-env
 
 N=$1
 L=$1
+FOLDER_NAME=$2
 D0=$3
+
 CORES=10
-FOLDER_NAME=$2                  # Unused variable, completely irrelevant, still must be specified.
 SEED=${SLURM_ARRAY_TASK_ID}
 POINTS=15
 RMIN=-4.0
 RMAX=0
 
-TAUMIN=0
-TAUMAX=10
-TAUPOINTS=100
+TAUMIN=0        # Lower limit of tau_ext to search. Here the multiple of deltaR is specified, so that the 
+                # lower limit is TAUMIN*deltaR
+TAUMAX=10       # Multiple of the higher limit.
+TAUPOINTS=100   # Numer of points between TAUMIN and TAUMAX
 # Run the script
 srun python3 ../criticalForceUsingFIRE.py \
     --N $N \
